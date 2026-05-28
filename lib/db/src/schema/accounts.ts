@@ -1,0 +1,29 @@
+import { pgTable, text, serial, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+import { usersTable } from "./users";
+
+export const accountsTable = pgTable("accounts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  games: text("games").array().notNull().default([]),
+  pointsCost: integer("points_cost").notNull().default(0),
+  steamUsername: text("steam_username").notNull(),
+  steamPassword: text("steam_password").notNull(),
+  isAvailable: boolean("is_available").notNull().default(true),
+  likesCount: integer("likes_count").notNull().default(0),
+  claimsCount: integer("claims_count").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertAccountSchema = createInsertSchema(accountsTable).omit({
+  id: true,
+  isAvailable: true,
+  likesCount: true,
+  claimsCount: true,
+  createdAt: true,
+});
+export type InsertAccount = z.infer<typeof insertAccountSchema>;
+export type Account = typeof accountsTable.$inferSelect;
