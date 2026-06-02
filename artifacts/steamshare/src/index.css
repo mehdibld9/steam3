@@ -55,11 +55,11 @@
   --app-font-mono: Menlo, monospace;
   --radius: 0.5rem;
 
-  --background: 217 33% 17%; /* #1B2838 */
+  --background: 217 33% 17%;
   --foreground: 0 0% 90%;
   --border: 210 20% 25%;
   --input: 210 20% 20%;
-  --ring: 200 80% 60%;
+  --ring: 168 85% 40%;
 
   --card: 215 30% 20%;
   --card-foreground: 0 0% 95%;
@@ -69,8 +69,9 @@
   --popover-foreground: 0 0% 95%;
   --popover-border: 210 20% 30%;
 
-  --primary: 200 80% 60%; /* #66C0F4 */
-  --primary-foreground: 217 33% 10%;
+  /* Teal primary — #00b894 */
+  --primary: 168 100% 36%;
+  --primary-foreground: 0 0% 100%;
   
   --secondary: 210 25% 25%;
   --secondary-foreground: 0 0% 90%;
@@ -78,19 +79,19 @@
   --muted: 210 25% 25%;
   --muted-foreground: 210 10% 65%;
   
-  --accent: 200 80% 60%;
-  --accent-foreground: 217 33% 10%;
+  --accent: 168 100% 36%;
+  --accent-foreground: 0 0% 100%;
   
   --destructive: 0 60% 50%;
   --destructive-foreground: 0 0% 100%;
 }
 
 .dark {
-  --background: 217 33% 11%; /* #121A23 */
+  --background: 217 33% 11%;
   --foreground: 0 0% 90%;
   --border: 210 20% 25%;
   --input: 210 20% 20%;
-  --ring: 200 80% 60%;
+  --ring: 168 85% 40%;
 
   --card: 215 30% 16%;
   --card-foreground: 0 0% 95%;
@@ -100,8 +101,9 @@
   --popover-foreground: 0 0% 95%;
   --popover-border: 210 20% 25%;
 
-  --primary: 200 80% 55%; 
-  --primary-foreground: 217 33% 10%;
+  /* Teal primary */
+  --primary: 168 85% 42%;
+  --primary-foreground: 0 0% 100%;
   
   --secondary: 210 25% 20%;
   --secondary-foreground: 0 0% 90%;
@@ -109,8 +111,8 @@
   --muted: 210 25% 20%;
   --muted-foreground: 210 10% 65%;
   
-  --accent: 200 80% 55%;
-  --accent-foreground: 217 33% 10%;
+  --accent: 168 85% 42%;
+  --accent-foreground: 0 0% 100%;
   
   --destructive: 0 60% 45%;
   --destructive-foreground: 0 0% 100%;

@@ -310,7 +310,6 @@ export default function AccountDetail() {
 
                 <div className="mt-4 space-y-2">
                   <CollapsibleSection title="Games List" items={account.games} />
-                  <CollapsibleSection title="DLC List" items={[]} />
                 </div>
 
                 <div className="mt-4 flex items-center justify-between border-t border-border pt-3">

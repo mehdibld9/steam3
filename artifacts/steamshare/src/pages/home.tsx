@@ -4,55 +4,114 @@ import { AccountCard } from "@/components/account-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { ShieldCheck, Users, Gamepad2, TrendingUp } from "lucide-react";
+import { ShieldCheck, Users, Gamepad2, TrendingUp, Zap, Star, MessageSquare } from "lucide-react";
+
+const FEATURES = [
+  {
+    icon: ShieldCheck,
+    color: "text-primary",
+    bg: "bg-primary/10",
+    title: "Community Trusted",
+    desc: "Accounts vetted and reviewed by real gamers",
+  },
+  {
+    icon: Zap,
+    color: "text-amber-400",
+    bg: "bg-amber-400/10",
+    title: "Easy Access",
+    desc: "Instant credentials with direct copy buttons",
+  },
+  {
+    icon: Star,
+    color: "text-yellow-400",
+    bg: "bg-yellow-400/10",
+    title: "User Reviews",
+    desc: "Real feedback from the gaming community",
+  },
+  {
+    icon: MessageSquare,
+    color: "text-violet-400",
+    bg: "bg-violet-400/10",
+    title: "Active Community",
+    desc: "Join discussions and share your experiences",
+  },
+];
 
 export default function Home() {
   const { data: stats, isLoading: statsLoading } = useGetStats();
-  const { data: accountsData, isLoading: accountsLoading } = useListAccounts({ sort: 'recent', limit: 12 });
+  const { data: accountsData, isLoading: accountsLoading } = useListAccounts({ sort: "recent", limit: 12 });
 
   return (
     <Layout>
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-card border-b border-border py-16 md:py-24">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80')] opacity-5 bg-cover bg-center" />
-        <div className="absolute inset-0 bg-gradient-to-t from-card via-card/80 to-transparent" />
-        
-        <div className="container relative z-10 mx-auto px-4 flex flex-col items-center text-center">
-          <Badge className="mb-6 bg-primary/20 text-primary border-primary/30 py-1 px-3">
+      {/* Hero */}
+      <section className="relative overflow-hidden border-b border-border">
+        {/* Subtle teal glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/10 blur-[120px] rounded-full pointer-events-none" />
+
+        <div className="container relative z-10 mx-auto px-4 py-20 md:py-32 flex flex-col items-center text-center">
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-4 py-1.5 text-xs font-semibold text-primary mb-8 uppercase tracking-wider">
             The Underground Gaming Marketplace
-          </Badge>
-          <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white mb-6">
-            Trade Accounts. Earn XP.<br />
-            <span className="text-primary">Level Up.</span>
+          </div>
+
+          <h1 className="text-4xl md:text-6xl font-black tracking-tight text-foreground mb-6 leading-tight">
+            Welcome to{" "}
+            <span className="text-primary">SteamShare</span>
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mb-10">
-            Share your unused Steam libraries, claim games you want to play, and rise through the ranks in the most active gaming exchange.
+
+          <p className="text-base md:text-lg text-muted-foreground max-w-xl mb-10">
+            Share unused Steam libraries, claim games you want, and rise through the ranks in the most active gaming exchange.
           </p>
-          <div className="flex gap-4">
+
+          <div className="flex flex-wrap gap-3 justify-center">
             <Link href="/browse">
-              <Button size="lg" className="font-bold px-8 h-12" data-testid="button-browse-hero">Browse Accounts</Button>
+              <Button size="lg" className="font-bold px-8 h-12" data-testid="button-browse-hero">
+                Explore Accounts
+              </Button>
             </Link>
-            <Link href="/submit">
-              <Button size="lg" variant="outline" className="font-bold px-8 h-12" data-testid="button-submit-hero">Upload & Earn</Button>
+            <Link href="/register">
+              <Button size="lg" variant="outline" className="font-bold px-8 h-12 border-border hover:border-primary/50" data-testid="button-join-hero">
+                Join Community
+              </Button>
             </Link>
           </div>
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 mt-16 w-full max-w-4xl">
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mt-16 w-full max-w-3xl">
             {[
-              { icon: Users, label: "Active Users", value: stats?.totalUsers, loading: statsLoading },
-              { icon: Gamepad2, label: "Accounts Shared", value: stats?.totalAccounts, loading: statsLoading },
-              { icon: ShieldCheck, label: "Claims Made", value: stats?.totalClaims, loading: statsLoading },
-              { icon: TrendingUp, label: "Points Circulating", value: stats?.totalPointsCirculating, loading: statsLoading }
+              { icon: Users, label: "Active Users", value: stats?.totalUsers },
+              { icon: Gamepad2, label: "Accounts Shared", value: stats?.totalAccounts },
+              { icon: ShieldCheck, label: "Claims Made", value: stats?.totalClaims },
+              { icon: TrendingUp, label: "Points in Circulation", value: stats?.totalPointsCirculating },
             ].map((stat, i) => (
-              <div key={i} className="flex flex-col items-center p-4 bg-background/50 rounded-xl border border-border/50 backdrop-blur-sm">
-                <stat.icon className="h-6 w-6 text-primary mb-2 opacity-80" />
-                {stat.loading ? (
-                  <Skeleton className="h-8 w-16 mb-1" />
+              <div key={i} className="flex flex-col items-center p-4 bg-card border border-border rounded-xl">
+                <stat.icon className="h-5 w-5 text-primary mb-2" />
+                {statsLoading ? (
+                  <Skeleton className="h-7 w-14 mb-1" />
                 ) : (
-                  <span className="text-2xl font-bold font-mono">{stat.value?.toLocaleString()}</span>
+                  <span className="text-xl font-bold font-mono">{stat.value?.toLocaleString() ?? "—"}</span>
                 )}
-                <span className="text-xs text-muted-foreground uppercase tracking-wider">{stat.label}</span>
+                <span className="text-[11px] text-muted-foreground uppercase tracking-wide text-center">{stat.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Why Choose Section */}
+      <section className="border-b border-border py-16">
+        <div className="container mx-auto px-4">
+          <h2 className="text-2xl md:text-3xl font-black text-center mb-2">
+            Why Choose <span className="text-primary">SteamShare</span>?
+          </h2>
+          <p className="text-muted-foreground text-center mb-10 text-sm">Everything you need to trade and earn in one place.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 max-w-4xl mx-auto">
+            {FEATURES.map((f) => (
+              <div key={f.title} className="flex flex-col items-center text-center p-6 bg-card border border-border rounded-xl hover:border-primary/30 transition-colors">
+                <div className={`flex items-center justify-center w-12 h-12 rounded-xl ${f.bg} mb-4`}>
+                  <f.icon className={`h-6 w-6 ${f.color}`} />
+                </div>
+                <h3 className="font-bold mb-1 text-sm">{f.title}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -65,12 +124,14 @@ export default function Home() {
           <div>
             <h2 className="text-2xl font-bold flex items-center gap-2">
               <span className="w-2 h-6 bg-primary rounded-sm inline-block" />
-              Latest Intel
+              Latest Accounts
             </h2>
             <p className="text-sm text-muted-foreground mt-1">Freshly dropped accounts ready to be claimed.</p>
           </div>
           <Link href="/browse">
-            <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">View All</Button>
+            <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
+              View All →
+            </Button>
           </Link>
         </div>
 
@@ -87,7 +148,7 @@ export default function Home() {
             ))}
             {accountsData?.accounts.length === 0 && (
               <div className="col-span-full py-12 text-center text-muted-foreground">
-                No accounts found. Be the first to upload!
+                No accounts yet. Be the first to upload!
               </div>
             )}
           </div>
@@ -95,12 +156,4 @@ export default function Home() {
       </section>
     </Layout>
   );
-}
-
-function Badge({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${className}`} {...props}>
-      {children}
-    </div>
-  )
 }
