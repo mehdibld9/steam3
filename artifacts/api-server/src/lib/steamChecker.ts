@@ -3,8 +3,8 @@ import { logger } from "./logger";
 
 const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1",
-  "Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
 ];
 
 function randomUserAgent(): string {
@@ -17,12 +17,9 @@ function hexToBase64url(hex: string): string {
 }
 
 function encryptPassword(password: string, modHex: string, expHex: string): string {
-  const jwk = {
-    kty: "RSA",
-    n: hexToBase64url(modHex),
-    e: hexToBase64url(expHex),
-  };
-  const key = crypto.createPublicKey({ key: jwk as Parameters<typeof crypto.createPublicKey>[0], format: "jwk" });
+  const jwk = { kty: "RSA", n: hexToBase64url(modHex), e: hexToBase64url(expHex) };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const key = crypto.createPublicKey({ key: jwk as any, format: "jwk" });
   const encrypted = crypto.publicEncrypt(
     { key, padding: crypto.constants.RSA_PKCS1_PADDING },
     Buffer.from(password, "utf8"),
@@ -39,6 +36,7 @@ async function getRsaKey(username: string): Promise<{ mod: string; exp: string; 
         "Content-Type": "application/x-www-form-urlencoded",
         Referer: "https://store.steampowered.com/login/",
         Origin: "https://store.steampowered.com",
+        "Accept": "application/json, text/plain, */*",
       },
       body: new URLSearchParams({ username }),
       signal: AbortSignal.timeout(10_000),
@@ -59,7 +57,6 @@ async function getRsaKey(username: string): Promise<{ mod: string; exp: string; 
 
 export type CheckResult =
   | { status: "valid"; message: string }
-  | { status: "valid_2fa"; message: string }
   | { status: "invalid"; message: string }
   | { status: "rate_limited"; message: string }
   | { status: "error"; message: string };
@@ -79,55 +76,77 @@ export async function checkSteamCredentials(username: string, password: string):
           "Content-Type": "application/x-www-form-urlencoded",
           Referer: "https://store.steampowered.com/login/",
           Origin: "https://store.steampowered.com",
+          "Accept": "application/json, text/plain, */*",
         },
         body: new URLSearchParams({
           username,
           password: encPassword,
           rsatimestamp: rsa.timestamp,
           remember_login: "false",
-          oauth_client_id: "",
-          oauth_scope: "",
+          donotcache: String(Date.now()),
         }),
         signal: AbortSignal.timeout(12_000),
         redirect: "manual",
       });
 
-      if (loginRes.status === 429) return { status: "rate_limited", message: "Steam is rate limiting — try again shortly" };
+      if (loginRes.status === 429) {
+        return { status: "rate_limited", message: "Steam is rate limiting — try again in a few minutes" };
+      }
 
       const text = await loginRes.text();
-      const lower = text.toLowerCase();
+      logger.info({ status: loginRes.status, preview: text.slice(0, 200) }, "Steam login response");
 
-      if (lower.includes("steamguard") || lower.includes("two-factor") || lower.includes("requires_activation") || lower.includes("twofactor")) {
-        return { status: "valid_2fa", message: "Valid account (Steam Guard / 2FA enabled)" };
+      let json: Record<string, unknown> | null = null;
+      try {
+        json = JSON.parse(text) as Record<string, unknown>;
+      } catch {
+        // not JSON
       }
 
-      if (
-        lower.includes('"success":true') ||
-        lower.includes("'success':true") ||
-        (lower.includes("success") && lower.includes("true") && !lower.includes("incorrect") && !lower.includes("invalid"))
-      ) {
-        return { status: "valid", message: "Account verified successfully" };
+      if (json) {
+        // Strict JSON-based checks — no guesswork
+        if (json.success === true) {
+          return { status: "valid", message: "Account verified — ready to use" };
+        }
+
+        // Any form of Steam Guard / 2FA / email auth = not accepted
+        if (
+          json.requires_twofactor === true ||
+          json.emailauth_needed === true ||
+          json.emailsteamid ||
+          (typeof json.message === "string" && json.message.toLowerCase().includes("guard"))
+        ) {
+          return {
+            status: "invalid",
+            message: "Account has Steam Guard / 2FA enabled — only accounts with no extra login steps are accepted",
+          };
+        }
+
+        // Explicit invalid password response
+        if (json.success === false) {
+          const msg = typeof json.message === "string" ? json.message : "";
+          if (msg.toLowerCase().includes("incorrect") || msg.toLowerCase().includes("password") || msg === "") {
+            return { status: "invalid", message: "Invalid username or password" };
+          }
+          // captcha required = wrong credentials triggered captcha
+          if (json.captcha_needed === true) {
+            return { status: "invalid", message: "Invalid credentials (captcha triggered)" };
+          }
+          return { status: "invalid", message: msg || "Credentials not accepted by Steam" };
+        }
       }
 
-      if (
-        text.includes("The account name or password") ||
-        text.includes("Incorrect account name or password") ||
-        text.includes("invalid_password") ||
-        lower.includes("incorrect") ||
-        loginRes.status === 403
-      ) {
+      // Non-JSON fallback — treat everything else as error/inconclusive
+      if (loginRes.status === 403) {
         return { status: "invalid", message: "Invalid username or password" };
       }
 
       if (loginRes.status >= 300 && loginRes.status < 400) {
-        return { status: "valid", message: "Account verified successfully" };
+        return { status: "error", message: "Steam redirected — could not verify. Try again." };
       }
 
-      if (loginRes.status === 200 && text.length < 50) {
-        return { status: "error", message: "Unexpected empty response from Steam" };
-      }
+      return { status: "error", message: `Unexpected response from Steam (HTTP ${loginRes.status})` };
 
-      return { status: "error", message: `Unexpected response (HTTP ${loginRes.status})` };
     } catch (e: unknown) {
       logger.warn({ err: e, attempt }, "checkSteamCredentials attempt failed");
       if (attempt === 1) {

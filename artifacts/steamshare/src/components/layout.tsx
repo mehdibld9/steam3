@@ -12,8 +12,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
 
   const handleLogout = async () => {
-    await logout.mutateAsync(undefined);
-    queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+    try {
+      await logout.mutateAsync(undefined);
+    } catch {
+      // ignore errors — session may already be gone
+    }
+    queryClient.setQueryData(getGetMeQueryKey(), null);
+    queryClient.removeQueries({ queryKey: getGetMeQueryKey() });
   };
 
   const xpProgress = user ? (user.xp % 100) : 0;
@@ -99,19 +104,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <footer className="border-t border-border bg-card py-8 mt-12">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Shield className="h-5 w-5 text-primary opacity-50" />
-            <span className="font-bold">SteamShare</span>
-          </div>
-          <p>The premium marketplace for gamers. Trade accounts, earn XP, level up.</p>
-          <div className="flex items-center justify-center gap-6 mt-4 text-xs">
-            <Link href="/badges" className="hover:text-foreground transition-colors">Badges</Link>
-            <Link href="/giveaways" className="hover:text-foreground transition-colors">Giveaways</Link>
-            <Link href="/leaderboard" className="hover:text-foreground transition-colors">Leaderboard</Link>
-            <Link href="/earn" className="hover:text-foreground transition-colors">Earn Points</Link>
-          </div>
+      <footer className="border-t border-border bg-card py-4 mt-12">
+        <div className="container mx-auto px-4 text-center text-xs text-muted-foreground">
+          © {new Date().getFullYear()} SteamShare
         </div>
       </footer>
     </div>

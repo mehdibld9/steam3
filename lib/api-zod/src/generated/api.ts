@@ -517,7 +517,7 @@ export const VerifyCredentialsBody = zod.object({
 })
 
 export const VerifyCredentialsResponse = zod.object({
-  "status": zod.enum(['valid', 'valid_2fa', 'invalid', 'rate_limited', 'error']),
+  "status": zod.enum(['valid', 'invalid', 'rate_limited', 'error']),
   "message": zod.string()
 })
 

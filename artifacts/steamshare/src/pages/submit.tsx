@@ -22,7 +22,7 @@ const formSchema = z.object({
   steamPassword: z.string().min(1, "Steam password is required"),
 });
 
-type VerifyStatus = "idle" | "checking" | "valid" | "valid_2fa" | "invalid" | "rate_limited" | "error";
+type VerifyStatus = "idle" | "checking" | "valid" | "invalid" | "rate_limited" | "error";
 
 export default function Submit() {
   const [, setLocation] = useLocation();
@@ -268,13 +268,13 @@ export default function Submit() {
 
                   {verifyStatus !== "idle" && verifyStatus !== "checking" && (
                     <div className={`flex items-start gap-2 rounded-lg px-4 py-3 text-sm mt-2 ${
-                      verifyStatus === "valid" || verifyStatus === "valid_2fa"
+                      verifyStatus === "valid"
                         ? "bg-green-500/10 border border-green-500/20 text-green-400"
                         : verifyStatus === "invalid"
                         ? "bg-red-500/10 border border-red-500/20 text-red-400"
                         : "bg-yellow-500/10 border border-yellow-500/20 text-yellow-400"
                     }`}>
-                      {verifyStatus === "valid" || verifyStatus === "valid_2fa" ? (
+                      {verifyStatus === "valid" ? (
                         <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
                       ) : verifyStatus === "invalid" ? (
                         <XCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />

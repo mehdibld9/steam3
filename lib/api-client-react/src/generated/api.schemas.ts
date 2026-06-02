@@ -221,7 +221,6 @@ export type VerifyCredentialsResultStatus = typeof VerifyCredentialsResultStatus
 
 export const VerifyCredentialsResultStatus = {
   valid: 'valid',
-  valid_2fa: 'valid_2fa',
   invalid: 'invalid',
   rate_limited: 'rate_limited',
   error: 'error',

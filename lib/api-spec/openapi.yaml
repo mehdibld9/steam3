@@ -1261,7 +1261,7 @@ components:
       properties:
         status:
           type: string
-          enum: [valid, valid_2fa, invalid, rate_limited, error]
+          enum: [valid, invalid, rate_limited, error]
         message:
           type: string
 
