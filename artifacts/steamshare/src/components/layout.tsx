@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQueryClient } from "@tanstack/react-query";
 import { Progress } from "@/components/ui/progress";
-import { Shield, Plus, LogOut, Coins, Trophy, Search, User } from "lucide-react";
+import { Shield, Plus, LogOut, Coins, Trophy, Award, Gift } from "lucide-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { data: user } = useGetMe({ query: { retry: false } });
+  const { data: user } = useGetMe();
   const logout = useLogout();
   const queryClient = useQueryClient();
 
@@ -27,11 +27,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Shield className="h-6 w-6 text-primary" />
               <span className="font-bold text-xl tracking-tight">SteamShare</span>
             </Link>
-            
+
             <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
               <Link href="/browse" className="text-muted-foreground hover:text-foreground transition-colors">Browse</Link>
-              <Link href="/leaderboard" className="text-muted-foreground hover:text-foreground transition-colors">Leaderboard</Link>
-              <Link href="/earn" className="text-muted-foreground hover:text-foreground transition-colors">Earn Points</Link>
+              <Link href="/leaderboard" className="text-muted-foreground hover:text-foreground transition-colors">
+                <span className="flex items-center gap-1"><Trophy className="h-3.5 w-3.5" />Leaderboard</span>
+              </Link>
+              <Link href="/badges" className="text-muted-foreground hover:text-foreground transition-colors">
+                <span className="flex items-center gap-1"><Award className="h-3.5 w-3.5" />Badges</span>
+              </Link>
+              <Link href="/giveaways" className="text-muted-foreground hover:text-foreground transition-colors">
+                <span className="flex items-center gap-1"><Gift className="h-3.5 w-3.5" />Giveaways</span>
+              </Link>
+              <Link href="/earn" className="text-muted-foreground hover:text-foreground transition-colors">
+                <span className="flex items-center gap-1"><Coins className="h-3.5 w-3.5" />Earn Points</span>
+              </Link>
             </nav>
           </div>
 
@@ -88,7 +98,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <main className="flex-1">
         {children}
       </main>
-      
+
       <footer className="border-t border-border bg-card py-8 mt-12">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
           <div className="flex items-center justify-center gap-2 mb-4">
@@ -96,6 +106,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span className="font-bold">SteamShare</span>
           </div>
           <p>The premium marketplace for gamers. Trade accounts, earn XP, level up.</p>
+          <div className="flex items-center justify-center gap-6 mt-4 text-xs">
+            <Link href="/badges" className="hover:text-foreground transition-colors">Badges</Link>
+            <Link href="/giveaways" className="hover:text-foreground transition-colors">Giveaways</Link>
+            <Link href="/leaderboard" className="hover:text-foreground transition-colors">Leaderboard</Link>
+            <Link href="/earn" className="hover:text-foreground transition-colors">Earn Points</Link>
+          </div>
         </div>
       </footer>
     </div>

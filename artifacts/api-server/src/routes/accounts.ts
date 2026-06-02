@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db, accountsTable, usersTable, likesTable } from "@workspace/db";
-import { eq, desc, and, sql, ilike, inArray } from "drizzle-orm";
+import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { CreateAccountBody } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
+import { checkSteamCredentials } from "../lib/steamChecker";
 
 const router = Router();
 
@@ -15,6 +16,16 @@ function addXp(userId: number, amount: number) {
     })
     .where(eq(usersTable.id, userId));
 }
+
+router.post("/verify-credentials", requireAuth, async (req, res) => {
+  const { steamUsername, steamPassword } = req.body;
+  if (!steamUsername || !steamPassword) {
+    res.status(400).json({ error: "steamUsername and steamPassword are required" });
+    return;
+  }
+  const result = await checkSteamCredentials(steamUsername, steamPassword);
+  res.json(result);
+});
 
 router.get("/games", async (_req, res) => {
   const rows = await db

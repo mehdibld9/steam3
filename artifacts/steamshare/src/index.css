@@ -124,3 +124,20 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+.btn-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(0);
+  animation: btn-ripple-anim 0.5s linear;
+  pointer-events: none;
+  z-index: 10;
+}
+
+@keyframes btn-ripple-anim {
+  to {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}

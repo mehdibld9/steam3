@@ -1,5 +1,5 @@
 import { Layout } from "@/components/layout";
-import { useCreateAccount, useGetMe } from "@workspace/api-client-react";
+import { useCreateAccount, useGetMe, useVerifyCredentials } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -8,28 +8,31 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { InfoIcon, ShieldAlert } from "lucide-react";
+import { InfoIcon, ShieldAlert, CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
 
 const formSchema = z.object({
   title: z.string().min(3).max(100),
   description: z.string().max(1000),
   gamesList: z.string().min(1, "At least one game is required"),
   pointsCost: z.coerce.number().min(0),
-  steamUsername: z.string().min(1),
-  steamPassword: z.string().min(1),
+  steamUsername: z.string().min(1, "Steam username is required"),
+  steamPassword: z.string().min(1, "Steam password is required"),
 });
+
+type VerifyStatus = "idle" | "checking" | "valid" | "valid_2fa" | "invalid" | "rate_limited" | "error";
 
 export default function Submit() {
   const [, setLocation] = useLocation();
-  const { data: user, isLoading: userLoading } = useGetMe({ query: { retry: false } });
+  const { data: user, isLoading: userLoading } = useGetMe();
   const createAccount = useCreateAccount();
-  const { toast } = useToast();
-  
+  const verifyCredentials = useVerifyCredentials();
+  const [submitError, setSubmitError] = useState("");
+  const [verifyStatus, setVerifyStatus] = useState<VerifyStatus>("idle");
+  const [verifyMessage, setVerifyMessage] = useState("");
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -47,14 +50,41 @@ export default function Submit() {
     return null;
   }
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  const handleVerify = async () => {
+    const values = form.getValues();
+    if (!values.steamUsername || !values.steamPassword) {
+      form.trigger(["steamUsername", "steamPassword"]);
+      return;
+    }
+    setVerifyStatus("checking");
+    setVerifyMessage("");
     try {
-      const games = values.gamesList.split(",").map(s => s.trim()).filter(Boolean);
+      const result = await verifyCredentials.mutateAsync({
+        data: { steamUsername: values.steamUsername, steamPassword: values.steamPassword },
+      });
+      setVerifyStatus(result.status as VerifyStatus);
+      setVerifyMessage(result.message);
+    } catch (e: any) {
+      setVerifyStatus("error");
+      setVerifyMessage(e.message || "Could not reach Steam servers");
+    }
+  };
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setSubmitError("");
+
+    if (verifyStatus === "invalid") {
+      setSubmitError("The Steam credentials appear to be invalid. Please verify them first.");
+      return;
+    }
+
+    try {
+      const games = values.gamesList.split(",").map((s) => s.trim()).filter(Boolean);
       if (games.length === 0) {
         form.setError("gamesList", { message: "Please provide valid game names separated by commas" });
         return;
       }
-      
+
       const res = await createAccount.mutateAsync({
         data: {
           title: values.title,
@@ -62,16 +92,18 @@ export default function Submit() {
           games,
           pointsCost: values.pointsCost,
           steamUsername: values.steamUsername,
-          steamPassword: values.steamPassword
-        }
+          steamPassword: values.steamPassword,
+        },
       });
-      
-      toast({ title: "Account submitted!", description: "You earned 50 XP." });
+
       setLocation(`/accounts/${res.id}`);
     } catch (e: any) {
-      toast({ title: "Submission failed", description: e.message, variant: "destructive" });
+      setSubmitError(e.message || "Submission failed. Please try again.");
     }
   }
+
+  const credWatched = form.watch(["steamUsername", "steamPassword"]);
+  const hasCredentials = !!credWatched[0] && !!credWatched[1];
 
   return (
     <Layout>
@@ -97,7 +129,13 @@ export default function Submit() {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                
+                {submitError && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400 flex items-center gap-2">
+                    <XCircle className="h-4 w-4 flex-shrink-0" />
+                    {submitError}
+                  </div>
+                )}
+
                 <FormField
                   control={form.control}
                   name="title"
@@ -134,11 +172,11 @@ export default function Submit() {
                     <FormItem>
                       <FormLabel>Description / Notes</FormLabel>
                       <FormControl>
-                        <Textarea 
-                          placeholder="Any bans? What rank in comp? Extra inventory items?" 
+                        <Textarea
+                          placeholder="Any bans? What rank in comp? Extra inventory items?"
                           className="min-h-[100px]"
                           data-testid="input-description"
-                          {...field} 
+                          {...field}
                         />
                       </FormControl>
                       <FormMessage />
@@ -171,7 +209,7 @@ export default function Submit() {
                   <p className="text-sm text-muted-foreground mb-4">
                     These details are encrypted and will ONLY be revealed to the user who claims this account. Do not share your primary personal account.
                   </p>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -180,7 +218,12 @@ export default function Submit() {
                         <FormItem>
                           <FormLabel>Steam Username</FormLabel>
                           <FormControl>
-                            <Input placeholder="username123" data-testid="input-steam-user" {...field} />
+                            <Input
+                              placeholder="username123"
+                              data-testid="input-steam-user"
+                              {...field}
+                              onChange={(e) => { field.onChange(e); setVerifyStatus("idle"); }}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -194,13 +237,53 @@ export default function Submit() {
                         <FormItem>
                           <FormLabel>Steam Password</FormLabel>
                           <FormControl>
-                            <Input type="password" placeholder="••••••••" data-testid="input-steam-pass" {...field} />
+                            <Input
+                              type="password"
+                              placeholder="••••••••"
+                              data-testid="input-steam-pass"
+                              {...field}
+                              onChange={(e) => { field.onChange(e); setVerifyStatus("idle"); }}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={handleVerify}
+                    disabled={!hasCredentials || verifyStatus === "checking"}
+                  >
+                    {verifyStatus === "checking" ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Checking Steam...</>
+                    ) : (
+                      "Verify Credentials"
+                    )}
+                  </Button>
+
+                  {verifyStatus !== "idle" && verifyStatus !== "checking" && (
+                    <div className={`flex items-start gap-2 rounded-lg px-4 py-3 text-sm mt-2 ${
+                      verifyStatus === "valid" || verifyStatus === "valid_2fa"
+                        ? "bg-green-500/10 border border-green-500/20 text-green-400"
+                        : verifyStatus === "invalid"
+                        ? "bg-red-500/10 border border-red-500/20 text-red-400"
+                        : "bg-yellow-500/10 border border-yellow-500/20 text-yellow-400"
+                    }`}>
+                      {verifyStatus === "valid" || verifyStatus === "valid_2fa" ? (
+                        <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                      ) : verifyStatus === "invalid" ? (
+                        <XCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                      )}
+                      <span>{verifyMessage || "Unknown result"}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-4 flex justify-end">

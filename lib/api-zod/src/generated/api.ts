@@ -478,6 +478,173 @@ export const ListUsersResponse = zod.array(ListUsersResponseItem)
 
 
 /**
+ * @summary Request a password reset token
+ */
+export const ForgotPasswordBody = zod.object({
+  "email": zod.string().email()
+})
+
+export const ForgotPasswordResponse = zod.object({
+  "message": zod.string(),
+  "resetToken": zod.string().optional(),
+  "expiresAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Reset password using a token
+ */
+export const resetPasswordBodyNewPasswordMin = 6;
+
+
+
+export const ResetPasswordBody = zod.object({
+  "token": zod.string(),
+  "newPassword": zod.string().min(resetPasswordBodyNewPasswordMin)
+})
+
+export const ResetPasswordResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Check if Steam credentials are valid before posting
+ */
+export const VerifyCredentialsBody = zod.object({
+  "steamUsername": zod.string(),
+  "steamPassword": zod.string()
+})
+
+export const VerifyCredentialsResponse = zod.object({
+  "status": zod.enum(['valid', 'valid_2fa', 'invalid', 'rate_limited', 'error']),
+  "message": zod.string()
+})
+
+
+/**
+ * @summary List all giveaways
+ */
+export const ListGiveawaysResponseItem = zod.object({
+  "id": zod.number(),
+  "createdBy": zod.number(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "prize": zod.string(),
+  "taskDescription": zod.string(),
+  "maxEntries": zod.number(),
+  "entriesCount": zod.number(),
+  "endDate": zod.coerce.date(),
+  "isActive": zod.boolean(),
+  "winnerUserId": zod.number().nullish(),
+  "winnerUsername": zod.string().nullish(),
+  "userHasEntered": zod.boolean().optional(),
+  "createdAt": zod.coerce.date()
+})
+export const ListGiveawaysResponse = zod.array(ListGiveawaysResponseItem)
+
+
+/**
+ * @summary Create a giveaway (admin only)
+ */
+export const createGiveawayBodyMaxEntriesDefault = 100;
+
+export const CreateGiveawayBody = zod.object({
+  "title": zod.string(),
+  "description": zod.string(),
+  "prize": zod.string(),
+  "taskDescription": zod.string(),
+  "maxEntries": zod.number().default(createGiveawayBodyMaxEntriesDefault),
+  "endDate": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get a giveaway
+ */
+export const GetGiveawayParams = zod.object({
+  "giveawayId": zod.coerce.number()
+})
+
+export const GetGiveawayResponse = zod.object({
+  "id": zod.number(),
+  "createdBy": zod.number(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "prize": zod.string(),
+  "taskDescription": zod.string(),
+  "maxEntries": zod.number(),
+  "entriesCount": zod.number(),
+  "endDate": zod.coerce.date(),
+  "isActive": zod.boolean(),
+  "winnerUserId": zod.number().nullish(),
+  "winnerUsername": zod.string().nullish(),
+  "userHasEntered": zod.boolean().optional(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a giveaway (admin only)
+ */
+export const DeleteGiveawayParams = zod.object({
+  "giveawayId": zod.coerce.number()
+})
+
+export const DeleteGiveawayResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Enter a giveaway
+ */
+export const EnterGiveawayParams = zod.object({
+  "giveawayId": zod.coerce.number()
+})
+
+export const EnterGiveawayBody = zod.object({
+  "taskProof": zod.string().optional()
+})
+
+export const EnterGiveawayResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary List giveaway entries (admin only)
+ */
+export const GetGiveawayEntriesParams = zod.object({
+  "giveawayId": zod.coerce.number()
+})
+
+export const GetGiveawayEntriesResponseItem = zod.object({
+  "id": zod.number(),
+  "giveawayId": zod.number(),
+  "userId": zod.number(),
+  "username": zod.string().nullish(),
+  "taskProof": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const GetGiveawayEntriesResponse = zod.array(GetGiveawayEntriesResponseItem)
+
+
+/**
+ * @summary Draw a winner (admin only)
+ */
+export const DrawGiveawayParams = zod.object({
+  "giveawayId": zod.coerce.number()
+})
+
+export const DrawGiveawayResponse = zod.object({
+  "message": zod.string(),
+  "winnerUserId": zod.number().optional(),
+  "winnerUsername": zod.string().nullish()
+})
+
+
+/**
  * @summary Global site statistics
  */
 export const GetStatsResponse = zod.object({

@@ -1,38 +1,35 @@
 import { Layout } from "@/components/layout";
-import { useGetMe, useRedeemAdLink } from "@workspace/api-client-react";
+import { useGetMe } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { Coins, Share2, Upload, MessageSquare } from "lucide-react";
+import { Coins, Share2, Upload, MessageSquare, CheckCircle2, XCircle } from "lucide-react";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 
 export default function Earn() {
   const { data: user } = useGetMe();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [code, setCode] = useState("");
   const [isRedeeming, setIsRedeeming] = useState(false);
+  const [redeemError, setRedeemError] = useState("");
+  const [redeemSuccess, setRedeemSuccess] = useState<{ pointsEarned: number; newTotal: number } | null>(null);
 
   const handleRedeem = async () => {
     if (!code) return;
     setIsRedeeming(true);
+    setRedeemError("");
+    setRedeemSuccess(null);
     try {
-      const res = await fetch(`/api/ad-links/${code}/redeem`);
+      const res = await fetch(`/api/ad-links/${code.trim()}/redeem`);
       const data = await res.json();
-      
       if (!res.ok) throw new Error(data.error || "Failed to redeem");
-      
-      toast({ 
-        title: "Code Redeemed!", 
-        description: `You earned ${data.pointsEarned} points. New balance: ${data.newTotal}` 
-      });
+      setRedeemSuccess({ pointsEarned: data.pointsEarned, newTotal: data.newTotal });
       setCode("");
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
     } catch (e: any) {
-      toast({ title: "Redeem Failed", description: e.message, variant: "destructive" });
+      setRedeemError(e.message || "Invalid or expired code.");
     } finally {
       setIsRedeeming(false);
     }
@@ -88,20 +85,39 @@ export default function Earn() {
             <CardTitle>Redeem Code</CardTitle>
             <CardDescription>Found a promo code? Enter it below.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             {user ? (
-              <div className="flex gap-2">
-                <Input 
-                  placeholder="Enter code..." 
-                  value={code} 
-                  onChange={(e) => setCode(e.target.value)} 
-                  className="font-mono uppercase"
-                  data-testid="input-code"
-                />
-                <Button onClick={handleRedeem} disabled={!code || isRedeeming} data-testid="button-redeem">
-                  {isRedeeming ? "..." : "Redeem"}
-                </Button>
-              </div>
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter code..."
+                    value={code}
+                    onChange={(e) => { setCode(e.target.value); setRedeemError(""); setRedeemSuccess(null); }}
+                    className="font-mono uppercase"
+                    data-testid="input-code"
+                    onKeyDown={(e) => e.key === "Enter" && handleRedeem()}
+                  />
+                  <Button onClick={handleRedeem} disabled={!code || isRedeeming} data-testid="button-redeem">
+                    {isRedeeming ? "..." : "Redeem"}
+                  </Button>
+                </div>
+
+                {redeemSuccess && (
+                  <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-3 text-sm text-green-400">
+                    <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                    <span>
+                      <strong>+{redeemSuccess.pointsEarned} points</strong> added! New balance: {redeemSuccess.newTotal}
+                    </span>
+                  </div>
+                )}
+
+                {redeemError && (
+                  <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
+                    <XCircle className="h-4 w-4 flex-shrink-0" />
+                    <span>{redeemError}</span>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-center py-4 bg-muted/30 rounded-lg border border-border">
                 <p className="text-sm text-muted-foreground mb-4">You must be logged in to redeem codes.</p>
@@ -109,7 +125,6 @@ export default function Earn() {
             )}
           </CardContent>
         </Card>
-
       </div>
     </Layout>
   );

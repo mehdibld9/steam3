@@ -195,6 +195,93 @@ export interface SiteStats {
   topGames: GameCount[];
 }
 
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface ForgotPasswordResult {
+  message: string;
+  resetToken?: string;
+  expiresAt?: string;
+}
+
+export interface ResetPasswordInput {
+  token: string;
+  /** @minLength 6 */
+  newPassword: string;
+}
+
+export interface VerifyCredentialsInput {
+  steamUsername: string;
+  steamPassword: string;
+}
+
+export type VerifyCredentialsResultStatus = typeof VerifyCredentialsResultStatus[keyof typeof VerifyCredentialsResultStatus];
+
+
+export const VerifyCredentialsResultStatus = {
+  valid: 'valid',
+  valid_2fa: 'valid_2fa',
+  invalid: 'invalid',
+  rate_limited: 'rate_limited',
+  error: 'error',
+} as const;
+
+export interface VerifyCredentialsResult {
+  status: VerifyCredentialsResultStatus;
+  message: string;
+}
+
+export interface Giveaway {
+  id: number;
+  createdBy: number;
+  title: string;
+  description: string;
+  prize: string;
+  taskDescription: string;
+  maxEntries: number;
+  entriesCount: number;
+  endDate: string;
+  isActive: boolean;
+  /** @nullable */
+  winnerUserId?: number | null;
+  /** @nullable */
+  winnerUsername?: string | null;
+  userHasEntered?: boolean;
+  createdAt: string;
+}
+
+export interface GiveawayInput {
+  title: string;
+  description: string;
+  prize: string;
+  taskDescription: string;
+  maxEntries?: number;
+  endDate: string;
+}
+
+export interface EnterGiveawayInput {
+  taskProof?: string;
+}
+
+export interface GiveawayEntry {
+  id: number;
+  giveawayId: number;
+  userId: number;
+  /** @nullable */
+  username?: string | null;
+  /** @nullable */
+  taskProof?: string | null;
+  createdAt: string;
+}
+
+export interface DrawResult {
+  message: string;
+  winnerUserId?: number;
+  /** @nullable */
+  winnerUsername?: string | null;
+}
+
 export type ListAccountsParams = {
 game?: string;
 sort?: ListAccountsSort;

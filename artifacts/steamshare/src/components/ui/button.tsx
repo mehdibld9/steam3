@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0" +
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 relative overflow-hidden" +
 " hover-elevate active-elevate-2",
   {
     variants: {
@@ -49,12 +49,45 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, onClick, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
+
+    const handleClick = React.useCallback(
+      (e: React.MouseEvent<HTMLButtonElement>) => {
+        const button = e.currentTarget;
+        const rect = button.getBoundingClientRect();
+        const ripple = document.createElement("span");
+        const diameter = Math.max(rect.width, rect.height);
+        const radius = diameter / 2;
+        ripple.style.width = ripple.style.height = `${diameter}px`;
+        ripple.style.left = `${e.clientX - rect.left - radius}px`;
+        ripple.style.top = `${e.clientY - rect.top - radius}px`;
+        ripple.className = "btn-ripple";
+        const existing = button.querySelector(".btn-ripple");
+        if (existing) existing.remove();
+        button.appendChild(ripple);
+        ripple.addEventListener("animationend", () => ripple.remove(), { once: true });
+        onClick?.(e);
+      },
+      [onClick]
+    );
+
+    if (asChild) {
+      return (
+        <Comp
+          className={cn(buttonVariants({ variant, size, className }))}
+          ref={ref}
+          onClick={onClick}
+          {...props}
+        />
+      );
+    }
+
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
+        onClick={handleClick as React.MouseEventHandler<HTMLButtonElement>}
         {...props}
       />
     )

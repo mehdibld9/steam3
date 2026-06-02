@@ -646,6 +646,212 @@ paths:
                 items:
                   $ref: "#/components/schemas/UserPublic"
 
+  # Password Reset
+  /auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags: [auth]
+      summary: Request a password reset token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordInput"
+      responses:
+        "200":
+          description: Token generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForgotPasswordResult"
+
+  /auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Reset password using a token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordInput"
+      responses:
+        "200":
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+        "400":
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  # Steam credential verification
+  /accounts/verify-credentials:
+    post:
+      operationId: verifyCredentials
+      tags: [accounts]
+      summary: Check if Steam credentials are valid before posting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyCredentialsInput"
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyCredentialsResult"
+
+  # Giveaways
+  /giveaways:
+    get:
+      operationId: listGiveaways
+      tags: [stats]
+      summary: List all giveaways
+      responses:
+        "200":
+          description: Giveaways
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Giveaway"
+
+    post:
+      operationId: createGiveaway
+      tags: [stats]
+      summary: Create a giveaway (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GiveawayInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Giveaway"
+
+  /giveaways/{giveawayId}:
+    get:
+      operationId: getGiveaway
+      tags: [stats]
+      summary: Get a giveaway
+      parameters:
+        - name: giveawayId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Giveaway
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Giveaway"
+
+    delete:
+      operationId: deleteGiveaway
+      tags: [stats]
+      summary: Delete a giveaway (admin only)
+      parameters:
+        - name: giveawayId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+
+  /giveaways/{giveawayId}/enter:
+    post:
+      operationId: enterGiveaway
+      tags: [stats]
+      summary: Enter a giveaway
+      parameters:
+        - name: giveawayId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnterGiveawayInput"
+      responses:
+        "200":
+          description: Entered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+        "400":
+          description: Already entered or closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /giveaways/{giveawayId}/entries:
+    get:
+      operationId: getGiveawayEntries
+      tags: [stats]
+      summary: List giveaway entries (admin only)
+      parameters:
+        - name: giveawayId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GiveawayEntry"
+
+  /giveaways/{giveawayId}/draw:
+    post:
+      operationId: drawGiveaway
+      tags: [stats]
+      summary: Draw a winner (admin only)
+      parameters:
+        - name: giveawayId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Winner drawn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DrawResult"
+
   # Stats
   /stats:
     get:
@@ -1010,3 +1216,140 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/GameCount"
+
+    ForgotPasswordInput:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    ForgotPasswordResult:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        resetToken:
+          type: string
+        expiresAt:
+          type: string
+
+    ResetPasswordInput:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+          minLength: 6
+
+    VerifyCredentialsInput:
+      type: object
+      required: [steamUsername, steamPassword]
+      properties:
+        steamUsername:
+          type: string
+        steamPassword:
+          type: string
+
+    VerifyCredentialsResult:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          enum: [valid, valid_2fa, invalid, rate_limited, error]
+        message:
+          type: string
+
+    Giveaway:
+      type: object
+      required: [id, createdBy, title, description, prize, taskDescription, maxEntries, entriesCount, endDate, isActive, createdAt]
+      properties:
+        id:
+          type: integer
+        createdBy:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        prize:
+          type: string
+        taskDescription:
+          type: string
+        maxEntries:
+          type: integer
+        entriesCount:
+          type: integer
+        endDate:
+          type: string
+          format: date-time
+        isActive:
+          type: boolean
+        winnerUserId:
+          type: ["integer", "null"]
+        winnerUsername:
+          type: ["string", "null"]
+        userHasEntered:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    GiveawayInput:
+      type: object
+      required: [title, description, prize, taskDescription, endDate]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        prize:
+          type: string
+        taskDescription:
+          type: string
+        maxEntries:
+          type: integer
+          default: 100
+        endDate:
+          type: string
+          format: date-time
+
+    EnterGiveawayInput:
+      type: object
+      properties:
+        taskProof:
+          type: string
+
+    GiveawayEntry:
+      type: object
+      required: [id, giveawayId, userId, createdAt]
+      properties:
+        id:
+          type: integer
+        giveawayId:
+          type: integer
+        userId:
+          type: integer
+        username:
+          type: ["string", "null"]
+        taskProof:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    DrawResult:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        winnerUserId:
+          type: integer
+        winnerUsername:
+          type: ["string", "null"]
