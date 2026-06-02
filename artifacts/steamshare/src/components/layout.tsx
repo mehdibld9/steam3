@@ -30,7 +30,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2">
               <Shield className="h-6 w-6 text-primary" />
-              <span className="font-bold text-xl tracking-tight">SteamShare</span>
+              <span className="font-bold text-xl tracking-tight">SteamFamily</span>
             </Link>
 
             <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
@@ -99,11 +99,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-
       <main className="flex-1">
         {children}
       </main>
-
       <footer className="border-t border-border bg-card py-4 mt-12">
         <div className="container mx-auto px-4 text-center text-xs text-muted-foreground">
           © {new Date().getFullYear()} SteamShare
