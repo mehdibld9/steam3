@@ -27,7 +27,7 @@ import { Shield, Trash, Copy, Ban, CheckCircle } from "lucide-react";
 
 export default function Admin() {
   const [, setLocation] = useLocation();
-  const { data: user, isLoading: userLoading } = useGetMe({ query: { retry: false } });
+  const { data: user, isLoading: userLoading } = useGetMe();
   
   if (!userLoading && (!user || !user.isAdmin)) {
     setLocation("/");
@@ -101,7 +101,7 @@ function UsersTab() {
         <TableBody>
           {isLoading ? (
             <TableRow><TableCell colSpan={5} className="text-center py-8">Loading...</TableCell></TableRow>
-          ) : usersData?.users.map(u => (
+          ) : (usersData as any[])?.map(u => (
             <TableRow key={u.id}>
               <TableCell className="font-mono text-xs">{u.id}</TableCell>
               <TableCell className="font-medium">

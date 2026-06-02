@@ -49,43 +49,45 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ── Light theme (matches reference image) ── */
 :root {
   --app-font-sans: 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
   --radius: 0.5rem;
 
-  --background: 217 33% 17%;
-  --foreground: 0 0% 90%;
-  --border: 210 20% 25%;
-  --input: 210 20% 20%;
-  --ring: 168 85% 40%;
+  --background: 0 0% 97%;          /* #f7f7f7 */
+  --foreground: 220 13% 13%;        /* #1c1e21 */
+  --border: 220 10% 88%;            /* #dde1e7 */
+  --input: 220 10% 92%;
+  --ring: 168 100% 36%;
 
-  --card: 215 30% 20%;
-  --card-foreground: 0 0% 95%;
-  --card-border: 210 20% 30%;
+  --card: 0 0% 100%;                /* white */
+  --card-foreground: 220 13% 13%;
+  --card-border: 220 10% 90%;
 
-  --popover: 215 30% 18%;
-  --popover-foreground: 0 0% 95%;
-  --popover-border: 210 20% 30%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 13% 13%;
+  --popover-border: 220 10% 88%;
 
   /* Teal primary — #00b894 */
   --primary: 168 100% 36%;
   --primary-foreground: 0 0% 100%;
-  
-  --secondary: 210 25% 25%;
-  --secondary-foreground: 0 0% 90%;
-  
-  --muted: 210 25% 25%;
-  --muted-foreground: 210 10% 65%;
-  
+
+  --secondary: 220 10% 94%;
+  --secondary-foreground: 220 13% 30%;
+
+  --muted: 220 10% 94%;
+  --muted-foreground: 220 8% 48%;
+
   --accent: 168 100% 36%;
   --accent-foreground: 0 0% 100%;
-  
-  --destructive: 0 60% 50%;
+
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 }
 
+/* keep a dark variant for anything that opts in */
 .dark {
   --background: 217 33% 11%;
   --foreground: 0 0% 90%;
@@ -101,19 +103,18 @@
   --popover-foreground: 0 0% 95%;
   --popover-border: 210 20% 25%;
 
-  /* Teal primary */
   --primary: 168 85% 42%;
   --primary-foreground: 0 0% 100%;
-  
+
   --secondary: 210 25% 20%;
   --secondary-foreground: 0 0% 90%;
-  
+
   --muted: 210 25% 20%;
   --muted-foreground: 210 10% 65%;
-  
+
   --accent: 168 85% 42%;
   --accent-foreground: 0 0% 100%;
-  
+
   --destructive: 0 60% 45%;
   --destructive-foreground: 0 0% 100%;
 }
@@ -130,7 +131,7 @@
 .btn-ripple {
   position: absolute;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.35);
   transform: scale(0);
   animation: btn-ripple-anim 0.5s linear;
   pointer-events: none;

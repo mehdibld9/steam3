@@ -44,7 +44,7 @@ function httpsPost(
   body: string,
   headers: Record<string, string>,
   agent: https.Agent | undefined,
-  timeoutMs = 14_000,
+  timeoutMs = 5_000,
 ): Promise<{ status: number; text: string }> {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
@@ -146,16 +146,16 @@ export type CheckResult =
 export async function checkSteamCredentials(username: string, password: string): Promise<CheckResult> {
   const proxies = await getProxyList();
 
-  // Try up to 3 different proxies (or direct if list is empty)
-  const MAX_ATTEMPTS = 3;
+  // Try up to 3 proxies then fall back to direct connection
+  const MAX_PROXY_ATTEMPTS = proxies.length > 0 ? 3 : 0;
   const usedProxies = new Set<string>();
 
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt <= MAX_PROXY_ATTEMPTS; attempt++) {
     let agent: https.Agent | undefined;
     let proxyAddr: string | null = null;
+    const isDirect = attempt === MAX_PROXY_ATTEMPTS;
 
-    if (proxies.length > 0) {
-      // Pick a proxy not yet tried this run
+    if (!isDirect && proxies.length > 0) {
       const candidates = proxies.filter((p) => !usedProxies.has(p));
       proxyAddr = candidates.length > 0 ? pickProxy(candidates) : pickProxy(proxies);
       if (proxyAddr) {
@@ -168,10 +168,14 @@ export async function checkSteamCredentials(username: string, password: string):
       }
     }
 
+    if (isDirect) {
+      logger.info("All proxies failed — falling back to direct connection");
+    }
+
     try {
       const rsa = await getRsaKey(username, agent);
       if (!rsa) {
-        logger.warn({ proxy: proxyAddr, attempt }, "getRsaKey returned null — trying next proxy");
+        logger.warn({ proxy: proxyAddr, attempt, isDirect }, "getRsaKey returned null — trying next");
         continue;
       }
 
@@ -200,8 +204,7 @@ export async function checkSteamCredentials(username: string, password: string):
       logger.info({ status: res.status, proxy: proxyAddr, preview: res.text.slice(0, 200) }, "Steam login response");
 
       if (res.status === 429) {
-        // This proxy is rate-limited — try another
-        logger.info({ proxy: proxyAddr }, "Rate limited on this proxy, retrying");
+        logger.info({ proxy: proxyAddr, isDirect }, "Rate limited — trying next");
         continue;
       }
 
@@ -239,13 +242,14 @@ export async function checkSteamCredentials(username: string, password: string):
       return { status: "error", message: `Unexpected Steam response (HTTP ${res.status})` };
 
     } catch (e: unknown) {
-      logger.warn({ err: e, proxy: proxyAddr, attempt }, "Steam check attempt failed — trying next proxy");
-      if (attempt === MAX_ATTEMPTS - 1) {
+      logger.warn({ err: e, proxy: proxyAddr, attempt, isDirect }, "Steam check attempt failed");
+      if (isDirect) {
         return { status: "error", message: "Could not connect to Steam servers" };
       }
-      await new Promise((r) => setTimeout(r, 800));
+      // Small delay before next proxy
+      await new Promise((r) => setTimeout(r, 500));
     }
   }
 
-  return { status: "error", message: "All proxies exhausted — try again shortly" };
+  return { status: "error", message: "Could not connect to Steam servers" };
 }

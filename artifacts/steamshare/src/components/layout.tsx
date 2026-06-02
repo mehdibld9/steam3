@@ -24,7 +24,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const xpProgress = user ? (user.xp % 100) : 0;
 
   return (
-    <div className="min-h-screen bg-background text-foreground dark flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container flex h-16 items-center justify-between mx-auto px-4">
           <div className="flex items-center gap-6">
