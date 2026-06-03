@@ -9,6 +9,8 @@ import adLinksRouter from "./adlinks";
 import adminRouter from "./admin";
 import statsRouter from "./stats";
 import giveawaysRouter from "./giveaways";
+import reportsRouter from "./reports";
+import messagesRouter from "./messages";
 
 const router: IRouter = Router();
 
@@ -22,5 +24,7 @@ router.use("/ad-links", adLinksRouter);
 router.use("/admin", adminRouter);
 router.use(statsRouter);
 router.use("/giveaways", giveawaysRouter);
+router.use("/reports", reportsRouter);
+router.use("/messages", messagesRouter);
 
 export default router;

@@ -1,0 +1,3 @@
+- [DB migrations without TTY](db-migrations-no-tty.md) — drizzle-kit push requires TTY; use executeSql in code_execution for schema changes in non-interactive environments.
+- [Ban redirect pattern](ban-redirect-pattern.md) — banned users are allowed to log in; BannedGuard in App.tsx redirects them to /banned using a direct useQuery, not the generated hook.
+- [New endpoints vs codegen](new-endpoints-codegen.md) — vote, messages, reports, moderator endpoints exist in the API but are NOT yet in openapi.yaml; frontend uses direct fetch() until codegen is updated.

@@ -1,5 +1,5 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 
@@ -17,8 +17,31 @@ import Badges from "./pages/badges";
 import Giveaways from "./pages/giveaways";
 import ForgotPassword from "./pages/forgot-password";
 import ResetPassword from "./pages/reset-password";
+import Banned from "./pages/banned";
+import Messages from "./pages/messages";
 
 const queryClient = new QueryClient();
+
+function BannedGuard({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  const { data: user } = useQuery({
+    queryKey: ["/api/auth/me"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    retry: false,
+    staleTime: 30_000,
+  });
+
+  // If banned and not already on the banned page, redirect there
+  if (user?.isBanned && location !== "/banned") {
+    window.location.replace("/banned");
+    return null;
+  }
+  return <>{children}</>;
+}
 
 function Router() {
   return (
@@ -37,6 +60,8 @@ function Router() {
       <Route path="/giveaways" component={Giveaways} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
+      <Route path="/banned" component={Banned} />
+      <Route path="/messages" component={Messages} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -47,7 +72,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
+          <BannedGuard>
+            <Router />
+          </BannedGuard>
         </WouterRouter>
       </TooltipProvider>
     </QueryClientProvider>

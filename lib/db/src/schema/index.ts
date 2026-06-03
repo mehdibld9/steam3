@@ -6,3 +6,6 @@ export * from "./adlinks";
 export * from "./badges";
 export * from "./giveaways";
 export * from "./passwordResets";
+export * from "./reports";
+export * from "./messages";
+export * from "./accountVotes";

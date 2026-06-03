@@ -13,7 +13,11 @@ export const usersTable = pgTable("users", {
   level: integer("level").notNull().default(1),
   badgeName: text("badge_name"),
   isAdmin: boolean("is_admin").notNull().default(false),
+  isModerator: boolean("is_moderator").notNull().default(false),
   isBanned: boolean("is_banned").notNull().default(false),
+  banReason: text("ban_reason"),
+  banExpiresAt: timestamp("ban_expires_at", { withTimezone: true }),
+  registrationIp: text("registration_ip"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -24,7 +28,11 @@ export const insertUserSchema = createInsertSchema(usersTable).omit({
   level: true,
   badgeName: true,
   isAdmin: true,
+  isModerator: true,
   isBanned: true,
+  banReason: true,
+  banExpiresAt: true,
+  registrationIp: true,
   createdAt: true,
 });
 export type InsertUser = z.infer<typeof insertUserSchema>;

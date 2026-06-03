@@ -11,37 +11,38 @@ import {
   useLikeComment,
   useUnlikeComment,
   useDeleteComment,
+  useDeleteAccount,
   useGetMe,
   getGetMeQueryKey,
 } from "@workspace/api-client-react";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import {
-  Heart, Coins, ShieldCheck, MessageSquare, Trash, Lock,
-  Copy, CheckCheck, ChevronDown, ChevronUp, BadgeCheck,
+  Heart, Coins, MessageSquare, Trash, Lock,
+  Copy, CheckCheck, ChevronDown, ChevronUp,
+  ThumbsUp, ThumbsDown, Flag, Edit2, Check, X, Shield, MessageCircle,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
 function CopyField({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(value);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  };
+  const copy = () => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1800); };
   return (
     <div className="space-y-1">
       <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
       <div className="flex items-center gap-2 bg-background border border-border rounded-lg px-3 py-2">
         <span className="flex-1 font-mono text-sm break-all select-all">{value}</span>
         <button onClick={copy} className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
-          {copied ? <CheckCheck className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+          {copied ? <CheckCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
         </button>
       </div>
     </div>
@@ -52,13 +53,8 @@ function CollapsibleSection({ title, items }: { title: string; items: string[] }
   const [open, setOpen] = useState(false);
   return (
     <div className="border border-border rounded-lg overflow-hidden">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-4 py-2.5 bg-muted/20 hover:bg-muted/40 transition-colors text-sm font-medium"
-      >
-        <span className="flex items-center gap-2 text-muted-foreground">
-          <span className="text-primary">≡</span> {title} ({items.length})
-        </span>
+      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between px-4 py-2.5 bg-muted/20 hover:bg-muted/40 transition-colors text-sm font-medium">
+        <span className="flex items-center gap-2 text-muted-foreground"><span className="text-primary">≡</span> {title} ({items.length})</span>
         {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
       </button>
       {open && (
@@ -75,18 +71,63 @@ function CollapsibleSection({ title, items }: { title: string; items: string[] }
   );
 }
 
+async function submitVote(accountId: number, vote: "working" | "not_working") {
+  const res = await fetch(`/api/accounts/${accountId}/vote`, {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ vote }),
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed to vote"); }
+  return res.json();
+}
+
+async function submitReport(targetType: string, targetId: number, reason: string, details: string) {
+  const res = await fetch("/api/reports", {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ targetType, targetId, reason, details }),
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed to report"); }
+  return res.json();
+}
+
+async function patchAccount(accountId: number, data: Record<string, unknown>) {
+  const res = await fetch(`/api/accounts/${accountId}`, {
+    method: "PATCH", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed to update"); }
+  return res.json();
+}
+
 export default function AccountDetail() {
   const params = useParams();
   const id = parseInt(params.id || "0");
+  const [, navigate] = useLocation();
   const { data: user } = useGetMe();
   const { data: account, isLoading: accountLoading } = useGetAccount(id);
   const { data: comments, isLoading: commentsLoading } = useListComments(id);
 
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [commentContent, setCommentContent] = useState("");
   const [claimResult, setClaimResult] = useState<{ username: string; password: string } | null>(null);
   const [claimError, setClaimError] = useState("");
-  const [claimedAt, setClaimedAt] = useState<Date | null>(null);
+  const [likeError, setLikeError] = useState("");
+  const [commentError, setCommentError] = useState("");
+
+  // Edit state
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editGames, setEditGames] = useState("");
+  const [editCost, setEditCost] = useState(0);
+
+  // Report dialog
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
 
   const likeAccount = useLikeAccount();
   const unlikeAccount = useUnlikeAccount();
@@ -95,87 +136,92 @@ export default function AccountDetail() {
   const likeComment = useLikeComment();
   const unlikeComment = useUnlikeComment();
   const deleteComment = useDeleteComment();
+  const deleteAccount = useDeleteAccount();
 
-  const [commentError, setCommentError] = useState("");
-  const [likeError, setLikeError] = useState("");
+  const voteMutation = useMutation({
+    mutationFn: ({ vote }: { vote: "working" | "not_working" }) => submitVote(id, vote),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(id) }),
+    onError: (e: any) => toast({ title: "Vote failed", description: e.message, variant: "destructive" }),
+  });
 
-  const handleLikeAccount = async () => {
-    if (!user) { setLikeError("You must be logged in to like accounts."); return; }
-    if (!account) return;
+  const reportMutation = useMutation({
+    mutationFn: () => submitReport("account", id, reportReason, reportDetails),
+    onSuccess: () => { setReportOpen(false); setReportReason(""); setReportDetails(""); toast({ title: "Report submitted" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const editMutation = useMutation({
+    mutationFn: () => patchAccount(id, { title: editTitle, description: editDesc, games: editGames.split(",").map(s => s.trim()).filter(Boolean), pointsCost: editCost }),
+    onSuccess: () => { setEditing(false); queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(id) }); toast({ title: "Account updated" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const handleLike = async () => {
+    if (!user) { setLikeError("You must be logged in."); return; }
     setLikeError("");
     try {
-      if (account.userHasLiked) {
-        await unlikeAccount.mutateAsync({ accountId: id });
-      } else {
-        await likeAccount.mutateAsync({ accountId: id });
-      }
+      if (account?.userHasLiked) await unlikeAccount.mutateAsync({ accountId: id });
+      else await likeAccount.mutateAsync({ accountId: id });
       queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(id) });
-    } catch (e: any) {
-      setLikeError(e.message || "Failed to update like");
-    }
+    } catch (e: any) { setLikeError(e.message || "Failed"); }
   };
 
   const handleClaim = async () => {
-    if (!user) { setClaimError("You must be logged in to claim accounts."); return; }
+    if (!user) { setClaimError("You must be logged in."); return; }
     if (!account) return;
-    if (user.points < account.pointsCost) {
-      setClaimError(`You need ${account.pointsCost} points but only have ${user.points}.`);
-      return;
-    }
+    if (user.points < account.pointsCost) { setClaimError(`You need ${account.pointsCost} points but only have ${user.points}.`); return; }
     setClaimError("");
     try {
       const res = await claimAccount.mutateAsync({ accountId: id });
       setClaimResult({ username: res.steamUsername, password: res.steamPassword });
-      setClaimedAt(new Date());
       queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(id) });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-    } catch (e: any) {
-      setClaimError(e.message || "Failed to claim account");
-    }
+    } catch (e: any) { setClaimError(e.message || "Failed to claim"); }
   };
 
-  const handleCommentSubmit = async () => {
-    if (!user) { setCommentError("You must be logged in to comment."); return; }
-    if (!commentContent.trim()) return;
-    setCommentError("");
+  const handleDelete = async () => {
+    if (!confirm("Delete this account permanently?")) return;
     try {
-      await createComment.mutateAsync({ accountId: id, data: { content: commentContent } });
-      setCommentContent("");
-      queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(id) });
-    } catch (e: any) {
-      setCommentError(e.message || "Could not post comment");
-    }
+      await deleteAccount.mutateAsync({ accountId: id });
+      navigate("/browse");
+    } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
   };
 
-  if (accountLoading) {
-    return (
-      <Layout>
-        <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
-          <Skeleton className="h-64 w-full rounded-xl" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Skeleton className="h-96 col-span-2 rounded-xl" />
-            <Skeleton className="h-96 col-span-1 rounded-xl" />
-          </div>
-        </div>
-      </Layout>
-    );
-  }
+  const startEdit = () => {
+    if (!account) return;
+    setEditTitle(account.title);
+    setEditDesc(account.description);
+    setEditGames(account.games.join(", "));
+    setEditCost(account.pointsCost);
+    setEditing(true);
+  };
 
-  if (!account) {
-    return (
-      <Layout>
-        <div className="container mx-auto px-4 py-20 text-center">
-          <h2 className="text-2xl font-bold mb-2">Account Not Found</h2>
-          <p className="text-muted-foreground mb-6">This account may have been removed or does not exist.</p>
-          <Link href="/browse"><Button>Browse Accounts</Button></Link>
-        </div>
-      </Layout>
-    );
-  }
+  const canManage = user && account && (user.id === account.userId || user.isAdmin || (user as any).isModerator);
 
-  const verifyDate = claimedAt || new Date(account.createdAt);
-  const verifyStr = verifyDate.toLocaleString("en-US", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
-  const verifyShort = verifyDate.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit" }) + " " + verifyDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+  if (accountLoading) return (
+    <Layout>
+      <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
+        <Skeleton className="h-64 w-full rounded-xl" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Skeleton className="h-96 col-span-2 rounded-xl" />
+          <Skeleton className="h-96 col-span-1 rounded-xl" />
+        </div>
+      </div>
+    </Layout>
+  );
+
+  if (!account) return (
+    <Layout>
+      <div className="container mx-auto px-4 py-20 text-center">
+        <h2 className="text-2xl font-bold mb-2">Account Not Found</h2>
+        <p className="text-muted-foreground mb-6">This account may have been removed.</p>
+        <Link href="/browse"><Button>Browse Accounts</Button></Link>
+      </div>
+    </Layout>
+  );
+
+  const totalVotes = (account.workingVotes ?? 0) + (account.notWorkingVotes ?? 0);
+  const workingPct = totalVotes > 0 ? Math.round(((account.workingVotes ?? 0) / totalVotes) * 100) : 0;
 
   return (
     <Layout>
@@ -186,38 +232,51 @@ export default function AccountDetail() {
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
           <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center relative z-10">
             <div className="space-y-4 flex-1">
-              <div className="flex items-center gap-3">
-                {account.pointsCost === 0 ? (
-                  <Badge className="bg-green-600/20 text-green-400 border-green-600/30">Free</Badge>
-                ) : (
-                  <Badge variant="outline" className="border-primary/50 text-primary bg-primary/10 flex items-center gap-1">
-                    <Coins className="h-3 w-3" /> {account.pointsCost} Points
-                  </Badge>
-                )}
-                <span className="text-xs text-muted-foreground">
-                  Posted {formatDistanceToNow(new Date(account.createdAt))} ago
-                </span>
+              <div className="flex items-center gap-3 flex-wrap">
+                {account.pointsCost === 0
+                  ? <Badge className="bg-green-600/20 text-green-600 border-green-600/30">Free</Badge>
+                  : <Badge variant="outline" className="border-primary/50 text-primary bg-primary/10 flex items-center gap-1"><Coins className="h-3 w-3" /> {account.pointsCost} Points</Badge>
+                }
+                <span className="text-xs text-muted-foreground">Posted {formatDistanceToNow(new Date(account.createdAt))} ago</span>
+                {(account as any).posterIsAdmin && <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 text-[10px]">ADMIN</Badge>}
+                {(account as any).posterIsModerator && !((account as any).posterIsAdmin) && <Badge className="bg-blue-500/20 text-blue-600 border-blue-500/30 text-[10px]">MOD</Badge>}
               </div>
-              <h1 className="text-3xl md:text-4xl font-black">{account.title}</h1>
-              <div className="flex items-center gap-3 mt-4">
-                <Link href={`/profile/${account.userId}`}>
-                  <Avatar className="h-10 w-10 border border-border cursor-pointer hover:border-primary transition-colors">
-                    <AvatarImage src={account.posterAvatarUrl || undefined} />
-                    <AvatarFallback>{account.posterUsername?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                </Link>
-                <div>
-                  <div className="text-sm font-medium">Uploaded by</div>
-                  <Link href={`/profile/${account.userId}`} className="text-primary hover:underline font-bold">
-                    {account.posterUsername}
-                  </Link>
+
+              {editing ? (
+                <div className="space-y-3">
+                  <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title" className="text-xl font-black" />
+                  <Textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Description" className="resize-none" rows={3} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input value={editGames} onChange={(e) => setEditGames(e.target.value)} placeholder="Games (comma-separated)" />
+                    <Input type="number" value={editCost} onChange={(e) => setEditCost(Number(e.target.value))} placeholder="Points cost" min={0} />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => editMutation.mutate()} disabled={editMutation.isPending} className="gap-1"><Check className="h-4 w-4" /> Save</Button>
+                    <Button size="sm" variant="outline" onClick={() => setEditing(false)} className="gap-1"><X className="h-4 w-4" /> Cancel</Button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <h1 className="text-3xl md:text-4xl font-black">{account.title}</h1>
+                  <div className="flex items-center gap-3 mt-4">
+                    <Link href={`/profile/${account.userId}`}>
+                      <Avatar className="h-10 w-10 border border-border cursor-pointer hover:border-primary transition-colors">
+                        <AvatarImage src={account.posterAvatarUrl || undefined} />
+                        <AvatarFallback>{account.posterUsername?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                    </Link>
+                    <div>
+                      <div className="text-sm font-medium text-muted-foreground">Uploaded by</div>
+                      <Link href={`/profile/${account.userId}`} className="text-primary hover:underline font-bold">{account.posterUsername}</Link>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="shrink-0 flex flex-col items-center gap-2 w-full md:w-40">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <ShieldCheck className={account.isAvailable ? "text-green-500 h-4 w-4" : "text-muted-foreground h-4 w-4"} />
+                <div className={`w-2 h-2 rounded-full ${account.isAvailable ? "bg-green-500" : "bg-muted-foreground"}`} />
                 {account.isAvailable ? "Available" : "Claimed"}
               </div>
               <div className="text-xs text-muted-foreground">{account.claimsCount} past claims</div>
@@ -225,15 +284,62 @@ export default function AccountDetail() {
                 variant="outline"
                 size="sm"
                 className={`w-full gap-2 mt-1 ${account.userHasLiked ? "border-primary/50 text-primary bg-primary/10" : ""}`}
-                onClick={handleLikeAccount}
+                onClick={handleLike}
                 disabled={likeAccount.isPending || unlikeAccount.isPending}
-                data-testid="button-like"
               >
                 <Heart className={`h-4 w-4 ${account.userHasLiked ? "fill-primary text-primary" : ""}`} />
                 {account.userHasLiked ? "Liked" : "Like"}
                 <span className="ml-auto bg-background/60 px-1.5 py-0.5 rounded text-xs">{account.likesCount}</span>
               </Button>
-              {likeError && <p className="text-xs text-red-400">{likeError}</p>}
+              {likeError && <p className="text-xs text-red-500">{likeError}</p>}
+
+              {/* Admin/Mod/Owner actions */}
+              {canManage && (
+                <div className="flex gap-2 w-full mt-1">
+                  {user.id === account.userId && (
+                    <Button size="sm" variant="outline" onClick={startEdit} className="flex-1 gap-1 text-xs">
+                      <Edit2 className="h-3 w-3" /> Edit
+                    </Button>
+                  )}
+                  <Button size="sm" variant="destructive" onClick={handleDelete} className="flex-1 gap-1 text-xs">
+                    <Trash className="h-3 w-3" /> Delete
+                  </Button>
+                </div>
+              )}
+
+              {/* Report button */}
+              {user && user.id !== account.userId && (
+                <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="ghost" className="w-full gap-1 text-xs text-muted-foreground hover:text-red-500 mt-1">
+                      <Flag className="h-3 w-3" /> Report
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-card border-border max-w-sm">
+                    <DialogHeader><DialogTitle>Report this post</DialogTitle></DialogHeader>
+                    <div className="space-y-4 pt-2">
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium">Reason</label>
+                        <select className="w-full border border-border rounded-lg px-3 py-2 bg-background text-sm" value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
+                          <option value="">Select a reason...</option>
+                          <option value="spam">Spam or misleading</option>
+                          <option value="fake">Fake or invalid credentials</option>
+                          <option value="inappropriate">Inappropriate content</option>
+                          <option value="scam">Potential scam</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium">Details (optional)</label>
+                        <Textarea placeholder="Add more details..." value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} className="resize-none" rows={3} />
+                      </div>
+                      <Button className="w-full" onClick={() => reportMutation.mutate()} disabled={!reportReason || reportMutation.isPending}>
+                        {reportMutation.isPending ? "Submitting..." : "Submit Report"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
           </div>
         </div>
@@ -242,7 +348,7 @@ export default function AccountDetail() {
           {/* Main */}
           <div className="col-span-1 md:col-span-2 space-y-6">
 
-            {/* STEAM Account Info Panel */}
+            {/* Credentials panel */}
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="flex items-center gap-2 px-5 py-3 border-b border-border bg-muted/20">
                 <Lock className="h-4 w-4 text-muted-foreground" />
@@ -263,47 +369,16 @@ export default function AccountDetail() {
                     <div>
                       <p className="font-bold text-base mb-1">View account credentials</p>
                       <p className="text-sm text-muted-foreground">
-                        {account.pointsCost === 0
-                          ? "Claim this account for free to reveal the Steam login."
-                          : `Spend ${account.pointsCost} points to reveal the Steam login.`}
+                        {account.pointsCost === 0 ? "Claim this account for free to reveal the Steam login." : `Spend ${account.pointsCost} points to reveal the Steam login.`}
                       </p>
                     </div>
-
-                    {claimError && (
-                      <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2 w-full text-left">
-                        {claimError}
-                      </p>
-                    )}
-
+                    {claimError && <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2 w-full text-left">{claimError}</p>}
                     {account.isAvailable ? (
-                      <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
-                        <Button
-                          className="flex-1 gap-2 font-bold"
-                          onClick={handleClaim}
-                          disabled={claimAccount.isPending}
-                          data-testid="button-claim"
-                        >
-                          {claimAccount.isPending ? (
-                            "Claiming..."
-                          ) : (
-                            <>
-                              <MessageSquare className="h-4 w-4" />
-                              {account.pointsCost === 0 ? "Claim for Free" : `Claim for ${account.pointsCost} pts`}
-                            </>
-                          )}
-                        </Button>
-                        {claimAccount.isPending === false && (
-                          <Button
-                            variant="outline"
-                            className="flex-1 gap-1 text-xs"
-                            onClick={() => queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(id) })}
-                          >
-                            Already Claimed? Refresh
-                          </Button>
-                        )}
-                      </div>
+                      <Button className="gap-2 font-bold" onClick={handleClaim} disabled={claimAccount.isPending}>
+                        {claimAccount.isPending ? "Claiming..." : account.pointsCost === 0 ? "Claim for Free" : `Claim for ${account.pointsCost} pts`}
+                      </Button>
                     ) : (
-                      <Button disabled size="lg" className="w-full max-w-xs">Currently Unavailable</Button>
+                      <Button disabled>Currently Unavailable</Button>
                     )}
                   </div>
                 )}
@@ -312,18 +387,43 @@ export default function AccountDetail() {
                   <CollapsibleSection title="Games List" items={account.games} />
                 </div>
 
-                <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-                  <span className="text-xs text-muted-foreground">
-                    Verification Time: {verifyStr}
-                  </span>
-                  <span className="flex items-center gap-2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                    <BadgeCheck className="h-3.5 w-3.5" />
-                    Account Valid <span className="opacity-75 ml-1">| {verifyShort}</span>
-                  </span>
-                </div>
-                <div className="mt-2 bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-2 text-xs text-green-400 flex items-center gap-2">
-                  <BadgeCheck className="h-3.5 w-3.5 shrink-0" />
-                  Last Verified: {verifyStr} — This account was recently verified successfully, safe to use
+                {/* Working / Not Working votes */}
+                <div className="mt-4 border-t border-border pt-4 space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Community Rating</p>
+                  <div className="flex gap-3">
+                    <Button
+                      size="sm"
+                      variant={(account as any).myVote === "working" ? "default" : "outline"}
+                      onClick={() => user ? voteMutation.mutate({ vote: "working" }) : null}
+                      disabled={!user || voteMutation.isPending}
+                      className={`flex-1 gap-2 ${(account as any).myVote === "working" ? "bg-green-600 hover:bg-green-700 border-green-600" : "border-green-600/30 text-green-600 hover:bg-green-600/10"}`}
+                    >
+                      <ThumbsUp className="h-4 w-4" /> Working
+                      <span className="ml-auto text-xs font-mono">{account.workingVotes ?? 0}</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={(account as any).myVote === "not_working" ? "default" : "outline"}
+                      onClick={() => user ? voteMutation.mutate({ vote: "not_working" }) : null}
+                      disabled={!user || voteMutation.isPending}
+                      className={`flex-1 gap-2 ${(account as any).myVote === "not_working" ? "bg-red-600 hover:bg-red-700 border-red-600" : "border-red-500/30 text-red-500 hover:bg-red-500/10"}`}
+                    >
+                      <ThumbsDown className="h-4 w-4" /> Not Working
+                      <span className="ml-auto text-xs font-mono">{account.notWorkingVotes ?? 0}</span>
+                    </Button>
+                  </div>
+                  {totalVotes > 0 && (
+                    <div className="space-y-1">
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full bg-green-500 transition-all" style={{ width: `${workingPct}%` }} />
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{workingPct}% working</span>
+                        <span>{totalVotes} votes</span>
+                      </div>
+                    </div>
+                  )}
+                  {!user && <p className="text-xs text-muted-foreground">Log in to vote.</p>}
                 </div>
               </div>
             </div>
@@ -350,18 +450,21 @@ export default function AccountDetail() {
                 <div className="flex-1 space-y-2">
                   <Textarea
                     placeholder="Ask a question or leave a comment..."
-                    className="min-h-[100px] resize-none"
+                    className="min-h-[80px] resize-none"
                     value={commentContent}
                     onChange={(e) => setCommentContent(e.target.value)}
-                    data-testid="input-comment"
                   />
-                  {commentError && <p className="text-sm text-red-400">{commentError}</p>}
+                  {commentError && <p className="text-sm text-red-500">{commentError}</p>}
                   <div className="flex justify-end">
-                    <Button
-                      onClick={handleCommentSubmit}
-                      disabled={!commentContent.trim() || createComment.isPending}
-                      data-testid="button-submit-comment"
-                    >
+                    <Button onClick={async () => {
+                      if (!user) { setCommentError("You must be logged in."); return; }
+                      if (!commentContent.trim()) return;
+                      try {
+                        await createComment.mutateAsync({ accountId: id, data: { content: commentContent } });
+                        setCommentContent("");
+                        queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(id) });
+                      } catch (e: any) { setCommentError(e.message || "Could not post"); }
+                    }} disabled={!commentContent.trim() || createComment.isPending}>
                       {createComment.isPending ? "Posting..." : "Post Comment"}
                     </Button>
                   </div>
@@ -370,10 +473,7 @@ export default function AccountDetail() {
 
               <div className="space-y-6">
                 {commentsLoading ? (
-                  <div className="space-y-4">
-                    <Skeleton className="h-20 w-full" />
-                    <Skeleton className="h-20 w-full" />
-                  </div>
+                  <div className="space-y-4"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>
                 ) : comments?.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground italic">No comments yet.</div>
                 ) : (
@@ -388,43 +488,25 @@ export default function AccountDetail() {
                       <div className="flex-1">
                         <div className="flex justify-between items-start">
                           <div>
-                            <Link href={`/profile/${comment.userId}`} className="font-semibold hover:text-primary transition-colors">
-                              {comment.username}
-                            </Link>
-                            <span className="text-xs text-muted-foreground ml-2">
-                              {formatDistanceToNow(new Date(comment.createdAt))} ago
-                            </span>
+                            <Link href={`/profile/${comment.userId}`} className="font-semibold hover:text-primary transition-colors">{comment.username}</Link>
+                            <span className="text-xs text-muted-foreground ml-2">{formatDistanceToNow(new Date(comment.createdAt))} ago</span>
                           </div>
-                          {(user?.id === comment.userId || user?.isAdmin) && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={async () => {
-                                await deleteComment.mutateAsync({ accountId: id, commentId: comment.id });
-                                queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(id) });
-                              }}
-                            >
+                          {(user?.id === comment.userId || user?.isAdmin || (user as any)?.isModerator) && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={async () => { await deleteComment.mutateAsync({ accountId: id, commentId: comment.id }); queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(id) }); }}>
                               <Trash className="h-3 w-3" />
                             </Button>
                           )}
                         </div>
                         <p className="mt-1 text-sm">{comment.content}</p>
                         <div className="mt-2 flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`h-6 px-2 text-xs flex gap-1 ${comment.userHasLiked ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
+                          <Button variant="ghost" size="sm" className={`h-6 px-2 text-xs flex gap-1 ${comment.userHasLiked ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
                             onClick={async () => {
-                              if (!user) { setCommentError("Login required"); return; }
-                              if (comment.userHasLiked) {
-                                await unlikeComment.mutateAsync({ accountId: id, commentId: comment.id });
-                              } else {
-                                await likeComment.mutateAsync({ accountId: id, commentId: comment.id });
-                              }
+                              if (!user) return;
+                              if (comment.userHasLiked) await unlikeComment.mutateAsync({ accountId: id, commentId: comment.id });
+                              else await likeComment.mutateAsync({ accountId: id, commentId: comment.id });
                               queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(id) });
-                            }}
-                          >
+                            }}>
                             <Heart className={`h-3 w-3 ${comment.userHasLiked ? "fill-primary text-primary" : ""}`} />
                             {comment.likesCount}
                           </Button>
@@ -443,12 +525,23 @@ export default function AccountDetail() {
               <h3 className="font-bold mb-4 uppercase tracking-wider text-xs text-muted-foreground">Games Included</h3>
               <div className="flex flex-wrap gap-2">
                 {account.games.map((game, i) => (
-                  <Badge key={i} variant="secondary" className="bg-background border-border text-sm py-1">
-                    {game}
-                  </Badge>
+                  <Badge key={i} variant="secondary" className="bg-background border-border text-sm py-1">{game}</Badge>
                 ))}
               </div>
             </div>
+
+            {/* Message poster */}
+            {user && user.id !== account.userId && (
+              <div className="bg-card border border-border rounded-xl p-6">
+                <h3 className="font-bold mb-3 uppercase tracking-wider text-xs text-muted-foreground">Contact Poster</h3>
+                <Link href={`/messages?with=${account.userId}`}>
+                  <Button variant="outline" className="w-full gap-2">
+                    <MessageCircle className="h-4 w-4" />
+                    Message {account.posterUsername}
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { InfoIcon, ShieldAlert, CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { InfoIcon, CheckCircle2, XCircle, Loader2, Clock } from "lucide-react";
+import { useState, useEffect } from "react";
 
 const formSchema = z.object({
   title: z.string().min(3).max(100),
@@ -32,6 +32,7 @@ export default function Submit() {
   const [submitError, setSubmitError] = useState("");
   const [verifyStatus, setVerifyStatus] = useState<VerifyStatus>("idle");
   const [verifyMessage, setVerifyMessage] = useState("");
+  const [elapsed, setElapsed] = useState(0);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -44,6 +45,13 @@ export default function Submit() {
       steamPassword: "",
     },
   });
+
+  // Tick elapsed timer while checking
+  useEffect(() => {
+    if (verifyStatus !== "checking") { setElapsed(0); return; }
+    const t = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [verifyStatus]);
 
   if (!userLoading && !user) {
     setLocation("/login");
@@ -70,11 +78,16 @@ export default function Submit() {
     }
   };
 
+  // Reset verify status when credentials change
+  const watchUsername = form.watch("steamUsername");
+  const watchPassword = form.watch("steamPassword");
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setSubmitError("");
 
-    if (verifyStatus === "invalid") {
-      setSubmitError("The Steam credentials appear to be invalid. Please verify them first.");
+    // Must be verified before posting
+    if (verifyStatus !== "valid") {
+      setSubmitError("You must verify your Steam credentials before posting. Click 'Check Account' first.");
       return;
     }
 
@@ -102,195 +115,172 @@ export default function Submit() {
     }
   }
 
-  const credWatched = form.watch(["steamUsername", "steamPassword"]);
-  const hasCredentials = !!credWatched[0] && !!credWatched[1];
+  const hasCredentials = !!watchUsername && !!watchPassword;
+  const canSubmit = verifyStatus === "valid";
+
+  const verifyIcon = verifyStatus === "checking"
+    ? <Loader2 className="h-4 w-4 animate-spin" />
+    : verifyStatus === "valid"
+      ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+      : verifyStatus === "invalid"
+        ? <XCircle className="h-4 w-4 text-red-400" />
+        : null;
 
   return (
     <Layout>
       <div className="container mx-auto px-4 py-12 max-w-3xl">
         <div className="mb-8">
           <h1 className="text-3xl font-black">Upload Account</h1>
-          <p className="text-muted-foreground mt-2">Share your Steam account and earn XP. Set a price or offer it for free.</p>
+          <p className="text-muted-foreground mt-2">Share your Steam account and earn XP. You must verify the credentials before posting.</p>
         </div>
 
-        <Alert className="mb-8 bg-blue-500/10 border-blue-500/20 text-blue-400">
+        <Alert className="mb-8 bg-blue-500/10 border-blue-500/20 text-blue-600">
           <InfoIcon className="h-4 w-4" />
           <AlertTitle>Earn Rewards</AlertTitle>
           <AlertDescription>
-            You will earn <strong className="text-blue-300">50 XP</strong> automatically when this account is published. If you set a Points Cost, you will receive those points when someone claims it.
+            You will earn <strong>50 XP</strong> automatically when this account is published. If you set a Points Cost, you receive those points when someone claims it.
           </AlertDescription>
         </Alert>
 
-        <Card className="bg-card border-card-border shadow-xl">
+        <Card className="bg-card border-border shadow-xl">
           <CardHeader>
             <CardTitle>Account Details</CardTitle>
-            <CardDescription>All fields are required. Be honest about the games included.</CardDescription>
+            <CardDescription>Fill in all fields. You must check the account is working before you can post.</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 {submitError && (
-                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400 flex items-center gap-2">
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-500 flex items-center gap-2">
                     <XCircle className="h-4 w-4 flex-shrink-0" />
                     {submitError}
                   </div>
                 )}
 
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Listing Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. CS:GO Prime + Rust + Terraria" data-testid="input-title" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={form.control} name="title" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Listing Title</FormLabel>
+                    <FormControl><Input placeholder="e.g. CS:GO Prime + Rust + Terraria" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-                <FormField
-                  control={form.control}
-                  name="gamesList"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Included Games (Comma Separated)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="CS:GO, Rust, Terraria, Portal 2" data-testid="input-games" {...field} />
-                      </FormControl>
-                      <FormDescription>We use this for the tags and search filters.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={form.control} name="description" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl><Textarea placeholder="Describe the account, games included, any notes..." className="min-h-[100px] resize-none" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
+                <FormField control={form.control} name="gamesList" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Games (comma-separated)</FormLabel>
+                    <FormControl><Input placeholder="CS:GO, Rust, Terraria, GTA V" {...field} /></FormControl>
+                    <FormDescription>Separate each game with a comma.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="pointsCost" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Points Cost (0 = Free)</FormLabel>
+                    <FormControl><Input type="number" min={0} {...field} /></FormControl>
+                    <FormDescription>Set to 0 to offer the account for free.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                {/* Steam Credentials + Verify */}
+                <div className="bg-muted/30 border border-border rounded-xl p-5 space-y-4">
+                  <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Steam Credentials</h3>
+
+                  <FormField control={form.control} name="steamUsername" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description / Notes</FormLabel>
+                      <FormLabel>Steam Username</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Any bans? What rank in comp? Extra inventory items?"
-                          className="min-h-[100px]"
-                          data-testid="input-description"
+                        <Input
+                          placeholder="your_steam_username"
                           {...field}
+                          onChange={(e) => { field.onChange(e); setVerifyStatus("idle"); }}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
+                  )} />
 
-                <FormField
-                  control={form.control}
-                  name="pointsCost"
-                  render={({ field }) => (
+                  <FormField control={form.control} name="steamPassword" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price in Points</FormLabel>
+                      <FormLabel>Steam Password</FormLabel>
                       <FormControl>
-                        <div className="relative w-40">
-                          <Input type="number" min="0" data-testid="input-price" {...field} />
-                        </div>
+                        <Input
+                          type="password"
+                          placeholder="••••••••••"
+                          {...field}
+                          onChange={(e) => { field.onChange(e); setVerifyStatus("idle"); }}
+                        />
                       </FormControl>
-                      <FormDescription>Set to 0 to make it free for anyone to claim.</FormDescription>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
+                  )} />
 
-                <div className="bg-muted/30 p-6 rounded-lg border border-border mt-8 space-y-4">
-                  <div className="flex items-center gap-2 text-yellow-500 mb-2">
-                    <ShieldAlert className="h-5 w-5" />
-                    <h3 className="font-bold">Secure Credentials Drop</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    These details are encrypted and will ONLY be revealed to the user who claims this account. Do not share your primary personal account.
-                  </p>
+                  {/* Verify Button + Status */}
+                  <div className="space-y-2">
+                    <Button
+                      type="button"
+                      variant={verifyStatus === "valid" ? "outline" : "default"}
+                      onClick={handleVerify}
+                      disabled={!hasCredentials || verifyStatus === "checking"}
+                      className="gap-2 w-full"
+                    >
+                      {verifyIcon}
+                      {verifyStatus === "checking"
+                        ? `Checking... ${elapsed}s (est. 15-20s)`
+                        : verifyStatus === "valid"
+                          ? "✓ Account Verified — Re-check"
+                          : "Check Account"}
+                    </Button>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="steamUsername"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Steam Username</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="username123"
-                              data-testid="input-steam-user"
-                              {...field}
-                              onChange={(e) => { field.onChange(e); setVerifyStatus("idle"); }}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="steamPassword"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Steam Password</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="password"
-                              placeholder="••••••••"
-                              data-testid="input-steam-pass"
-                              {...field}
-                              onChange={(e) => { field.onChange(e); setVerifyStatus("idle"); }}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={handleVerify}
-                    disabled={!hasCredentials || verifyStatus === "checking"}
-                  >
-                    {verifyStatus === "checking" ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Checking Steam...</>
-                    ) : (
-                      "Verify Credentials"
+                    {verifyStatus === "checking" && (
+                      <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg px-4 py-3 text-sm text-blue-600 flex items-center gap-2">
+                        <Clock className="h-4 w-4 shrink-0" />
+                        <div>
+                          <p className="font-medium">Contacting Steam servers…</p>
+                          <p className="text-xs opacity-80 mt-0.5">Estimated wait: 15–20 seconds. Please don't close this tab.</p>
+                        </div>
+                      </div>
                     )}
-                  </Button>
 
-                  {verifyStatus !== "idle" && verifyStatus !== "checking" && (
-                    <div className={`flex items-start gap-2 rounded-lg px-4 py-3 text-sm mt-2 ${
-                      verifyStatus === "valid"
-                        ? "bg-green-500/10 border border-green-500/20 text-green-400"
-                        : verifyStatus === "invalid"
-                        ? "bg-red-500/10 border border-red-500/20 text-red-400"
-                        : "bg-yellow-500/10 border border-yellow-500/20 text-yellow-400"
-                    }`}>
-                      {verifyStatus === "valid" ? (
-                        <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                      ) : verifyStatus === "invalid" ? (
-                        <XCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                      ) : (
-                        <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                      )}
-                      <span>{verifyMessage || "Unknown result"}</span>
-                    </div>
-                  )}
+                    {verifyStatus === "valid" && (
+                      <div className="bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-3 text-sm text-green-600 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 shrink-0" />
+                        {verifyMessage || "Credentials verified — account is valid!"}
+                      </div>
+                    )}
+
+                    {(verifyStatus === "invalid" || verifyStatus === "error" || verifyStatus === "rate_limited") && (
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-500 flex items-center gap-2">
+                        <XCircle className="h-4 w-4 shrink-0" />
+                        {verifyMessage || "Could not verify credentials. Please check them and try again."}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="pt-4 flex justify-end">
-                  <Button type="submit" size="lg" disabled={createAccount.isPending} data-testid="button-submit-form">
-                    {createAccount.isPending ? "Encrypting & Uploading..." : "Publish Account"}
-                  </Button>
-                </div>
+                <Button
+                  type="submit"
+                  className="w-full font-bold h-12"
+                  disabled={!canSubmit || createAccount.isPending}
+                  title={!canSubmit ? "You must verify the account first" : ""}
+                >
+                  {createAccount.isPending ? "Publishing..." : canSubmit ? "Publish Account" : "Verify Account First to Publish"}
+                </Button>
+
+                {!canSubmit && verifyStatus === "idle" && (
+                  <p className="text-xs text-center text-muted-foreground">
+                    Use the "Check Account" button above to verify your credentials before posting.
+                  </p>
+                )}
               </form>
             </Form>
           </CardContent>

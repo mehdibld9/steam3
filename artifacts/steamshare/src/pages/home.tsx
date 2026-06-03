@@ -55,7 +55,7 @@ export default function Home() {
 
           <h1 className="text-4xl md:text-6xl font-black tracking-tight text-foreground mb-6 leading-tight">
             Welcome to{" "}
-            <span className="text-primary">SteamShare</span>
+            <span className="text-primary">Steam Family</span>
           </h1>
 
           <p className="text-base md:text-lg text-muted-foreground max-w-xl mb-10">
@@ -101,7 +101,7 @@ export default function Home() {
       <section className="border-b border-border py-16">
         <div className="container mx-auto px-4">
           <h2 className="text-2xl md:text-3xl font-black text-center mb-2">
-            Why Choose <span className="text-primary">SteamShare</span>?
+            Why Choose <span className="text-primary">Steam Family</span>?
           </h2>
           <p className="text-muted-foreground text-center mb-10 text-sm">Everything you need to trade and earn in one place.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 max-w-4xl mx-auto">
