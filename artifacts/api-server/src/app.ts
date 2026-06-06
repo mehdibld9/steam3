@@ -1,5 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import pinoHttp from "pino-http";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -8,6 +10,8 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
+
+app.set("trust proxy", 1);
 
 const PgSession = connectPgSimple(session);
 
@@ -45,7 +49,7 @@ app.use(
   session({
     store: new PgSession({
       pool,
-      createTableIfMissing: false,
+      createTableIfMissing: true,
     }),
     secret: process.env.SESSION_SECRET ?? "steamshare-dev-secret",
     resave: false,
@@ -54,11 +58,22 @@ app.use(
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
       maxAge: 30 * 24 * 60 * 60 * 1000,
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      sameSite: "lax",
     },
   }),
 );
 
 app.use("/api", router);
+
+const staticDir = path.resolve(
+  fileURLToPath(import.meta.url),
+  "../../steamshare/dist/public",
+);
+
+app.use(express.static(staticDir));
+
+app.get(/^(?!\/api).*/, (_req, res) => {
+  res.sendFile(path.join(staticDir, "index.html"));
+});
 
 export default app;
