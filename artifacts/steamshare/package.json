@@ -1,22 +1,20 @@
 {
-  "name": "steam3",
-  "version": "1.0.0",
-  "packageManager": "pnpm@11.5.2",
-  "dependencies": {
-    ...
-  }
-}
-{
   "name": "@workspace/steamshare",
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.5.2",
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
     "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "lucide-react": "^0.545.0",
+    "react": "^19.1.0"
+  }
+}
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.4",
