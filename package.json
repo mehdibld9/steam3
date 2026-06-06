@@ -11,8 +11,9 @@
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22 <25"
   },
+  "packageManager": "pnpm@11.5.2",
   "private": true,
   "devDependencies": {
     "prettier": "^3.8.3",
