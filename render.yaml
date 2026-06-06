@@ -1,9 +1,3 @@
-databases:
-  - name: steamshare-db
-    plan: free
-    databaseName: steamshare
-    user: steamshare
-
 services:
   - type: web
     name: steamshare
@@ -23,6 +17,4 @@ services:
       - key: SESSION_SECRET
         generateValue: true
       - key: DATABASE_URL
-        fromDatabase:
-          name: steamshare-db
-          property: connectionString
+        sync: false
