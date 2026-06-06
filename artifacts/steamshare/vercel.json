@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "cd ../.. && npx --yes pnpm@11.5.2 install --filter @workspace/steamshare...",
+  "installCommand": "cd ../.. && npx --yes pnpm@10 install --filter @workspace/steamshare..."
   "buildCommand": "cd ../.. && PORT=3000 BASE_PATH=/ npx --yes pnpm@11.5.2 --filter @workspace/steamshare run build",
   "outputDirectory": "dist/public",
   "framework": null,
