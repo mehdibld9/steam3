@@ -1,4 +1,12 @@
 {
+  "name": "steam3",
+  "version": "1.0.0",
+  "packageManager": "pnpm@11.5.2",
+  "dependencies": {
+    ...
+  }
+}
+{
   "name": "@workspace/steamshare",
   "version": "0.0.0",
   "private": true,
