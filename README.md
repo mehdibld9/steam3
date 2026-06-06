@@ -103,6 +103,26 @@ The web service serves both the React frontend and the Express API from one orig
 
 ---
 
+## Deploy frontend to Vercel
+
+Vercel only hosts the **frontend** unless you refactor the Express API. Use these settings:
+
+| Setting | Value |
+|---------|--------|
+| **Root Directory** | *(leave empty — repo root)* |
+| **Framework Preset** | Other |
+| **Install Command** | *(leave empty — uses `vercel.json`)* |
+| **Build Command** | *(leave empty — uses `vercel.json`)* |
+| **Output Directory** | `artifacts/steamshare/dist/public` if root is repo root, or `dist/public` if root is `artifacts/steamshare` |
+
+**Do not use `public`** — Vite outputs to `dist/public`.
+
+Do **not** use `cd ../.. && pnpm install` — Vercel installs from the repo root automatically.
+
+If you set Root Directory to `artifacts/steamshare` instead, clear the Install Command and enable **Include source files outside of the Root Directory** in project settings.
+
+---
+
 ## Push to GitHub
 
 ```bash
