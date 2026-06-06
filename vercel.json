@@ -1,7 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "corepack enable && corepack prepare pnpm@11.5.2 --activate && pnpm install --frozen-lockfile",
-  "buildCommand": "PORT=3000 BASE_PATH=/ pnpm --filter @workspace/steamshare run build",
   "outputDirectory": "artifacts/steamshare/dist/public",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
