@@ -14,6 +14,7 @@ import {
   useDeleteAccount,
   useGetMe,
   getGetMeQueryKey,
+  useGetUser,
 } from "@workspace/api-client-react";
 import { useParams, Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -197,6 +198,7 @@ export default function AccountDetail() {
   };
 
   const canManage = user && account && (user.id === account.userId || user.isAdmin || (user as any).isModerator);
+  const { data: poster } = useGetUser(account?.userId ?? 0);
 
   if (accountLoading) return (
     <Layout>
@@ -380,10 +382,9 @@ export default function AccountDetail() {
                   {!user && <p className="text-xs text-muted-foreground">Log in to vote.</p>}
                 </div>
 
-                {/* Like · Message · Report row */}
-                <div className="mt-4 pt-4 border-t border-border flex gap-2 flex-wrap">
-                  {/* Like — hidden from owner */}
-                  {user?.id !== account.userId && (
+                {/* Like row */}
+                {user?.id !== account.userId && (
+                  <div className="mt-4 pt-4 border-t border-border flex gap-2 flex-wrap">
                     <Button
                       size="sm"
                       variant={account.userHasLiked ? "default" : "outline"}
@@ -395,53 +396,9 @@ export default function AccountDetail() {
                       {account.userHasLiked ? "Liked" : "Like"}
                       <span className="text-xs font-mono">{account.likesCount}</span>
                     </Button>
-                  )}
-
-                  {/* Message poster — only for logged-in non-owners */}
-                  {user && user.id !== account.userId && (
-                    <Link href={`/messages?user=${account.userId}&username=${encodeURIComponent(account.posterUsername ?? "")}`}>
-                      <Button size="sm" variant="outline" className="gap-2">
-                        <MessageCircle className="h-4 w-4" /> Message
-                      </Button>
-                    </Link>
-                  )}
-
-                  {/* Report — only for logged-in non-owners */}
-                  {user && user.id !== account.userId && (
-                    <Dialog open={reportOpen} onOpenChange={setReportOpen}>
-                      <DialogTrigger asChild>
-                        <Button size="sm" variant="ghost" className="gap-2 text-muted-foreground hover:text-red-500">
-                          <Flag className="h-4 w-4" /> Report
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="bg-card border-border max-w-sm">
-                        <DialogHeader><DialogTitle>Report this post</DialogTitle></DialogHeader>
-                        <div className="space-y-4 pt-2">
-                          <div className="space-y-1">
-                            <label className="text-sm font-medium">Reason</label>
-                            <select className="w-full border border-border rounded-lg px-3 py-2 bg-background text-sm" value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
-                              <option value="">Select a reason...</option>
-                              <option value="spam">Spam or misleading</option>
-                              <option value="fake">Fake or invalid credentials</option>
-                              <option value="inappropriate">Inappropriate content</option>
-                              <option value="scam">Potential scam</option>
-                              <option value="other">Other</option>
-                            </select>
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-sm font-medium">Details (optional)</label>
-                            <Textarea placeholder="Add more details..." value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} className="resize-none" rows={3} />
-                          </div>
-                          <Button className="w-full" onClick={() => reportMutation.mutate()} disabled={!reportReason || reportMutation.isPending}>
-                            {reportMutation.isPending ? "Submitting..." : "Submit Report"}
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  )}
-
-                  {likeError && <p className="text-xs text-red-500 w-full">{likeError}</p>}
-                </div>
+                    {likeError && <p className="text-xs text-red-500">{likeError}</p>}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -536,29 +493,88 @@ export default function AccountDetail() {
             </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            <div className="bg-card border border-border rounded-xl p-6">
-              <h3 className="font-bold mb-4 uppercase tracking-wider text-xs text-muted-foreground">Games Included</h3>
-              <div className="flex flex-wrap gap-2">
-                {account.games.map((game, i) => (
-                  <Badge key={i} variant="secondary" className="bg-background border-border text-sm py-1">{game}</Badge>
-                ))}
-              </div>
+          {/* Sidebar — Poster Profile */}
+          <div className="space-y-4">
+            <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Posted by</p>
+
+              {/* Avatar + username */}
+              <Link href={`/profile/${account.userId}`} className="flex items-center gap-3 group">
+                <Avatar className="h-12 w-12 border border-border group-hover:border-primary transition-colors">
+                  <AvatarImage src={poster?.avatarUrl || undefined} />
+                  <AvatarFallback>{account.posterUsername?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-bold group-hover:text-primary transition-colors">{account.posterUsername}</p>
+                  {poster?.badgeName && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary mt-0.5">{poster.badgeName}</Badge>
+                  )}
+                </div>
+              </Link>
+
+              {/* Stats row */}
+              {poster && (
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-muted/30 rounded-lg p-2">
+                    <p className="text-xs text-muted-foreground">Level</p>
+                    <p className="font-bold text-sm">{poster.level}</p>
+                  </div>
+                  <div className="bg-muted/30 rounded-lg p-2">
+                    <p className="text-xs text-muted-foreground">Points</p>
+                    <p className="font-bold text-sm">{poster.points.toLocaleString()}</p>
+                  </div>
+                  <div className="bg-muted/30 rounded-lg p-2">
+                    <p className="text-xs text-muted-foreground">XP</p>
+                    <p className="font-bold text-sm">{poster.xp.toLocaleString()}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Message + Report — non-owners only */}
+              {user && user.id !== account.userId && (
+                <div className="space-y-2">
+                  <Link href={`/messages?user=${account.userId}&username=${encodeURIComponent(account.posterUsername ?? "")}`}>
+                    <Button variant="outline" className="w-full gap-2">
+                      <MessageCircle className="h-4 w-4" /> Message {account.posterUsername}
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="ghost"
+                    className="w-full gap-2 text-muted-foreground hover:text-red-500 text-sm"
+                    onClick={() => setReportOpen(true)}
+                  >
+                    <Flag className="h-4 w-4" /> Report this post
+                  </Button>
+                </div>
+              )}
             </div>
 
-            {/* Message poster */}
-            {user && user.id !== account.userId && (
-              <div className="bg-card border border-border rounded-xl p-6">
-                <h3 className="font-bold mb-3 uppercase tracking-wider text-xs text-muted-foreground">Contact Poster</h3>
-                <Link href={`/messages?with=${account.userId}`}>
-                  <Button variant="outline" className="w-full gap-2">
-                    <MessageCircle className="h-4 w-4" />
-                    Message {account.posterUsername}
+            {/* Hidden report dialog — triggered by sidebar button */}
+            <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+              <DialogContent className="bg-card border-border max-w-sm">
+                <DialogHeader><DialogTitle>Report this post</DialogTitle></DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Reason</label>
+                    <select className="w-full border border-border rounded-lg px-3 py-2 bg-background text-sm" value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
+                      <option value="">Select a reason...</option>
+                      <option value="spam">Spam or misleading</option>
+                      <option value="fake">Fake or invalid credentials</option>
+                      <option value="inappropriate">Inappropriate content</option>
+                      <option value="scam">Potential scam</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Details (optional)</label>
+                    <Textarea placeholder="Add more details..." value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} className="resize-none" rows={3} />
+                  </div>
+                  <Button className="w-full" onClick={() => reportMutation.mutate()} disabled={!reportReason || reportMutation.isPending}>
+                    {reportMutation.isPending ? "Submitting..." : "Submit Report"}
                   </Button>
-                </Link>
-              </div>
-            )}
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>
