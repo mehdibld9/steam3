@@ -29,7 +29,7 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import {
   Heart, Coins, MessageSquare, Trash, Lock,
   Copy, CheckCheck, ChevronDown, ChevronUp,
-  ThumbsUp, ThumbsDown, Flag, Edit2, Check, X, Shield, MessageCircle,
+  ThumbsUp, ThumbsDown, Flag, Edit2, Check, X, Shield, MessageCircle, Eye,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -224,6 +224,7 @@ export default function AccountDetail() {
 
   const totalVotes = (account.workingVotes ?? 0) + (account.notWorkingVotes ?? 0);
   const workingPct = totalVotes > 0 ? Math.round(((account.workingVotes ?? 0) / totalVotes) * 100) : 0;
+  const viewCount = (account as any).viewCount ?? 0;
 
   return (
     <Layout>
@@ -282,6 +283,9 @@ export default function AccountDetail() {
                 {account.isAvailable ? "Available" : "Claimed"}
               </div>
               <div className="text-xs text-muted-foreground">{account.claimsCount} past claims</div>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Eye className="h-3 w-3" /> {viewCount.toLocaleString()} views
+              </div>
 
               {/* Admin/Mod/Owner actions only */}
               {canManage && (
@@ -329,13 +333,30 @@ export default function AccountDetail() {
                       </p>
                     </div>
                     {claimError && <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2 w-full text-left">{claimError}</p>}
-                    {account.isAvailable ? (
-                      <Button className="gap-2 font-bold" onClick={handleClaim} disabled={claimAccount.isPending}>
-                        {claimAccount.isPending ? "Claiming..." : account.pointsCost === 0 ? "Claim for Free" : `Claim for ${account.pointsCost} pts`}
-                      </Button>
-                    ) : (
-                      <Button disabled>Currently Unavailable</Button>
-                    )}
+                    {(() => {
+                      const method = (account as any).unlockMethod ?? "login";
+                      const isOwner = user?.id === account.userId;
+                      const gateBlocked = !isOwner && user && (
+                        (method === "like" && !account.userHasLiked) ||
+                        (method === "comment" && !(account as any).userHasCommented)
+                      );
+                      if (gateBlocked) {
+                        return (
+                          <Button disabled variant="outline" className="gap-2 font-bold w-full">
+                            <Lock className="h-4 w-4" />
+                            {method === "like" ? "Like to Unlock" : "Comment to Unlock"}
+                          </Button>
+                        );
+                      }
+                      if (account.isAvailable) {
+                        return (
+                          <Button className="gap-2 font-bold" onClick={handleClaim} disabled={claimAccount.isPending}>
+                            {claimAccount.isPending ? "Claiming..." : account.pointsCost === 0 ? "Claim for Free" : `Claim for ${account.pointsCost} pts`}
+                          </Button>
+                        );
+                      }
+                      return <Button disabled>Currently Unavailable</Button>;
+                    })()}
                   </div>
                 )}
 
@@ -343,7 +364,7 @@ export default function AccountDetail() {
                   <CollapsibleSection title="Games List" items={account.games} />
                 </div>
 
-                {/* Working / Not Working votes */}
+                {/* Community Rating + Like + Report — 4 buttons in 2 rows */}
                 <div className="mt-4 border-t border-border pt-4 space-y-3">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Community Rating</p>
                   <div className="flex gap-3">
@@ -368,6 +389,31 @@ export default function AccountDetail() {
                       <span className="ml-auto text-xs font-mono">{account.notWorkingVotes ?? 0}</span>
                     </Button>
                   </div>
+
+                  {/* Like + Report — same style & size as Working/Not Working, visible to all */}
+                  <div className="flex gap-3">
+                    <Button
+                      size="sm"
+                      variant={account.userHasLiked ? "default" : "outline"}
+                      onClick={() => { if (!user) { setLikeError("Log in to like."); return; } handleLike(); }}
+                      disabled={likeAccount.isPending || unlikeAccount.isPending}
+                      className={`flex-1 gap-2 ${account.userHasLiked ? "bg-primary hover:bg-primary/90 border-primary" : "border-primary/30 text-primary hover:bg-primary/10"}`}
+                    >
+                      <Heart className={`h-4 w-4 ${account.userHasLiked ? "fill-white" : ""}`} />
+                      {account.userHasLiked ? "Liked" : "Like"}
+                      <span className="ml-auto text-xs font-mono">{account.likesCount}</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { if (!user) return; setReportOpen(true); }}
+                      disabled={!user}
+                      className="flex-1 gap-2 border-red-500/30 text-red-500 hover:bg-red-500/10"
+                    >
+                      <Flag className="h-4 w-4" /> Report
+                    </Button>
+                  </div>
+
                   {totalVotes > 0 && (
                     <div className="space-y-1">
                       <div className="h-2 rounded-full bg-muted overflow-hidden">
@@ -379,26 +425,33 @@ export default function AccountDetail() {
                       </div>
                     </div>
                   )}
-                  {!user && <p className="text-xs text-muted-foreground">Log in to vote.</p>}
+                  {likeError && <p className="text-xs text-red-500">{likeError}</p>}
+                  {!user && <p className="text-xs text-muted-foreground">Log in to vote, like, or report.</p>}
                 </div>
 
-                {/* Like row */}
-                {user?.id !== account.userId && (
-                  <div className="mt-4 pt-4 border-t border-border flex gap-2 flex-wrap">
-                    <Button
-                      size="sm"
-                      variant={account.userHasLiked ? "default" : "outline"}
-                      className={`gap-2 ${account.userHasLiked ? "bg-primary/90" : ""}`}
-                      onClick={handleLike}
-                      disabled={likeAccount.isPending || unlikeAccount.isPending}
-                    >
-                      <Heart className={`h-4 w-4 ${account.userHasLiked ? "fill-white" : ""}`} />
-                      {account.userHasLiked ? "Liked" : "Like"}
-                      <span className="text-xs font-mono">{account.likesCount}</span>
-                    </Button>
-                    {likeError && <p className="text-xs text-red-500">{likeError}</p>}
-                  </div>
-                )}
+                {/* Unlock gate — shown when unlock method is like or comment and not yet met */}
+                {(() => {
+                  const method = (account as any).unlockMethod ?? "login";
+                  const hasLiked = account.userHasLiked;
+                  const hasCommented = (account as any).userHasCommented;
+                  if (method === "like" && !hasLiked && user && user.id !== account.userId) {
+                    return (
+                      <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-center space-y-2">
+                        <p className="font-medium text-primary">Like this post to unlock credentials</p>
+                        <p className="text-xs text-muted-foreground">The author requires a like before you can claim.</p>
+                      </div>
+                    );
+                  }
+                  if (method === "comment" && !hasCommented && user && user.id !== account.userId) {
+                    return (
+                      <div className="mt-3 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 text-sm text-center space-y-2">
+                        <p className="font-medium text-amber-600">Leave a comment to unlock credentials</p>
+                        <p className="text-xs text-muted-foreground">The author requires a comment before you can claim.</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
 

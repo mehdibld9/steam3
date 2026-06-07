@@ -20,6 +20,7 @@ const formSchema = z.object({
   pointsCost: z.coerce.number().min(0),
   steamUsername: z.string().min(1, "Steam username is required"),
   steamPassword: z.string().min(1, "Steam password is required"),
+  unlockMethod: z.enum(["login", "like", "comment"]).default("login"),
 });
 
 type VerifyStatus = "idle" | "checking" | "valid" | "invalid" | "rate_limited" | "error";
@@ -43,6 +44,7 @@ export default function Submit() {
       pointsCost: 0,
       steamUsername: "",
       steamPassword: "",
+      unlockMethod: "login",
     },
   });
 
@@ -114,7 +116,8 @@ export default function Submit() {
           pointsCost: values.pointsCost,
           steamUsername: values.steamUsername,
           steamPassword: values.steamPassword,
-        },
+          unlockMethod: values.unlockMethod,
+        } as any,
       });
 
       setLocation(`/accounts/${res.id}`);
@@ -195,6 +198,25 @@ export default function Submit() {
                     <FormLabel>Points Cost (0 = Free)</FormLabel>
                     <FormControl><Input type="number" min={0} {...field} /></FormControl>
                     <FormDescription>Set to 0 to offer the account for free.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="unlockMethod" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Unlock Requirement</FormLabel>
+                    <FormControl>
+                      <select
+                        className="w-full border border-border rounded-lg px-3 py-2 bg-background text-sm"
+                        value={field.value}
+                        onChange={field.onChange}
+                      >
+                        <option value="login">Login only — anyone logged in can claim</option>
+                        <option value="like">Must Like — viewer must like the post first</option>
+                        <option value="comment">Must Comment — viewer must comment first</option>
+                      </select>
+                    </FormControl>
+                    <FormDescription>Choose what action a viewer must complete before they can see the credentials.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )} />

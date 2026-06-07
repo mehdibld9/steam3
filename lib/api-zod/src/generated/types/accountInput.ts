@@ -5,6 +5,7 @@
  * SteamShare API - Steam account marketplace with points, XP, and badges
  * OpenAPI spec version: 0.1.0
  */
+import type { AccountInputUnlockMethod } from './accountInputUnlockMethod';
 
 export interface AccountInput {
   /**
@@ -20,4 +21,5 @@ export interface AccountInput {
   pointsCost: number;
   steamUsername: string;
   steamPassword: string;
+  unlockMethod?: AccountInputUnlockMethod;
 }

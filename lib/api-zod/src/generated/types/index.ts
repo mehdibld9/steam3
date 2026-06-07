@@ -8,7 +8,9 @@
 
 export * from './account';
 export * from './accountInput';
+export * from './accountInputUnlockMethod';
 export * from './accountListResponse';
+export * from './accountUnlockMethod';
 export * from './adLink';
 export * from './adLinkInput';
 export * from './apiError';

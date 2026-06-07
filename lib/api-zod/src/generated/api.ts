@@ -110,7 +110,10 @@ export const ListAccountsResponse = zod.object({
   "isAvailable": zod.boolean(),
   "likesCount": zod.number(),
   "claimsCount": zod.number(),
+  "viewCount": zod.number().optional(),
+  "unlockMethod": zod.enum(['login', 'like', 'comment']).optional(),
   "userHasLiked": zod.boolean().optional(),
+  "userHasCommented": zod.boolean().optional(),
   "createdAt": zod.coerce.date()
 })),
   "total": zod.number(),
@@ -138,7 +141,8 @@ export const CreateAccountBody = zod.object({
   "games": zod.array(zod.string()).min(1),
   "pointsCost": zod.number().min(createAccountBodyPointsCostMin),
   "steamUsername": zod.string(),
-  "steamPassword": zod.string()
+  "steamPassword": zod.string(),
+  "unlockMethod": zod.enum(['login', 'like', 'comment']).optional()
 })
 
 
@@ -172,7 +176,10 @@ export const GetAccountResponse = zod.object({
   "isAvailable": zod.boolean(),
   "likesCount": zod.number(),
   "claimsCount": zod.number(),
+  "viewCount": zod.number().optional(),
+  "unlockMethod": zod.enum(['login', 'like', 'comment']).optional(),
   "userHasLiked": zod.boolean().optional(),
+  "userHasCommented": zod.boolean().optional(),
   "createdAt": zod.coerce.date()
 })
 
@@ -368,7 +375,10 @@ export const GetUserAccountsResponseItem = zod.object({
   "isAvailable": zod.boolean(),
   "likesCount": zod.number(),
   "claimsCount": zod.number(),
+  "viewCount": zod.number().optional(),
+  "unlockMethod": zod.enum(['login', 'like', 'comment']).optional(),
   "userHasLiked": zod.boolean().optional(),
+  "userHasCommented": zod.boolean().optional(),
   "createdAt": zod.coerce.date()
 })
 export const GetUserAccountsResponse = zod.array(GetUserAccountsResponseItem)

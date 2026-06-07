@@ -17,6 +17,8 @@ export const accountsTable = pgTable("accounts", {
   claimsCount: integer("claims_count").notNull().default(0),
   workingVotes: integer("working_votes").notNull().default(0),
   notWorkingVotes: integer("not_working_votes").notNull().default(0),
+  viewCount: integer("view_count").notNull().default(0),
+  unlockMethod: text("unlock_method").notNull().default("login"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -27,6 +29,7 @@ export const insertAccountSchema = createInsertSchema(accountsTable).omit({
   claimsCount: true,
   workingVotes: true,
   notWorkingVotes: true,
+  viewCount: true,
   createdAt: true,
 });
 export type InsertAccount = z.infer<typeof insertAccountSchema>;

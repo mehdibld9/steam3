@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, accountsTable, usersTable, likesTable, accountVotesTable } from "@workspace/db";
+import { db, accountsTable, usersTable, likesTable, accountVotesTable, commentsTable } from "@workspace/db";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { CreateAccountBody } from "@workspace/api-zod";
 import { requireAuth, requireModOrAdmin } from "../middlewares/auth";
@@ -118,11 +118,12 @@ router.post("/", requireAuth, async (req, res) => {
   }
 
   const userId = req.session.userId!;
-  const { title, description, games, pointsCost, steamUsername, steamPassword } = parsed.data;
+  const { title, description, games, pointsCost, steamUsername, steamPassword, unlockMethod } = parsed.data as typeof parsed.data & { unlockMethod?: string };
+  const safeUnlockMethod = ["login", "like", "comment"].includes(unlockMethod ?? "") ? (unlockMethod as "login" | "like" | "comment") : "login";
 
   const [account] = await db
     .insert(accountsTable)
-    .values({ userId, title, description, games, pointsCost, steamUsername, steamPassword })
+    .values({ userId, title, description, games, pointsCost, steamUsername, steamPassword, unlockMethod: safeUnlockMethod })
     .returning();
 
   await addXp(userId, 50);
@@ -159,6 +160,8 @@ router.get("/:accountId", async (req, res) => {
       claimsCount: accountsTable.claimsCount,
       workingVotes: accountsTable.workingVotes,
       notWorkingVotes: accountsTable.notWorkingVotes,
+      viewCount: accountsTable.viewCount,
+      unlockMethod: accountsTable.unlockMethod,
       createdAt: accountsTable.createdAt,
       posterUsername: usersTable.username,
       posterAvatarUrl: usersTable.avatarUrl,
@@ -175,8 +178,15 @@ router.get("/:accountId", async (req, res) => {
     return;
   }
 
+  // Increment view count (fire-and-forget)
+  db.update(accountsTable)
+    .set({ viewCount: sql`${accountsTable.viewCount} + 1` })
+    .where(eq(accountsTable.id, accountId))
+    .catch(() => {});
+
   let userHasLiked = false;
   let myVote: string | null = null;
+  let userHasCommented = false;
   if (userId) {
     const [like] = await db.select().from(likesTable)
       .where(and(eq(likesTable.userId, userId), eq(likesTable.targetType, "account"), eq(likesTable.targetId, accountId)))
@@ -187,9 +197,14 @@ router.get("/:accountId", async (req, res) => {
       .where(and(eq(accountVotesTable.userId, userId), eq(accountVotesTable.accountId, accountId)))
       .limit(1);
     myVote = voteRow?.vote ?? null;
+
+    const [commentRow] = await db.select({ id: commentsTable.id }).from(commentsTable)
+      .where(and(eq(commentsTable.userId, userId), eq(commentsTable.accountId, accountId)))
+      .limit(1);
+    userHasCommented = !!commentRow;
   }
 
-  res.json({ ...account, username: account.posterUsername ?? "", userHasLiked, myVote });
+  res.json({ ...account, username: account.posterUsername ?? "", userHasLiked, myVote, userHasCommented });
 });
 
 // Edit account (owner / admin / mod)
@@ -268,6 +283,26 @@ router.post("/:accountId/claim", requireAuth, async (req, res) => {
   if (user.points < account.pointsCost) {
     res.status(400).json({ error: "Not enough points" });
     return;
+  }
+
+  // Enforce unlock method
+  const unlockMethod = account.unlockMethod ?? "login";
+  if (unlockMethod === "like") {
+    const [like] = await db.select().from(likesTable)
+      .where(and(eq(likesTable.userId, userId), eq(likesTable.targetType, "account"), eq(likesTable.targetId, accountId)))
+      .limit(1);
+    if (!like) {
+      res.status(403).json({ error: "You must like this post before claiming." });
+      return;
+    }
+  } else if (unlockMethod === "comment") {
+    const [comment] = await db.select({ id: commentsTable.id }).from(commentsTable)
+      .where(and(eq(commentsTable.userId, userId), eq(commentsTable.accountId, accountId)))
+      .limit(1);
+    if (!comment) {
+      res.status(403).json({ error: "You must leave a comment before claiming." });
+      return;
+    }
   }
 
   await db.update(usersTable).set({ points: sql`${usersTable.points} - ${account.pointsCost}` }).where(eq(usersTable.id, userId));
