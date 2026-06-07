@@ -4,14 +4,14 @@
   "buildCommand": "pnpm install && pnpm --filter @workspace/steamshare run build && mkdir -p dist && cp -r artifacts/steamshare/dist/. dist/",
   "outputDirectory": "dist",
   "functions": {
-    "artifacts/api-server/api/index.ts": {
-      "maxDuration": 10
+    "api/index.ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "/artifacts/api-server/api/index.ts"
+      "destination": "/api/index.ts"
     },
     {
       "source": "/((?!api).*)",
