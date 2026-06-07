@@ -72,6 +72,14 @@ export default function Submit() {
       });
       setVerifyStatus(result.status as VerifyStatus);
       setVerifyMessage(result.message);
+
+      // Auto-fill games list if Steam returned games
+      if (result.status === "valid" && result.games && result.games.length > 0) {
+        const currentGames = form.getValues("gamesList");
+        if (!currentGames || currentGames.trim() === "") {
+          form.setValue("gamesList", result.games.join(", "), { shouldValidate: true });
+        }
+      }
     } catch (e: any) {
       setVerifyStatus("error");
       setVerifyMessage(e.message || "Could not reach Steam servers");

@@ -518,7 +518,9 @@ export const VerifyCredentialsBody = zod.object({
 
 export const VerifyCredentialsResponse = zod.object({
   "status": zod.enum(['valid', 'invalid', 'rate_limited', 'error']),
-  "message": zod.string()
+  "message": zod.string(),
+  "games": zod.array(zod.string()).optional(),
+  "steamid": zod.string().optional()
 })
 
 

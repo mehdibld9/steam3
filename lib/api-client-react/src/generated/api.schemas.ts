@@ -229,6 +229,8 @@ export const VerifyCredentialsResultStatus = {
 export interface VerifyCredentialsResult {
   status: VerifyCredentialsResultStatus;
   message: string;
+  games?: string[];
+  steamid?: string;
 }
 
 export interface Giveaway {

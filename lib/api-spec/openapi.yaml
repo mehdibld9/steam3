@@ -1264,6 +1264,12 @@ components:
           enum: [valid, invalid, rate_limited, error]
         message:
           type: string
+        games:
+          type: array
+          items:
+            type: string
+        steamid:
+          type: string
 
     Giveaway:
       type: object
