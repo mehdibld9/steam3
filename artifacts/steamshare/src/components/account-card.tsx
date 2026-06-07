@@ -62,7 +62,7 @@ export function AccountCard({ account }: AccountCardProps) {
               <Avatar className="h-6 w-6 border border-border">
                 <AvatarImage src={account.posterAvatarUrl || undefined} />
                 <AvatarFallback className="text-[10px] bg-secondary">
-                  {account.posterUsername?.substring(0, 2).toUpperCase() || "U"}
+                  {(account.posterUsername?.substring(0, 2) ?? "U").toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <span className="text-xs font-medium">{account.posterUsername}</span>

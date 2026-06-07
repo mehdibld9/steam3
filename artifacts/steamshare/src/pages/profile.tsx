@@ -107,7 +107,7 @@ export default function Profile() {
           <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative z-10">
             <Avatar className="h-28 w-28 border-4 border-background shadow-xl">
               <AvatarImage src={user.avatarUrl || undefined} />
-              <AvatarFallback className="text-4xl bg-secondary">{user.username?.substring(0,2).toUpperCase()}</AvatarFallback>
+              <AvatarFallback className="text-4xl bg-secondary">{(user.username?.substring(0,2) ?? "").toUpperCase()}</AvatarFallback>
             </Avatar>
 
             <div className="flex-1 text-center md:text-left space-y-4">

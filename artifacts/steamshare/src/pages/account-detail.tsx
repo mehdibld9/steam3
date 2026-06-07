@@ -268,7 +268,7 @@ export default function AccountDetail() {
                     <Link href={`/profile/${account.userId}`}>
                       <Avatar className="h-10 w-10 border border-border cursor-pointer hover:border-primary transition-colors">
                         <AvatarImage src={account.posterAvatarUrl || undefined} />
-                        <AvatarFallback>{account.posterUsername?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        <AvatarFallback>{(account.posterUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                       </Avatar>
                     </Link>
                     <div>
@@ -514,7 +514,7 @@ export default function AccountDetail() {
                       <Link href={`/profile/${comment.userId}`}>
                         <Avatar className="h-10 w-10 shrink-0 cursor-pointer">
                           <AvatarImage src={comment.avatarUrl || undefined} />
-                          <AvatarFallback>{comment.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                          <AvatarFallback>{(comment.username?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                         </Avatar>
                       </Link>
                       <div className="flex-1">
@@ -560,7 +560,7 @@ export default function AccountDetail() {
               <Link href={`/profile/${account.userId}`} className="flex items-center gap-3 group">
                 <Avatar className="h-12 w-12 border border-border group-hover:border-primary transition-colors">
                   <AvatarImage src={poster?.avatarUrl || undefined} />
-                  <AvatarFallback>{account.posterUsername?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback>{(account.posterUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>
                   <p className="font-bold group-hover:text-primary transition-colors">{account.posterUsername}</p>

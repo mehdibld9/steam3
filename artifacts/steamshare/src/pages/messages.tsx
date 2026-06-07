@@ -153,7 +153,7 @@ export default function Messages() {
                   >
                     <Avatar className="h-10 w-10 shrink-0">
                       <AvatarImage src={conv.partner_avatar_url || undefined} />
-                      <AvatarFallback>{conv.partner_username?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback>{(conv.partner_username?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
@@ -187,7 +187,7 @@ export default function Messages() {
                     <ArrowLeft className="h-5 w-5" />
                   </button>
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback>{selectedUsername?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback>{(selectedUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <Link href={`/profile/${selectedUserId}`} className="font-semibold hover:text-primary">
                     {selectedUsername}
