@@ -150,10 +150,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="md:hidden fixed inset-0 z-[60] flex">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
           <div className="relative z-50 ml-auto w-72 h-full bg-card border-l border-border flex flex-col overflow-y-auto">
-            <div className="p-4 border-b border-border">
-              <span className="font-black text-lg">Steam Family</span>
-            </div>
-
             {user && (
               <div className="p-4 border-b border-border space-y-2">
                 <Link href={`/profile/${user.id}`} onClick={() => setMobileOpen(false)}>
