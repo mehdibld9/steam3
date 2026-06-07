@@ -19,10 +19,14 @@ export default function Browse() {
     sort
   });
 
-  const filteredAccounts = accountsData?.accounts.filter(a => 
-    a.title.toLowerCase().includes(search.toLowerCase()) || 
-    a.description.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredAccounts = accountsData?.accounts.filter(a => {
+    const q = search.toLowerCase();
+    return (
+      a.title.toLowerCase().includes(q) ||
+      a.description.toLowerCase().includes(q) ||
+      (a.games && a.games.some((g: string) => g.toLowerCase().includes(q)))
+    );
+  });
 
   return (
     <Layout>
