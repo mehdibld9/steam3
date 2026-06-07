@@ -143,7 +143,6 @@ async function getOwnedGames(steamid64: string, accessToken?: string): Promise<s
       url.searchParams.set("access_token", accessToken);
       url.searchParams.set("steamid", steamid64);
       url.searchParams.set("include_appinfo", "1");
-      url.searchParams.set("include_played_free_games", "1");
       const res = await fetch(url.toString(), {
         headers: makeHeaders(),
         signal: AbortSignal.timeout(20_000),

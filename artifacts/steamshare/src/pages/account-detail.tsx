@@ -280,20 +280,8 @@ export default function AccountDetail() {
                 {account.isAvailable ? "Available" : "Claimed"}
               </div>
               <div className="text-xs text-muted-foreground">{account.claimsCount} past claims</div>
-              <Button
-                variant="outline"
-                size="sm"
-                className={`w-full gap-2 mt-1 ${account.userHasLiked ? "border-primary/50 text-primary bg-primary/10" : ""}`}
-                onClick={handleLike}
-                disabled={likeAccount.isPending || unlikeAccount.isPending}
-              >
-                <Heart className={`h-4 w-4 ${account.userHasLiked ? "fill-primary text-primary" : ""}`} />
-                {account.userHasLiked ? "Liked" : "Like"}
-                <span className="ml-auto bg-background/60 px-1.5 py-0.5 rounded text-xs">{account.likesCount}</span>
-              </Button>
-              {likeError && <p className="text-xs text-red-500">{likeError}</p>}
 
-              {/* Admin/Mod/Owner actions */}
+              {/* Admin/Mod/Owner actions only */}
               {canManage && (
                 <div className="flex gap-2 w-full mt-1">
                   {user.id === account.userId && (
@@ -305,40 +293,6 @@ export default function AccountDetail() {
                     <Trash className="h-3 w-3" /> Delete
                   </Button>
                 </div>
-              )}
-
-              {/* Report button */}
-              {user && user.id !== account.userId && (
-                <Dialog open={reportOpen} onOpenChange={setReportOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" variant="ghost" className="w-full gap-1 text-xs text-muted-foreground hover:text-red-500 mt-1">
-                      <Flag className="h-3 w-3" /> Report
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-card border-border max-w-sm">
-                    <DialogHeader><DialogTitle>Report this post</DialogTitle></DialogHeader>
-                    <div className="space-y-4 pt-2">
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium">Reason</label>
-                        <select className="w-full border border-border rounded-lg px-3 py-2 bg-background text-sm" value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
-                          <option value="">Select a reason...</option>
-                          <option value="spam">Spam or misleading</option>
-                          <option value="fake">Fake or invalid credentials</option>
-                          <option value="inappropriate">Inappropriate content</option>
-                          <option value="scam">Potential scam</option>
-                          <option value="other">Other</option>
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium">Details (optional)</label>
-                        <Textarea placeholder="Add more details..." value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} className="resize-none" rows={3} />
-                      </div>
-                      <Button className="w-full" onClick={() => reportMutation.mutate()} disabled={!reportReason || reportMutation.isPending}>
-                        {reportMutation.isPending ? "Submitting..." : "Submit Report"}
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
               )}
             </div>
           </div>
@@ -424,6 +378,69 @@ export default function AccountDetail() {
                     </div>
                   )}
                   {!user && <p className="text-xs text-muted-foreground">Log in to vote.</p>}
+                </div>
+
+                {/* Like · Message · Report row */}
+                <div className="mt-4 pt-4 border-t border-border flex gap-2 flex-wrap">
+                  {/* Like — hidden from owner */}
+                  {user?.id !== account.userId && (
+                    <Button
+                      size="sm"
+                      variant={account.userHasLiked ? "default" : "outline"}
+                      className={`gap-2 ${account.userHasLiked ? "bg-primary/90" : ""}`}
+                      onClick={handleLike}
+                      disabled={likeAccount.isPending || unlikeAccount.isPending}
+                    >
+                      <Heart className={`h-4 w-4 ${account.userHasLiked ? "fill-white" : ""}`} />
+                      {account.userHasLiked ? "Liked" : "Like"}
+                      <span className="text-xs font-mono">{account.likesCount}</span>
+                    </Button>
+                  )}
+
+                  {/* Message poster — only for logged-in non-owners */}
+                  {user && user.id !== account.userId && (
+                    <Link href={`/messages?user=${account.userId}&username=${encodeURIComponent(account.posterUsername ?? "")}`}>
+                      <Button size="sm" variant="outline" className="gap-2">
+                        <MessageCircle className="h-4 w-4" /> Message
+                      </Button>
+                    </Link>
+                  )}
+
+                  {/* Report — only for logged-in non-owners */}
+                  {user && user.id !== account.userId && (
+                    <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" variant="ghost" className="gap-2 text-muted-foreground hover:text-red-500">
+                          <Flag className="h-4 w-4" /> Report
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="bg-card border-border max-w-sm">
+                        <DialogHeader><DialogTitle>Report this post</DialogTitle></DialogHeader>
+                        <div className="space-y-4 pt-2">
+                          <div className="space-y-1">
+                            <label className="text-sm font-medium">Reason</label>
+                            <select className="w-full border border-border rounded-lg px-3 py-2 bg-background text-sm" value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
+                              <option value="">Select a reason...</option>
+                              <option value="spam">Spam or misleading</option>
+                              <option value="fake">Fake or invalid credentials</option>
+                              <option value="inappropriate">Inappropriate content</option>
+                              <option value="scam">Potential scam</option>
+                              <option value="other">Other</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-sm font-medium">Details (optional)</label>
+                            <Textarea placeholder="Add more details..." value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} className="resize-none" rows={3} />
+                          </div>
+                          <Button className="w-full" onClick={() => reportMutation.mutate()} disabled={!reportReason || reportMutation.isPending}>
+                            {reportMutation.isPending ? "Submitting..." : "Submit Report"}
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  )}
+
+                  {likeError && <p className="text-xs text-red-500 w-full">{likeError}</p>}
                 </div>
               </div>
             </div>
