@@ -177,7 +177,10 @@ export default function AccountDetail() {
       setClaimResult({ username: res.steamUsername, password: res.steamPassword });
       queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(id) });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-    } catch (e: any) { setClaimError(e.message || "Failed to claim"); }
+    } catch (e: any) {
+      const raw: string = e.message || "Failed to claim";
+      setClaimError(raw.replace(/^HTTP \d+ [^:]+:\s*/i, ""));
+    }
   };
 
   const handleDelete = async () => {
@@ -332,7 +335,6 @@ export default function AccountDetail() {
                         {account.pointsCost === 0 ? "Claim this account for free to reveal the Steam login." : `Spend ${account.pointsCost} points to reveal the Steam login.`}
                       </p>
                     </div>
-                    {claimError && <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2 w-full text-left">{claimError}</p>}
                     {(() => {
                       const method = (account as any).unlockMethod ?? "login";
                       const isOwner = user?.id === account.userId;
@@ -350,9 +352,12 @@ export default function AccountDetail() {
                       }
                       if (account.isAvailable) {
                         return (
-                          <Button className="gap-2 font-bold" onClick={handleClaim} disabled={claimAccount.isPending}>
-                            {claimAccount.isPending ? "Claiming..." : account.pointsCost === 0 ? "Claim for Free" : `Claim for ${account.pointsCost} pts`}
-                          </Button>
+                          <>
+                            <Button className="gap-2 font-bold" onClick={handleClaim} disabled={claimAccount.isPending}>
+                              {claimAccount.isPending ? "Claiming..." : account.pointsCost === 0 ? "Claim for Free" : `Claim for ${account.pointsCost} pts`}
+                            </Button>
+                            {claimError && <p className="text-sm text-red-500 mt-1">{claimError}</p>}
+                          </>
                         );
                       }
                       return <Button disabled>Currently Unavailable</Button>;
