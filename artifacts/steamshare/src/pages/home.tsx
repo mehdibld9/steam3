@@ -49,10 +49,6 @@ export default function Home() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/10 blur-[120px] rounded-full pointer-events-none" />
 
         <div className="container relative z-10 mx-auto px-4 py-20 md:py-32 flex flex-col items-center text-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-4 py-1.5 text-xs font-semibold text-primary mb-8 uppercase tracking-wider">
-            The Underground Gaming Marketplace
-          </div>
-
           <h1 className="text-4xl md:text-6xl font-black tracking-tight text-foreground mb-6 leading-tight">
             Welcome to{" "}
             <span className="text-primary">Steam Family</span>
