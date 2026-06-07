@@ -45,7 +45,13 @@ router.post("/register", async (req, res) => {
   req.session.isModerator = user.isModerator;
 
   const { passwordHash: _, ...safeUser } = user;
-  res.status(201).json(safeUser);
+  req.session.save((err) => {
+    if (err) {
+      res.status(500).json({ error: "Session error" });
+      return;
+    }
+    res.status(201).json(safeUser);
+  });
 });
 
 router.post("/login", async (req, res) => {
@@ -83,7 +89,13 @@ router.post("/login", async (req, res) => {
   req.session.isModerator = user.isModerator;
 
   const { passwordHash: _, ...safeUser } = user;
-  res.status(200).json(safeUser);
+  req.session.save((err) => {
+    if (err) {
+      res.status(500).json({ error: "Session error" });
+      return;
+    }
+    res.status(200).json(safeUser);
+  });
 });
 
 router.post("/logout", (req, res) => {
