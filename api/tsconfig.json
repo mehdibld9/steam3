@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "noImplicitAny": false,
+    "strict": false,
+    "target": "es2022",
+    "lib": ["es2022"],
+    "types": ["node"],
+    "customConditions": ["workspace"]
+  }
+}

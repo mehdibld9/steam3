@@ -38,7 +38,6 @@ function BannedGuard({ children }: { children: React.ReactNode }) {
   // If banned and not already on the banned page, redirect there
   if (user?.isBanned && location !== "/banned") {
     window.location.replace("/banned");
-    return null;
   }
   return <>{children}</>;
 }
@@ -71,7 +70,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <WouterRouter base="">
           <BannedGuard>
             <Router />
           </BannedGuard>
