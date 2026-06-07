@@ -160,7 +160,7 @@ export default function Submit() {
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" autoComplete="off">
                 {submitError && (
                   <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-500 flex items-center gap-2">
                     <XCircle className="h-4 w-4 flex-shrink-0" />
@@ -246,6 +246,7 @@ export default function Submit() {
                         <Input
                           type="password"
                           placeholder="••••••••••"
+                          autoComplete="new-password"
                           {...field}
                           onChange={(e) => { field.onChange(e); setVerifyStatus("idle"); }}
                         />
