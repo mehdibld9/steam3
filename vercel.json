@@ -1,7 +1,7 @@
 {
   "version": 2,
   "buildCommand": "pnpm install && pnpm --filter @workspace/steamshare run build",
-  "outputDirectory": "artifacts/steamshare/dist/public",
+  "outputDirectory": "artifacts/steamshare/dist",
   "functions": {
     "artifacts/api-server/api/index.ts": {
       "runtime": "@vercel/node@3"
