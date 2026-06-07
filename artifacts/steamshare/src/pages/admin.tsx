@@ -115,7 +115,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className={`grid w-full grid-cols-${tabs.length} mb-8 bg-card border border-border h-12`}>
+          <TabsList className="flex w-full mb-8 bg-card border border-border h-12 overflow-x-auto">
             {tabs.map((t) => (
               <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
             ))}
@@ -142,7 +142,7 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
   const [pointsTarget, setPointsTarget] = useState<any>(null);
   const [pointsDelta, setPointsDelta] = useState(0);
 
-  const { data: users = [], isLoading } = useQuery({ queryKey: ["admin-users"], queryFn: fetchAdminUsers });
+  const { data: users = [], isLoading, isError, error } = useQuery({ queryKey: ["admin-users"], queryFn: fetchAdminUsers });
 
   const banMutation = useMutation({
     mutationFn: () => banUser(banTarget.id, banDuration, banReason),
@@ -174,6 +174,12 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
     <div className="space-y-4">
       <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
 
+      {isError && (
+        <div className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
+          Failed to load users: {(error as any)?.message ?? "Unknown error"}
+        </div>
+      )}
+
       <div className="bg-card border border-border rounded-xl overflow-hidden overflow-x-auto">
         <Table>
           <TableHeader className="bg-muted/50">
@@ -188,6 +194,8 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={5} className="text-center py-8">Loading...</TableCell></TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No users found.</TableCell></TableRow>
             ) : filtered.map((u: any) => (
               <TableRow key={u.id}>
                 <TableCell>
@@ -374,7 +382,7 @@ function ReportsTab() {
   const { toast } = useToast();
   const [showDismissed, setShowDismissed] = useState(false);
 
-  const { data: reports = [], isLoading } = useQuery({ queryKey: ["admin-reports"], queryFn: fetchReports });
+  const { data: reports = [], isLoading, isError, error } = useQuery({ queryKey: ["admin-reports"], queryFn: fetchReports });
 
   const dismissMutation = useMutation({
     mutationFn: (reportId: number) => dismissReport(reportId),
@@ -398,6 +406,12 @@ function ReportsTab() {
           Show dismissed
         </label>
       </div>
+
+      {isError && (
+        <div className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
+          Failed to load reports: {(error as any)?.message ?? "Unknown error"}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="text-center py-8 text-muted-foreground">Loading reports...</div>
