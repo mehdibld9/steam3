@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "buildCommand": "pnpm install && pnpm --filter @workspace/steamshare run build",
+  "outputDirectory": "artifacts/steamshare/dist",
+  "functions": {
+    "artifacts/api-server/api/index.ts": {
+      "runtime": "@vercel/node@3"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/artifacts/api-server/api/index.ts"
+    },
+    {
+      "source": "/((?!api).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
