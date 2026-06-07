@@ -19,7 +19,7 @@ export default function Browse() {
     sort
   });
 
-  const filteredAccounts = accountsData?.accounts.filter(a => {
+  const filteredAccounts = accountsData?.accounts?.filter(a => {
     const q = search.toLowerCase();
     return (
       a.title.toLowerCase().includes(q) ||

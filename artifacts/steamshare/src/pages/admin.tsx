@@ -345,7 +345,7 @@ function AccountsTab() {
         <TableBody>
           {isLoading ? (
             <TableRow><TableCell colSpan={5} className="text-center py-8">Loading...</TableCell></TableRow>
-          ) : accountsData?.accounts.map(a => (
+          ) : accountsData?.accounts?.map(a => (
             <TableRow key={a.id}>
               <TableCell className="font-mono text-xs">{a.id}</TableCell>
               <TableCell className="font-medium max-w-[200px] truncate">

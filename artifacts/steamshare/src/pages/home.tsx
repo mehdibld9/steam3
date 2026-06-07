@@ -143,10 +143,10 @@ export default function Home() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {accountsData?.accounts.map((account) => (
+            {accountsData?.accounts?.map((account) => (
               <AccountCard key={account.id} account={account} />
             ))}
-            {accountsData?.accounts.length === 0 && (
+            {(accountsData?.accounts?.length ?? 0) === 0 && (
               <div className="py-12 text-center text-muted-foreground">
                 No accounts yet. Be the first to upload!
               </div>
