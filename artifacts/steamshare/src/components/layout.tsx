@@ -147,7 +147,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-40 flex">
+        <div className="md:hidden fixed inset-0 z-[60] flex">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
           <div className="relative z-50 ml-auto w-72 h-full bg-card border-l border-border flex flex-col overflow-y-auto">
             <div className="p-4 border-b border-border">
