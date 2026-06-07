@@ -19,5 +19,9 @@ export interface User {
   badgeName?: string | null;
   isAdmin: boolean;
   isBanned: boolean;
+  /** @nullable */
+  banReason?: string | null;
+  /** @nullable */
+  banExpiresAt?: Date | null;
   createdAt: Date;
 }

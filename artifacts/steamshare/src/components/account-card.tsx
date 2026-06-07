@@ -9,6 +9,39 @@ interface AccountCardProps {
   account: Account;
 }
 
+function StatusBadge({ status }: { status?: string }) {
+  if (status === "not_working") {
+    return (
+      <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600">
+        <span className="w-2 h-2 rounded-full bg-amber-500" />
+        Not Working
+      </span>
+    );
+  }
+  if (status === "error") {
+    return (
+      <span className="flex items-center gap-1.5 text-[11px] font-medium text-red-500">
+        <span className="w-2 h-2 rounded-full bg-red-500" />
+        Error
+      </span>
+    );
+  }
+  if (status === "pending") {
+    return (
+      <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+        <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+        Pending
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1.5 text-[11px] font-medium text-green-600">
+      <span className="w-2 h-2 rounded-full bg-green-500" />
+      Working
+    </span>
+  );
+}
+
 export function AccountCard({ account }: AccountCardProps) {
   return (
     <Link href={`/accounts/${account.id}`} className="block group">
@@ -74,6 +107,7 @@ export function AccountCard({ account }: AccountCardProps) {
               </div>
               <span>{formatDistanceToNow(new Date(account.createdAt))} ago</span>
             </div>
+            <StatusBadge status={account.checkStatus} />
           </div>
 
         </div>

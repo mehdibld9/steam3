@@ -7,6 +7,7 @@
  */
 
 export * from './account';
+export * from './accountCheckStatus';
 export * from './accountInput';
 export * from './accountInputUnlockMethod';
 export * from './accountListResponse';

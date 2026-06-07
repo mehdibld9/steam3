@@ -535,7 +535,7 @@ function AdLinksTab() {
                     <Copy className="h-4 w-4" />
                   </Button>
                   <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={async () => {
-                    await deleteLink.mutateAsync({ linkId: l.id });
+                    await deleteLink.mutateAsync({ adLinkId: l.id });
                     queryClient.invalidateQueries({ queryKey: getListAdLinksQueryKey() });
                   }}>
                     <Trash className="h-4 w-4" />

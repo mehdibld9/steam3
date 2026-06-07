@@ -46,6 +46,10 @@ export interface User {
   badgeName?: string | null;
   isAdmin: boolean;
   isBanned: boolean;
+  /** @nullable */
+  banReason?: string | null;
+  /** @nullable */
+  banExpiresAt?: string | null;
   createdAt: string;
 }
 
@@ -88,6 +92,16 @@ export const AccountUnlockMethod = {
   comment: 'comment',
 } as const;
 
+export type AccountCheckStatus = typeof AccountCheckStatus[keyof typeof AccountCheckStatus];
+
+
+export const AccountCheckStatus = {
+  pending: 'pending',
+  working: 'working',
+  not_working: 'not_working',
+  error: 'error',
+} as const;
+
 export interface Account {
   id: number;
   userId: number;
@@ -106,6 +120,11 @@ export interface Account {
   unlockMethod?: AccountUnlockMethod;
   userHasLiked?: boolean;
   userHasCommented?: boolean;
+  workingVotes?: number;
+  notWorkingVotes?: number;
+  checkStatus: AccountCheckStatus;
+  /** @nullable */
+  lastCheckAt?: string | null;
   createdAt: string;
 }
 

@@ -52,6 +52,8 @@ export const LoginResponse = zod.object({
   "badgeName": zod.string().nullish(),
   "isAdmin": zod.boolean(),
   "isBanned": zod.boolean(),
+  "banReason": zod.string().nullish(),
+  "banExpiresAt": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date()
 })
 
@@ -78,6 +80,8 @@ export const GetMeResponse = zod.object({
   "badgeName": zod.string().nullish(),
   "isAdmin": zod.boolean(),
   "isBanned": zod.boolean(),
+  "banReason": zod.string().nullish(),
+  "banExpiresAt": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date()
 })
 
@@ -114,6 +118,10 @@ export const ListAccountsResponse = zod.object({
   "unlockMethod": zod.enum(['login', 'like', 'comment']).optional(),
   "userHasLiked": zod.boolean().optional(),
   "userHasCommented": zod.boolean().optional(),
+  "workingVotes": zod.number().optional(),
+  "notWorkingVotes": zod.number().optional(),
+  "checkStatus": zod.enum(['pending', 'working', 'not_working', 'error']),
+  "lastCheckAt": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date()
 })),
   "total": zod.number(),
@@ -180,6 +188,10 @@ export const GetAccountResponse = zod.object({
   "unlockMethod": zod.enum(['login', 'like', 'comment']).optional(),
   "userHasLiked": zod.boolean().optional(),
   "userHasCommented": zod.boolean().optional(),
+  "workingVotes": zod.number().optional(),
+  "notWorkingVotes": zod.number().optional(),
+  "checkStatus": zod.enum(['pending', 'working', 'not_working', 'error']),
+  "lastCheckAt": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date()
 })
 
@@ -379,6 +391,10 @@ export const GetUserAccountsResponseItem = zod.object({
   "unlockMethod": zod.enum(['login', 'like', 'comment']).optional(),
   "userHasLiked": zod.boolean().optional(),
   "userHasCommented": zod.boolean().optional(),
+  "workingVotes": zod.number().optional(),
+  "notWorkingVotes": zod.number().optional(),
+  "checkStatus": zod.enum(['pending', 'working', 'not_working', 'error']),
+  "lastCheckAt": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date()
 })
 export const GetUserAccountsResponse = zod.array(GetUserAccountsResponseItem)
