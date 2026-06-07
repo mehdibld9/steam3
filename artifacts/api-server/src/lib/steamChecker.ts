@@ -181,7 +181,14 @@ async function getOwnedGames(steamid64: string, accessToken?: string): Promise<s
             if (depth === 0) { end = i + 1; break; }
           }
           const gamesData = JSON.parse(html.slice(start, end)) as Array<Record<string, unknown>>;
-          const names = gamesData.map((g) => String(g.name ?? "")).filter(Boolean);
+          // Filter out free-to-play games: they have hours_forever="0" and last_played=0
+          const names = gamesData
+            .filter((g) => {
+              const hours = Number(String(g.hours_forever ?? "0").replace(/,/g, ""));
+              const lastPlayed = Number(g.last_played ?? 0);
+              return hours > 0 || lastPlayed > 0;
+            })
+            .map((g) => String(g.name ?? "")).filter(Boolean);
           logger.info({ count: names.length }, "GetOwnedGames HTML fallback success");
           return names;
         }
