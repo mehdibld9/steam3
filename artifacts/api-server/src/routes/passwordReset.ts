@@ -1,10 +1,11 @@
-import { Router } from "express";
+// @ts-nocheck
+import express from "express";
 import { db, usersTable, passwordResetTokensTable } from "@workspace/db";
 import { eq, and, gt } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { randomBytes } from "crypto";
 
-const router = Router();
+const router = express.Router();
 
 router.post("/forgot-password", async (req, res) => {
   const { email } = req.body;

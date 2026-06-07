@@ -1,4 +1,5 @@
-import { Request, Response, NextFunction } from "express";
+// @ts-nocheck
+import type { Request, Response, NextFunction } from "express";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 

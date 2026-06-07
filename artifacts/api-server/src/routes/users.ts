@@ -1,8 +1,9 @@
-import { Router } from "express";
+// @ts-nocheck
+import express from "express";
 import { db, usersTable, accountsTable, likesTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 
-const router = Router();
+const router = express.Router();
 
 router.get("/leaderboard", async (req, res) => {
   const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);

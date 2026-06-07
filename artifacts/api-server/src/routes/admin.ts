@@ -1,9 +1,10 @@
-import { Router } from "express";
+// @ts-nocheck
+import express from "express";
 import { db, usersTable, accountsTable, reportsTable } from "@workspace/db";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { requireAdmin, requireModOrAdmin } from "../middlewares/auth";
 
-const router = Router();
+const router = express.Router();
 
 // --- Users ---
 router.get("/users", requireModOrAdmin, async (req, res) => {

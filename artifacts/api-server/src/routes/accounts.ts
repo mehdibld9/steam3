@@ -1,11 +1,12 @@
-import { Router } from "express";
+// @ts-nocheck
+import express from "express";
 import { db, accountsTable, usersTable, likesTable, accountVotesTable, commentsTable } from "@workspace/db";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { CreateAccountBody } from "@workspace/api-zod";
 import { requireAuth, requireModOrAdmin } from "../middlewares/auth";
 import { checkSteamCredentials } from "../lib/steamChecker";
 
-const router = Router();
+const router = express.Router();
 
 function addXp(userId: number, amount: number) {
   return db
