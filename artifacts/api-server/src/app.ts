@@ -52,7 +52,7 @@ app.use(
   session({
     store: new PgSession({
       pool,
-      createTableIfMissing: false,
+      createTableIfMissing: true,
     }),
     secret: process.env.SESSION_SECRET ?? (process.env.NODE_ENV === "production"
       ? (() => { throw new Error("SESSION_SECRET env var is required in production"); })()
