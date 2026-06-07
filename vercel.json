@@ -4,9 +4,7 @@
   "buildCommand": "pnpm install && pnpm --filter @workspace/steamshare run build && mkdir -p dist && cp -r artifacts/steamshare/dist/. dist/",
   "outputDirectory": "dist",
   "functions": {
-    "artifacts/api-server/api/index.ts": {
-      "runtime": "@vercel/node@3"
-    }
+    "artifacts/api-server/api/index.ts": {}
   },
   "rewrites": [
     {
