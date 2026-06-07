@@ -61,7 +61,7 @@ export default function Leaderboard() {
                   <div className="col-span-6 md:col-span-5 flex items-center gap-3">
                     <Avatar className="h-10 w-10 border border-border group-hover:border-primary/50 transition-colors">
                       <AvatarImage src={user.avatarUrl || undefined} />
-                      <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback>{user.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="font-semibold text-base group-hover:text-primary transition-colors truncate">
                       {user.username}

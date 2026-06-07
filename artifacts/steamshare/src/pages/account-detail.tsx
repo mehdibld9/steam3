@@ -514,7 +514,7 @@ export default function AccountDetail() {
                       <Link href={`/profile/${comment.userId}`}>
                         <Avatar className="h-10 w-10 shrink-0 cursor-pointer">
                           <AvatarImage src={comment.avatarUrl || undefined} />
-                          <AvatarFallback>{comment.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                          <AvatarFallback>{comment.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
                       </Link>
                       <div className="flex-1">

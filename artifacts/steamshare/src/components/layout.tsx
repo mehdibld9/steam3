@@ -104,7 +104,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <div className="relative group cursor-pointer">
                     <Avatar className="h-8 w-8 border border-border group-hover:border-primary transition-colors">
                       <AvatarImage src={user.avatarUrl || undefined} />
-                      <AvatarFallback className="text-xs">{user.username.substring(0,2).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback className="text-xs">{user.username?.substring(0,2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="absolute bottom-0 right-0 translate-x-1 translate-y-1">
                       <div className="bg-primary text-white text-[8px] font-black rounded px-0.5 leading-tight">{user.level}</div>
@@ -156,7 +156,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={user.avatarUrl || undefined} />
-                      <AvatarFallback>{user.username.substring(0,2).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback>{user.username?.substring(0,2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div>
                       <p className="font-semibold text-sm">{user.username}</p>
