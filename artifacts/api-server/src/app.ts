@@ -51,7 +51,9 @@ app.use(
       pool,
       createTableIfMissing: false,
     }),
-    secret: process.env.SESSION_SECRET ?? "steamshare-dev-secret",
+    secret: process.env.SESSION_SECRET ?? (process.env.NODE_ENV === "production"
+      ? (() => { throw new Error("SESSION_SECRET env var is required in production"); })()
+      : "steamshare-dev-secret"),
     resave: false,
     saveUninitialized: false,
     cookie: {

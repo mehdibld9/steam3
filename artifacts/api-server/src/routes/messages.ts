@@ -34,6 +34,16 @@ router.get("/conversations", requireAuth, async (req, res) => {
   res.json(rows.rows);
 });
 
+// Unread count — must be defined BEFORE /:userId to avoid route shadowing
+router.get("/unread/count", requireAuth, async (req, res) => {
+  const myId = req.session.userId!;
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(messagesTable)
+    .where(and(eq(messagesTable.receiverId, myId), eq(messagesTable.isRead, false)));
+  res.json({ count: Number(count) });
+});
+
 // Get messages with a specific user
 router.get("/:userId", requireAuth, async (req, res) => {
   const myId = req.session.userId!;
@@ -88,14 +98,5 @@ router.post("/", requireAuth, async (req, res) => {
   res.status(201).json(message);
 });
 
-// Unread count
-router.get("/unread/count", requireAuth, async (req, res) => {
-  const myId = req.session.userId!;
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(messagesTable)
-    .where(and(eq(messagesTable.receiverId, myId), eq(messagesTable.isRead, false)));
-  res.json({ count: Number(count) });
-});
 
 export default router;
