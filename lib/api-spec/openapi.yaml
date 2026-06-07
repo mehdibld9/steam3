@@ -955,11 +955,6 @@ components:
           type: boolean
         isBanned:
           type: boolean
-        banReason:
-          type: ["string", "null"]
-        banExpiresAt:
-          type: ["string", "null"]
-          format: date-time
         createdAt:
           type: string
           format: date-time
@@ -1018,7 +1013,7 @@ components:
 
     Account:
       type: object
-      required: [id, userId, username, title, description, games, pointsCost, isAvailable, likesCount, claimsCount, checkStatus, createdAt]
+      required: [id, userId, username, title, description, games, pointsCost, isAvailable, likesCount, claimsCount, createdAt]
       properties:
         id:
           type: integer
@@ -1055,16 +1050,6 @@ components:
           type: boolean
         userHasCommented:
           type: boolean
-        workingVotes:
-          type: integer
-        notWorkingVotes:
-          type: integer
-        checkStatus:
-          type: string
-          enum: [pending, working, not_working, error]
-        lastCheckAt:
-          type: ["string", "null"]
-          format: date-time
         createdAt:
           type: string
           format: date-time

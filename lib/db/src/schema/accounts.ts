@@ -19,8 +19,6 @@ export const accountsTable = pgTable("accounts", {
   notWorkingVotes: integer("not_working_votes").notNull().default(0),
   viewCount: integer("view_count").notNull().default(0),
   unlockMethod: text("unlock_method").notNull().default("login"),
-  checkStatus: text("check_status", { enum: ["pending", "working", "not_working", "error"] }).notNull().default("pending"),
-  lastCheckAt: timestamp("last_check_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

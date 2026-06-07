@@ -285,21 +285,6 @@ export default function AccountDetail() {
                 <div className={`w-2 h-2 rounded-full ${account.isAvailable ? "bg-green-500" : "bg-muted-foreground"}`} />
                 {account.isAvailable ? "Available" : "Claimed"}
               </div>
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <div className={`w-2 h-2 rounded-full ${
-                  account.checkStatus === "working" ? "bg-green-500" :
-                  account.checkStatus === "not_working" ? "bg-amber-500" :
-                  account.checkStatus === "error" ? "bg-red-500" : "bg-muted-foreground"
-                }`} />
-                {account.checkStatus === "working" ? "Working" :
-                  account.checkStatus === "not_working" ? "Not Working" :
-                  account.checkStatus === "error" ? "Error" : "Pending Check"}
-              </div>
-              {account.lastCheckAt && (
-                <div className="text-[10px] text-muted-foreground">
-                  Checked {formatDistanceToNow(new Date(account.lastCheckAt))} ago
-                </div>
-              )}
               <div className="text-xs text-muted-foreground">{account.claimsCount} past claims</div>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Eye className="h-3 w-3" /> {viewCount.toLocaleString()} views

@@ -9,7 +9,6 @@ import connectPgSimple from "connect-pg-simple";
 import { pool } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { startHealthChecker } from "./lib/healthCheck";
 
 const app = express();
 
@@ -70,9 +69,6 @@ app.use(
 );
 
 app.use("/api", router);
-
-// Start the background health checker (re-checks Steam accounts every 7 days)
-startHealthChecker();
 
 const staticDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

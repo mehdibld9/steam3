@@ -5,7 +5,6 @@
  * SteamShare API - Steam account marketplace with points, XP, and badges
  * OpenAPI spec version: 0.1.0
  */
-import type { AccountCheckStatus } from './accountCheckStatus';
 import type { AccountUnlockMethod } from './accountUnlockMethod';
 
 export interface Account {
@@ -26,10 +25,5 @@ export interface Account {
   unlockMethod?: AccountUnlockMethod;
   userHasLiked?: boolean;
   userHasCommented?: boolean;
-  workingVotes?: number;
-  notWorkingVotes?: number;
-  checkStatus: AccountCheckStatus;
-  /** @nullable */
-  lastCheckAt?: Date | null;
   createdAt: Date;
 }
