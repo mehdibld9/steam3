@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "pnpm install && pnpm --filter @workspace/steamshare run build",
+  "buildCommand": "pnpm install && pnpm --filter @workspace/steamshare run build && cp -r artifacts/steamshare/dist ./dist",
   "outputDirectory": "dist",
   "functions": {
     "artifacts/api-server/api/index.ts": {
