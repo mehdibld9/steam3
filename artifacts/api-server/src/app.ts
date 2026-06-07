@@ -68,7 +68,7 @@ app.use(
 app.use("/api", router);
 
 const staticDir = path.resolve(
-  fileURLToPath(import.meta.url),
+  path.dirname(fileURLToPath(import.meta.url)),
   "../../steamshare/dist/public",
 );
 

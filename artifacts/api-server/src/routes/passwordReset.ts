@@ -34,7 +34,9 @@ router.post("/forgot-password", async (req, res) => {
   });
 
   res.json({
-    message: "If an account with that email exists, a reset link has been sent. Check your inbox.",
+    message: "Reset token generated. Use the token below to reset your password.",
+    resetToken: token,
+    expiresAt: expiresAt.toISOString(),
   });
 });
 
