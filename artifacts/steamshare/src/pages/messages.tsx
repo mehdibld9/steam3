@@ -64,6 +64,18 @@ export default function Messages() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
+  // Auto-open a conversation when navigating from a profile page (?user=ID&username=NAME)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const userId = parseInt(params.get("user") || "0", 10);
+    const username = params.get("username") || "";
+    if (userId && username) {
+      setSelectedUserId(userId);
+      setSelectedUsername(decodeURIComponent(username));
+      setMobileView("chat");
+    }
+  }, [location]);
+
   const { data: conversations } = useQuery({
     queryKey: ["conversations"],
     queryFn: fetchConversations,

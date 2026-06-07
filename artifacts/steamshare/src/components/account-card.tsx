@@ -1,10 +1,9 @@
 import { Link } from "wouter";
 import { Account } from "@workspace/api-client-react";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
-import { Coins, Heart, MessageSquare } from "lucide-react";
+import { Coins, Heart, Gamepad2 } from "lucide-react";
 
 interface AccountCardProps {
   account: Account;
@@ -13,58 +12,72 @@ interface AccountCardProps {
 export function AccountCard({ account }: AccountCardProps) {
   return (
     <Link href={`/accounts/${account.id}`} className="block group">
-      <Card className="h-full bg-card hover:bg-secondary/50 border-card-border hover:border-primary/50 transition-all duration-300 overflow-hidden relative" data-testid={`card-account-${account.id}`}>
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/0 via-primary/0 to-primary/0 group-hover:from-primary/50 group-hover:via-primary group-hover:to-primary/50 transition-all duration-500" />
-        <CardHeader className="pb-3 flex flex-row items-start justify-between gap-4">
-          <div className="space-y-1">
-            <h3 className="font-bold text-lg leading-tight line-clamp-1 group-hover:text-primary transition-colors">{account.title}</h3>
-            <div className="flex flex-wrap gap-1 mt-2">
-              {account.games.slice(0, 3).map((game, i) => (
-                <Badge key={i} variant="secondary" className="text-[10px] py-0 px-1.5 h-4 bg-background border-border text-muted-foreground">{game}</Badge>
-              ))}
-              {account.games.length > 3 && (
-                <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 text-muted-foreground">+{account.games.length - 3}</Badge>
-              )}
-            </div>
-          </div>
-          <div className="shrink-0">
+      <div
+        className="bg-card hover:bg-secondary/40 border border-border hover:border-primary/40 rounded-xl transition-all duration-200 overflow-hidden relative"
+        data-testid={`card-account-${account.id}`}
+      >
+        <div className="flex items-center gap-4 px-5 py-4">
+
+          {/* Cost pill — left anchor */}
+          <div className="shrink-0 w-16 flex flex-col items-center justify-center gap-1">
             {account.pointsCost === 0 ? (
-              <Badge variant="default" className="bg-green-600/20 text-green-400 border-green-600/30 hover:bg-green-600/30">Free</Badge>
+              <Badge className="bg-green-600/20 text-green-400 border-green-600/30 text-xs px-2">Free</Badge>
             ) : (
-              <Badge variant="outline" className="flex items-center gap-1 border-primary/30 text-primary bg-primary/10">
-                <Coins className="h-3 w-3" /> {account.pointsCost}
-              </Badge>
+              <div className="flex items-center gap-1 text-primary font-bold text-sm">
+                <Coins className="h-3.5 w-3.5" />
+                {account.pointsCost}
+              </div>
             )}
           </div>
-        </CardHeader>
-        <CardContent className="pb-4">
-          <p className="text-sm text-muted-foreground line-clamp-2">{account.description}</p>
-        </CardContent>
-        <CardFooter className="pt-0 flex items-center justify-between border-t border-border/50 mt-auto px-6 py-3 bg-background/30">
-          <div className="flex items-center gap-2">
-            <Avatar className="h-6 w-6 border border-border">
-              <AvatarImage src={account.posterAvatarUrl || undefined} />
-              <AvatarFallback className="text-[10px] bg-secondary">
-                {account.posterUsername?.substring(0, 2).toUpperCase() || "U"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col">
+
+          {/* Divider */}
+          <div className="w-px self-stretch bg-border shrink-0" />
+
+          {/* Main content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="font-bold text-base leading-tight group-hover:text-primary transition-colors truncate">
+                {account.title}
+              </h3>
+            </div>
+
+            <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{account.description}</p>
+
+            {account.games.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                <Gamepad2 className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
+                {account.games.slice(0, 4).map((game, i) => (
+                  <span key={i} className="text-[11px] text-muted-foreground">{i > 0 ? "· " : ""}{game}</span>
+                ))}
+                {account.games.length > 4 && (
+                  <span className="text-[11px] text-muted-foreground">+{account.games.length - 4} more</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Right meta */}
+          <div className="shrink-0 flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+              <Avatar className="h-6 w-6 border border-border">
+                <AvatarImage src={account.posterAvatarUrl || undefined} />
+                <AvatarFallback className="text-[10px] bg-secondary">
+                  {account.posterUsername?.substring(0, 2).toUpperCase() || "U"}
+                </AvatarFallback>
+              </Avatar>
               <span className="text-xs font-medium">{account.posterUsername}</span>
-              <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(account.createdAt))} ago</span>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Heart className={`h-3 w-3 ${account.userHasLiked ? "text-red-500 fill-red-500" : ""}`} />
+                <span>{account.likesCount}</span>
+              </div>
+              <span>{formatDistanceToNow(new Date(account.createdAt))} ago</span>
             </div>
           </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Heart className={`h-3 w-3 ${account.userHasLiked ? 'text-red-500 fill-red-500' : ''}`} />
-              <span>{account.likesCount}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <MessageSquare className="h-3 w-3" />
-              <span>Comments</span>
-            </div>
-          </div>
-        </CardFooter>
-      </Card>
+
+        </div>
+      </div>
     </Link>
   );
 }

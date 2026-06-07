@@ -136,18 +136,18 @@ export default function Home() {
         </div>
 
         {accountsLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="flex flex-col gap-3">
             {[...Array(8)].map((_, i) => (
-              <Skeleton key={i} className="h-48 w-full rounded-xl" />
+              <Skeleton key={i} className="h-20 w-full rounded-xl" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="flex flex-col gap-3">
             {accountsData?.accounts.map((account) => (
               <AccountCard key={account.id} account={account} />
             ))}
             {accountsData?.accounts.length === 0 && (
-              <div className="col-span-full py-12 text-center text-muted-foreground">
+              <div className="py-12 text-center text-muted-foreground">
                 No accounts yet. Be the first to upload!
               </div>
             )}

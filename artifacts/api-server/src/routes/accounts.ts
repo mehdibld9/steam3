@@ -28,7 +28,10 @@ router.post("/verify-credentials", requireAuth, async (req, res) => {
 });
 
 router.get("/games", async (_req, res) => {
-  const rows = await db.select({ games: accountsTable.games }).from(accountsTable).where(eq(accountsTable.isAvailable, true));
+  const rows = await db
+    .select({ games: accountsTable.games })
+    .from(accountsTable)
+    .where(and(eq(accountsTable.isAvailable, true), sql`${accountsTable.pointsCost} > 0`));
   const counts: Record<string, number> = {};
   for (const row of rows) {
     for (const game of row.games ?? []) {

@@ -207,9 +207,9 @@ export default function Profile() {
           )}
 
           {/* Message button for non-self users */}
-          {me && me.id !== id && !canManage && (
+          {me && me.id !== id && (
             <div className="mt-4 pt-4 border-t border-border">
-              <Link href={`/messages`}>
+              <Link href={`/messages?user=${id}&username=${encodeURIComponent(user.username)}`}>
                 <Button size="sm" variant="outline" className="gap-2">
                   <MessageCircle className="h-4 w-4" /> Send Message
                 </Button>
@@ -224,15 +224,15 @@ export default function Profile() {
             <span className="w-1.5 h-6 bg-primary rounded-sm inline-block" /> Upload History
           </h2>
           {accountsLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-48 w-full rounded-xl" />)}
+            <div className="flex flex-col gap-3">
+              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
             </div>
           ) : accounts?.length === 0 ? (
             <div className="text-center py-12 bg-card border border-border border-dashed rounded-xl">
               <p className="text-muted-foreground">This user hasn't uploaded any accounts yet.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="flex flex-col gap-3">
               {accounts?.map(account => <AccountCard key={account.id} account={account} />)}
             </div>
           )}
