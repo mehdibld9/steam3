@@ -5,6 +5,7 @@ import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { CreateAccountBody } from "@workspace/api-zod";
 import { requireAuth, requireModOrAdmin } from "../middlewares/auth";
 import { checkSteamCredentials } from "../lib/steamChecker";
+import { filterContent } from "../lib/contentFilter";
 
 const router = express.Router();
 
@@ -124,7 +125,7 @@ router.post("/", requireAuth, async (req, res) => {
 
   const [account] = await db
     .insert(accountsTable)
-    .values({ userId, title, description, games, pointsCost, steamUsername, steamPassword, unlockMethod: safeUnlockMethod })
+    .values({ userId, title: filterContent(title), description: filterContent(description ?? ""), games, pointsCost, steamUsername, steamPassword, unlockMethod: safeUnlockMethod })
     .returning();
 
   await addXp(userId, 50);

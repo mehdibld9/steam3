@@ -4,6 +4,7 @@ import { db, commentsTable, usersTable, likesTable } from "@workspace/db";
 import { eq, and, sql, inArray, asc } from "drizzle-orm";
 import { CreateCommentBody } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
+import { filterContent } from "../lib/contentFilter";
 
 const router = express.Router({ mergeParams: true });
 
@@ -76,7 +77,7 @@ router.post("/", requireAuth, async (req, res) => {
 
   const [comment] = await db
     .insert(commentsTable)
-    .values({ accountId, userId, content: parsed.data.content })
+    .values({ accountId, userId, content: filterContent(parsed.data.content) })
     .returning();
 
   const [user] = await db
