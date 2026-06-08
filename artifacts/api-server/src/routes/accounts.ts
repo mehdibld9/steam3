@@ -112,17 +112,18 @@ router.get("/", async (req, res) => {
   res.json({ accounts: result, total: Number(count), page, limit });
 });
 
-// GET /check-username?username=xxx — public, checks if a steam username is already listed
-router.get("/check-username", async (req, res) => {
+// GET /check-credentials?username=xxx&password=yyy — checks if the exact username+password combo is already listed
+router.get("/check-credentials", async (req, res) => {
   const username = String(req.query.username ?? "").trim();
-  if (!username) {
+  const password = String(req.query.password ?? "").trim();
+  if (!username || !password) {
     res.json({ exists: false });
     return;
   }
   const [existing] = await db
     .select({ id: accountsTable.id })
     .from(accountsTable)
-    .where(eq(accountsTable.steamUsername, username))
+    .where(and(eq(accountsTable.steamUsername, username), eq(accountsTable.steamPassword, password)))
     .limit(1);
   res.json({ exists: !!existing });
 });
@@ -141,11 +142,11 @@ router.post("/", requireAuth, async (req, res) => {
   const existingAccount = await db
     .select({ id: accountsTable.id })
     .from(accountsTable)
-    .where(eq(accountsTable.steamUsername, steamUsername))
+    .where(and(eq(accountsTable.steamUsername, steamUsername), eq(accountsTable.steamPassword, steamPassword)))
     .limit(1);
 
   if (existingAccount.length > 0) {
-    res.status(409).json({ error: "This Steam account has already been listed. Duplicate listings are not allowed." });
+    res.status(409).json({ error: "This exact Steam account (same username and password) has already been listed." });
     return;
   }
 

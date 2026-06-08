@@ -61,17 +61,21 @@ export default function Submit() {
     return () => clearInterval(t);
   }, [verifyStatus]);
 
-  // Debounced duplicate username check
+  // Debounced duplicate credentials check (username + password must both match)
   useEffect(() => {
     if (dupTimerRef.current) clearTimeout(dupTimerRef.current);
-    if (!watchUsername || watchUsername.trim().length < 2) {
+    if (!watchUsername || watchUsername.trim().length < 2 || !watchPassword || watchPassword.trim().length < 1) {
       setDupStatus("idle");
       return;
     }
     setDupStatus("checking");
     dupTimerRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/accounts/check-username?username=${encodeURIComponent(watchUsername.trim())}`);
+        const params = new URLSearchParams({
+          username: watchUsername.trim(),
+          password: watchPassword.trim(),
+        });
+        const res = await fetch(`/api/accounts/check-credentials?${params}`);
         const data = await res.json();
         setDupStatus(data.exists ? "exists" : "free");
       } catch {
@@ -79,7 +83,7 @@ export default function Submit() {
       }
     }, 600);
     return () => { if (dupTimerRef.current) clearTimeout(dupTimerRef.current); };
-  }, [watchUsername]);
+  }, [watchUsername, watchPassword]);
 
   if (!userLoading && !user) {
     setLocation("/login");
