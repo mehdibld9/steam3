@@ -29,7 +29,7 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import {
   Heart, Coins, MessageSquare, Trash, Lock,
   Copy, CheckCheck, ChevronDown, ChevronUp,
-  ThumbsUp, ThumbsDown, Flag, Edit2, Check, X, MessageCircle, Eye,
+  ThumbsUp, ThumbsDown, Flag, Edit2, Check, X, MessageCircle, Eye, ArrowLeft,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -235,6 +235,15 @@ export default function AccountDetail() {
         <div className="bg-card border border-border rounded-xl overflow-hidden relative">
           <div className="absolute top-0 right-0 w-56 h-56 bg-primary/10 rounded-full blur-3xl -mr-8 -mt-8 pointer-events-none" />
           <div className="relative z-10 p-6 md:p-8 space-y-4">
+
+            {/* Back button */}
+            <button
+              onClick={() => window.history.back()}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors group w-fit"
+            >
+              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+              Back
+            </button>
 
             {/* Badges row */}
             <div className="flex items-center gap-2 flex-wrap">
