@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Progress } from "@/components/ui/progress";
-import { Shield, Plus, LogOut, Coins, Trophy, Award, Gift, MessageSquare, Menu, X } from "lucide-react";
+import {
+  Shield, Plus, LogOut, Coins, Trophy, Award, Gift,
+  MessageSquare, Menu, X, ChevronRight, Bell, Home,
+} from "lucide-react";
 import { useState } from "react";
 
 async function fetchUnreadCount(): Promise<number> {
@@ -18,12 +21,21 @@ async function fetchUnreadCount(): Promise<number> {
   }
 }
 
+const NAV_ITEMS = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/browse", label: "Browse", icon: null },
+  { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { href: "/badges", label: "Badges", icon: Award },
+  { href: "/giveaways", label: "Giveaways", icon: Gift },
+  { href: "/earn", label: "Earn Points", icon: Coins },
+];
+
 export function Layout({ children }: { children: React.ReactNode }) {
   const { data: user } = useGetMe();
   const logout = useLogout();
   const queryClient = useQueryClient();
   const [location] = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["unread-messages"],
@@ -36,105 +48,100 @@ export function Layout({ children }: { children: React.ReactNode }) {
     try {
       await logout.mutateAsync(undefined);
     } catch {
-      // ignore errors — session may already be gone
+      // ignore
     }
     queryClient.setQueryData(getGetMeQueryKey(), null);
     queryClient.removeQueries({ queryKey: getGetMeQueryKey() });
-    setMobileOpen(false);
+    setMenuOpen(false);
   };
 
   const xpProgress = user ? (user.xp % 100) : 0;
 
-  const navLinks = [
-    { href: "/browse", label: "Browse" },
-    { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
-    { href: "/badges", label: "Badges", icon: Award },
-    { href: "/giveaways", label: "Giveaways", icon: Gift },
-    { href: "/earn", label: "Earn Points", icon: Coins },
-  ];
-
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-        <div className="container flex h-16 items-center justify-between mx-auto px-4">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="font-black text-xl tracking-tight text-foreground">Steam Family</span>
-            </Link>
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-[hsl(222,47%,5%)]">
+        <div className="flex h-14 items-center justify-between px-4">
 
-            <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-              {navLinks.map((l) => (
-                <Link key={l.href} href={l.href} className="text-muted-foreground hover:text-foreground transition-colors">
-                  {l.icon ? (
-                    <span className="flex items-center gap-1">
-                      <l.icon className="h-3.5 w-3.5" />{l.label}
-                    </span>
-                  ) : l.label}
-                </Link>
-              ))}
-            </nav>
+          {/* Left: Logo + Menu */}
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center">
+              <div className="bg-white text-black font-black text-sm px-3 py-1.5 rounded">
+                Steam Family
+              </div>
+            </Link>
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors"
+            >
+              <Menu className="h-4 w-4" />
+              Menu
+            </button>
           </div>
 
-          {/* Desktop right side */}
-          <div className="hidden md:flex items-center gap-3">
+          {/* Right: logged in vs logged out */}
+          <div className="flex items-center gap-2">
             {user ? (
               <>
                 {(user.isAdmin || (user as any).isModerator) && (
                   <Link href="/admin">
-                    <Button variant="outline" size="sm" className="gap-1.5 border-primary/30 text-primary">
+                    <button className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-primary/40 text-primary text-sm font-medium hover:bg-primary/10 transition-colors">
                       <Shield className="h-3.5 w-3.5" />
                       {user.isAdmin ? "Admin" : "Mod"}
-                    </Button>
+                    </button>
                   </Link>
                 )}
+
+                {/* Messages */}
                 <Link href="/messages">
-                  <Button variant="ghost" size="sm" className="gap-1.5 relative">
-                    <MessageSquare className="h-4 w-4" />
+                  <button className="relative p-2 rounded text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
+                    <MessageSquare className="h-5 w-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-primary text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                      <span className="absolute -top-0.5 -right-0.5 bg-primary text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                         {unreadCount > 9 ? "9+" : unreadCount}
                       </span>
                     )}
-                  </Button>
+                  </button>
                 </Link>
-                <Link href="/submit">
-                  <Button size="sm" className="gap-1.5"><Plus className="h-3.5 w-3.5" />Share Account</Button>
-                </Link>
+
+                {/* Bell */}
+                <button className="relative p-2 rounded text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
+                  <Bell className="h-5 w-5" />
+                </button>
+
+                {/* Avatar */}
                 <Link href={`/profile/${user.id}`}>
-                  <div className="relative group cursor-pointer">
-                    <Avatar className="h-8 w-8 border border-border group-hover:border-primary transition-colors">
-                      <AvatarImage src={user.avatarUrl || undefined} />
-                      <AvatarFallback className="text-xs">{(user.username?.substring(0,2) ?? "").toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div className="absolute bottom-0 right-0 translate-x-1 translate-y-1">
-                      <div className="bg-primary text-white text-[8px] font-black rounded px-0.5 leading-tight">{user.level}</div>
+                  <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+                    <div className="relative">
+                      <Avatar className="h-8 w-8 border border-border">
+                        <AvatarImage src={user.avatarUrl || undefined} />
+                        <AvatarFallback className="text-xs bg-secondary">
+                          {(user.username?.substring(0, 2) ?? "").toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="absolute -bottom-0.5 -right-0.5 bg-primary text-white text-[8px] font-black rounded px-0.5 leading-tight">
+                        {user.level}
+                      </div>
                     </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground rotate-90" />
                   </div>
                 </Link>
-                <div className="hidden lg:flex flex-col items-end">
-                  <span className="text-xs font-bold">{user.username}</span>
-                  <span className="text-[10px] text-primary font-mono">{user.points} pts</span>
-                </div>
-                <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-destructive h-8 w-8">
-                  <LogOut className="h-4 w-4" />
-                </Button>
               </>
             ) : (
               <>
-                <Link href="/login"><Button variant="ghost" size="sm">Login</Button></Link>
-                <Link href="/register"><Button size="sm">Register</Button></Link>
+                <Link href="/login">
+                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                    Login
+                  </Button>
+                </Link>
+                <Link href="/register">
+                  <Button size="sm" className="bg-primary hover:bg-primary/90 text-white font-semibold">
+                    Register
+                  </Button>
+                </Link>
               </>
             )}
           </div>
-
-          {/* Mobile hamburger */}
-          <button
-            className="md:hidden p-2 rounded-md text-muted-foreground hover:text-foreground"
-            onClick={() => setMobileOpen((o) => !o)}
-            aria-label="Toggle menu"
-          >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
         </div>
 
         {/* XP bar */}
@@ -145,104 +152,163 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      {/* Mobile drawer */}
-      {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-[60] flex">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <div className="relative z-50 ml-auto w-72 h-full bg-card border-l border-border flex flex-col overflow-y-auto">
+      {/* ── Menu Panel Overlay ── */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-[60] flex">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setMenuOpen(false)}
+          />
+
+          {/* Panel */}
+          <div className="relative z-50 w-72 h-full bg-[hsl(222,47%,6%)] border-r border-border flex flex-col overflow-y-auto menu-panel-enter">
+            {/* Panel Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <span className="text-base font-bold text-foreground">Menu</span>
+              <button
+                onClick={() => setMenuOpen(false)}
+                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* User info (if logged in) */}
             {user && (
-              <div className="p-4 border-b border-border space-y-2">
-                <Link href={`/profile/${user.id}`} onClick={() => setMobileOpen(false)}>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
+              <div className="px-5 py-4 border-b border-border">
+                <Link href={`/profile/${user.id}`} onClick={() => setMenuOpen(false)}>
+                  <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
+                    <Avatar className="h-10 w-10 border border-border">
                       <AvatarImage src={user.avatarUrl || undefined} />
-                      <AvatarFallback>{(user.username?.substring(0,2) ?? "").toUpperCase()}</AvatarFallback>
+                      <AvatarFallback className="bg-secondary text-sm">
+                        {(user.username?.substring(0, 2) ?? "").toUpperCase()}
+                      </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-semibold text-sm">{user.username}</p>
+                      <p className="font-semibold text-sm text-foreground">{user.username}</p>
                       <p className="text-xs text-primary">{user.points} pts · Lv {user.level}</p>
                     </div>
                   </div>
                 </Link>
-                <Progress value={xpProgress} className="h-1.5" />
+                <div className="mt-3">
+                  <Progress value={xpProgress} className="h-1" />
+                  <p className="text-[10px] text-muted-foreground mt-1">{user.xp % 100}/100 XP to next level</p>
+                </div>
               </div>
             )}
 
-            <nav className="flex-1 p-4 space-y-1">
-              {navLinks.map((l) => (
-                <Link key={l.href} href={l.href}>
+            {/* Nav Items */}
+            <nav className="flex-1 py-2">
+              {NAV_ITEMS.map((item) => (
+                <Link key={item.href} href={item.href}>
                   <button
-                    onClick={() => setMobileOpen(false)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${location === l.href ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
+                    onClick={() => setMenuOpen(false)}
+                    className={`w-full flex items-center justify-between px-5 py-3 text-sm font-medium transition-colors ${
+                      location === item.href
+                        ? "bg-primary/10 text-primary border-l-2 border-primary"
+                        : "text-muted-foreground hover:bg-white/5 hover:text-foreground border-l-2 border-transparent"
+                    }`}
                   >
-                    {l.icon && <l.icon className="h-4 w-4" />}
-                    {l.label}
+                    <span className="flex items-center gap-3">
+                      {item.icon && <item.icon className="h-4 w-4" />}
+                      {item.label}
+                    </span>
+                    <ChevronRight className="h-4 w-4 opacity-50" />
                   </button>
                 </Link>
               ))}
 
-              {user && (
+              {/* Divider */}
+              <div className="my-2 mx-5 border-t border-border" />
+
+              {user ? (
                 <>
-                  <Link href="/messages">
+                  <Link href="/submit">
                     <button
-                      onClick={() => setMobileOpen(false)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+                      onClick={() => setMenuOpen(false)}
+                      className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground border-l-2 border-transparent transition-colors"
                     >
-                      <MessageSquare className="h-4 w-4" />
-                      Messages
-                      {unreadCount > 0 && (
-                        <span className="ml-auto bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{unreadCount}</span>
-                      )}
+                      <span className="flex items-center gap-3">
+                        <Plus className="h-4 w-4" />
+                        Submit Account
+                      </span>
+                      <ChevronRight className="h-4 w-4 opacity-50" />
                     </button>
                   </Link>
-
+                  <Link href="/messages">
+                    <button
+                      onClick={() => setMenuOpen(false)}
+                      className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground border-l-2 border-transparent transition-colors"
+                    >
+                      <span className="flex items-center gap-3">
+                        <MessageSquare className="h-4 w-4" />
+                        Messages
+                        {unreadCount > 0 && (
+                          <span className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                            {unreadCount}
+                          </span>
+                        )}
+                      </span>
+                      <ChevronRight className="h-4 w-4 opacity-50" />
+                    </button>
+                  </Link>
                   {(user.isAdmin || (user as any).isModerator) && (
                     <Link href="/admin">
                       <button
-                        onClick={() => setMobileOpen(false)}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
+                        onClick={() => setMenuOpen(false)}
+                        className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-primary hover:bg-primary/10 border-l-2 border-transparent transition-colors"
                       >
-                        <Shield className="h-4 w-4" />
-                        {user.isAdmin ? "Admin Panel" : "Mod Panel"}
+                        <span className="flex items-center gap-3">
+                          <Shield className="h-4 w-4" />
+                          {user.isAdmin ? "Admin Panel" : "Mod Panel"}
+                        </span>
+                        <ChevronRight className="h-4 w-4 opacity-50" />
                       </button>
                     </Link>
                   )}
-
-                  <Link href="/submit">
+                </>
+              ) : (
+                <>
+                  <Link href="/login">
                     <button
-                      onClick={() => setMobileOpen(false)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+                      onClick={() => setMenuOpen(false)}
+                      className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground border-l-2 border-transparent transition-colors"
                     >
-                      <Plus className="h-4 w-4" />
-                      Share Account
+                      <span>Login</span>
+                      <ChevronRight className="h-4 w-4 opacity-50" />
+                    </button>
+                  </Link>
+                  <Link href="/register">
+                    <button
+                      onClick={() => setMenuOpen(false)}
+                      className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-primary hover:bg-primary/10 border-l-2 border-transparent transition-colors"
+                    >
+                      <span>Register</span>
+                      <ChevronRight className="h-4 w-4 opacity-50" />
                     </button>
                   </Link>
                 </>
               )}
             </nav>
 
-            <div className="p-4 border-t border-border space-y-2">
-              {user ? (
-                <Button variant="outline" className="w-full gap-2 text-destructive border-destructive/20" onClick={handleLogout}>
+            {/* Bottom logout */}
+            {user && (
+              <div className="p-4 border-t border-border">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                >
                   <LogOut className="h-4 w-4" />
                   Log out
-                </Button>
-              ) : (
-                <>
-                  <Link href="/login"><Button variant="outline" className="w-full" onClick={() => setMobileOpen(false)}>Login</Button></Link>
-                  <Link href="/register"><Button className="w-full" onClick={() => setMobileOpen(false)}>Register</Button></Link>
-                </>
-              )}
-            </div>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       <main className="flex-1">{children}</main>
-
-      <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Steam Family
-      </footer>
     </div>
   );
 }
