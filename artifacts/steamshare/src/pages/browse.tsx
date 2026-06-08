@@ -73,7 +73,7 @@ export default function Browse() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
-                    placeholder="Search titles..." 
+                    placeholder="Search titles or games..." 
                     className="pl-9 bg-card border-card-border"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -97,22 +97,23 @@ export default function Browse() {
                 </Select>
               </div>
 
-              <div className="space-y-2 pt-4">
+              {/* Games Directory — desktop only */}
+              <div className="hidden md:block space-y-2 pt-4">
                 <label className="text-sm font-medium text-muted-foreground flex justify-between items-center">
                   Games Directory
                   <Button variant="ghost" size="sm" className="h-auto p-0 text-xs" onClick={() => setSelectedGame("all")}>Clear</Button>
                 </label>
-                
+
                 <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                  <Button 
-                    variant={selectedGame === "all" ? "secondary" : "ghost"} 
+                  <Button
+                    variant={selectedGame === "all" ? "secondary" : "ghost"}
                     className="justify-start h-8 text-sm"
                     onClick={() => setSelectedGame("all")}
                     data-testid="button-game-all"
                   >
                     All Games
                   </Button>
-                  
+
                   {gamesLoading ? (
                     <div className="space-y-2 mt-2">
                       <Skeleton className="h-6 w-full" />
@@ -121,9 +122,9 @@ export default function Browse() {
                     </div>
                   ) : (
                     gamesData?.map(game => (
-                      <Button 
+                      <Button
                         key={game.game}
-                        variant={selectedGame === game.game ? "secondary" : "ghost"} 
+                        variant={selectedGame === game.game ? "secondary" : "ghost"}
                         className="justify-between h-8 text-sm group"
                         onClick={() => setSelectedGame(game.game)}
                         data-testid={`button-game-${game.game}`}
