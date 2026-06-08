@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Shield, Plus, LogOut, Coins, Trophy, Award, Gift,
   MessageSquare, Menu, X, ChevronRight, Bell, Home,
-  LayoutGrid, User, Settings,
+  LayoutGrid, User, Settings, ShoppingBag,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
@@ -41,6 +41,7 @@ const NAV_ITEMS = [
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/badges", label: "Badges", icon: Award },
   { href: "/giveaways", label: "Giveaways", icon: Gift },
+  { href: "/store", label: "Store", icon: ShoppingBag },
   { href: "/earn", label: "Earn Points", icon: Coins },
 ];
 

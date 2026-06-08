@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus } from "lucide-react";
+import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star } from "lucide-react";
 import { Link } from "wouter";
 
 // --- API helpers ---
@@ -101,6 +101,7 @@ export default function Admin() {
     { value: "accounts", label: "Accounts" },
     { value: "reports", label: "Reports" },
     ...(user?.isAdmin ? [{ value: "ads", label: "Ad Links" }] : []),
+    ...(user?.isAdmin ? [{ value: "store", label: "Store" }] : []),
     ...(user?.isAdmin ? [{ value: "announcements", label: "News" }] : []),
   ];
 
@@ -126,6 +127,7 @@ export default function Admin() {
           <TabsContent value="accounts"><AccountsTab /></TabsContent>
           <TabsContent value="reports"><ReportsTab /></TabsContent>
           {user?.isAdmin && <TabsContent value="ads"><AdLinksTab /></TabsContent>}
+          {user?.isAdmin && <TabsContent value="store"><StoreTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>}
         </Tabs>
       </div>
@@ -583,6 +585,240 @@ async function togglePin(id: number, pinned: boolean) {
   });
   if (!res.ok) throw new Error("Failed");
   return res.json();
+}
+
+// ── Store Tab ──
+async function fetchAdminProducts() {
+  const res = await fetch("/api/store/products", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to load products");
+  return res.json() as Promise<any[]>;
+}
+
+async function fetchAdminPurchases() {
+  const res = await fetch("/api/store/admin/purchases", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to load purchases");
+  return res.json() as Promise<any[]>;
+}
+
+async function createProduct(title: string, description: string, imageUrl: string, price: number, stock: number) {
+  const res = await fetch("/api/store/products", {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, description, imageUrl, price, stock }),
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+  return res.json();
+}
+
+async function addStock(id: number, amount: number) {
+  const res = await fetch(`/api/store/products/${id}/stock`, {
+    method: "PATCH", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amount }),
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+  return res.json();
+}
+
+async function deleteProduct(id: number) {
+  const res = await fetch(`/api/store/products/${id}`, { method: "DELETE", credentials: "include" });
+  if (!res.ok) throw new Error("Failed");
+  return res.json();
+}
+
+function StoreTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [stockTarget, setStockTarget] = useState<any>(null);
+  const [stockAmount, setStockAmount] = useState(10);
+
+  const [title, setTitle] = useState("");
+  const [desc, setDesc] = useState("");
+  const [imgUrl, setImgUrl] = useState("");
+  const [price, setPrice] = useState(100);
+  const [stock, setStock] = useState(10);
+
+  const { data: products = [], isLoading: productsLoading } = useQuery({ queryKey: ["admin-products"], queryFn: fetchAdminProducts });
+  const { data: purchases = [], isLoading: purchasesLoading } = useQuery({ queryKey: ["admin-purchases"], queryFn: fetchAdminPurchases });
+
+  const createMutation = useMutation({
+    mutationFn: () => createProduct(title, desc, imgUrl, price, stock),
+    onSuccess: () => {
+      setTitle(""); setDesc(""); setImgUrl(""); setPrice(100); setStock(10);
+      setCreateOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      toast({ title: "Product created" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const stockMutation = useMutation({
+    mutationFn: () => addStock(stockTarget.id, stockAmount),
+    onSuccess: () => {
+      setStockTarget(null);
+      setStockAmount(10);
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      toast({ title: "Stock added" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteProduct(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      toast({ title: "Product deleted" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="space-y-8">
+      {/* Products Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="h-5 w-5 text-primary" />
+            <h3 className="font-bold text-lg">Products</h3>
+          </div>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-1"><Plus className="h-4 w-4" /> Add Product</Button>
+            </DialogTrigger>
+            <DialogContent className="bg-card border-border max-w-md">
+              <DialogHeader><DialogTitle className="flex items-center gap-2"><Package className="h-5 w-5 text-primary" /> New Product</DialogTitle></DialogHeader>
+              <div className="space-y-4 pt-2">
+                <div>
+                  <label className="text-sm font-medium block mb-1">Title</label>
+                  <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Steam Gift Card $10" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-1">Description</label>
+                  <textarea className="w-full min-h-[80px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" placeholder="Describe the product..." value={desc} onChange={(e) => setDesc(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-1">Image URL (optional)</label>
+                  <Input value={imgUrl} onChange={(e) => setImgUrl(e.target.value)} placeholder="https://..." />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium block mb-1">Price (pts)</label>
+                    <Input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium block mb-1">Initial Stock</label>
+                    <Input type="number" value={stock} onChange={(e) => setStock(Number(e.target.value))} />
+                  </div>
+                </div>
+                <Button className="w-full" disabled={!title.trim() || !desc.trim() || price <= 0 || createMutation.isPending} onClick={() => createMutation.mutate()}>
+                  {createMutation.isPending ? "Creating..." : "Create Product"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        <div className="bg-card border border-border rounded-xl overflow-hidden overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Price</TableHead>
+                <TableHead>Stock</TableHead>
+                <TableHead>Reviews</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {productsLoading ? (
+                <TableRow><TableCell colSpan={6} className="text-center py-8">Loading...</TableCell></TableRow>
+              ) : products.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No products yet.</TableCell></TableRow>
+              ) : products.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell className="font-mono text-xs">{p.id}</TableCell>
+                  <TableCell className="font-medium max-w-[200px] truncate">{p.title}</TableCell>
+                  <TableCell className="font-bold text-primary">{p.price} pts</TableCell>
+                  <TableCell>{p.stock}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
+                      <span className="text-sm">{p.avgRating || 0} ({p.reviewsCount || 0})</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setStockTarget(p); setStockAmount(10); }}>
+                        + Stock
+                      </Button>
+                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this product?")) deleteMutation.mutate(p.id); }}>
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      {/* Purchases Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Coins className="h-5 w-5 text-primary" />
+          <h3 className="font-bold text-lg">Purchase History</h3>
+        </div>
+        <div className="bg-card border border-border rounded-xl overflow-hidden overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead>Product</TableHead>
+                <TableHead>User</TableHead>
+                <TableHead>Qty</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead>Date</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {purchasesLoading ? (
+                <TableRow><TableCell colSpan={5} className="text-center py-8">Loading...</TableCell></TableRow>
+              ) : purchases.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No purchases yet.</TableCell></TableRow>
+              ) : purchases.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell className="font-medium max-w-[200px] truncate">{p.productTitle}</TableCell>
+                  <TableCell>{p.username}</TableCell>
+                  <TableCell>{p.quantity}</TableCell>
+                  <TableCell className="font-bold text-primary">{p.totalPrice} pts</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      {/* Add Stock Dialog */}
+      <Dialog open={!!stockTarget} onOpenChange={(open) => !open && setStockTarget(null)}>
+        <DialogContent className="bg-card border-border max-w-sm">
+          <DialogHeader><DialogTitle>Add Stock — {stockTarget?.title}</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">Current stock: <strong className="text-primary">{stockTarget?.stock}</strong></p>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Amount to add</label>
+              <Input type="number" value={stockAmount} onChange={(e) => setStockAmount(Number(e.target.value))} min={1} />
+            </div>
+            <Button className="w-full" onClick={() => stockMutation.mutate()} disabled={stockAmount <= 0 || stockMutation.isPending}>
+              {stockMutation.isPending ? "Adding..." : `Add ${stockAmount} units`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }
 
 function AnnouncementsTab() {
