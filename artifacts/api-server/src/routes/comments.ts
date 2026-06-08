@@ -77,7 +77,7 @@ router.post("/", requireAuth, async (req, res) => {
 
   const [comment] = await db
     .insert(commentsTable)
-    .values({ accountId, userId, content: filterContent(parsed.data.content) })
+    .values({ accountId, userId, content: await filterContent(parsed.data.content) })
     .returning();
 
   const [user] = await db

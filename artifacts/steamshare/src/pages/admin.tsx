@@ -1016,8 +1016,8 @@ function AnnouncementsTab() {
 // --- Site Settings Tab ---
 async function fetchSiteSettings() {
   const res = await fetch("/api/site-settings", { credentials: "include" });
-  if (!res.ok) return { contact: {}, footerLinks: [] };
-  return res.json() as Promise<{ contact: Record<string, string>; footerLinks: { id: number; label: string; url: string; sortOrder: number }[] }>;
+  if (!res.ok) return { contact: {}, footerLinks: [], bannedWords: [] };
+  return res.json() as Promise<{ contact: Record<string, string>; footerLinks: { id: number; label: string; url: string; sortOrder: number }[]; bannedWords: string[] }>;
 }
 
 function SiteSettingsTab() {
@@ -1034,6 +1034,7 @@ function SiteSettingsTab() {
 
   const [newLinkLabel, setNewLinkLabel] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [newWord, setNewWord] = useState("");
 
   const initialized = useState(false);
 
@@ -1100,6 +1101,38 @@ function SiteSettingsTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["site-settings"] });
       toast({ title: "Footer link removed" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const addWordMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/site-settings/banned-words", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ word: newWord }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      setNewWord("");
+      queryClient.invalidateQueries({ queryKey: ["site-settings"] });
+      toast({ title: "Word added to filter" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteWordMutation = useMutation({
+    mutationFn: async (word: string) => {
+      const res = await fetch(`/api/site-settings/banned-words/${encodeURIComponent(word)}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["site-settings"] });
+      toast({ title: "Word removed from filter" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -1206,6 +1239,56 @@ function SiteSettingsTab() {
                 >
                   <Trash className="h-3.5 w-3.5" />
                 </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Word Filter */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <Shield className="h-5 w-5 text-primary" />
+          <h3 className="font-bold text-foreground text-lg">Word Filter</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          Custom words added here will be replaced with <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">[***]</code> in all new account descriptions and comments. A built-in list of profanity is always active.
+        </p>
+
+        {/* Add new word */}
+        <div className="flex gap-2 mb-5">
+          <Input
+            placeholder="Enter a word to ban..."
+            value={newWord}
+            onChange={(e) => setNewWord(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && newWord.trim()) addWordMutation.mutate(); }}
+            className="flex-1"
+          />
+          <Button
+            onClick={() => addWordMutation.mutate()}
+            disabled={!newWord.trim() || addWordMutation.isPending}
+          >
+            <Plus className="h-4 w-4 mr-1" /> Add
+          </Button>
+        </div>
+
+        {/* Word list */}
+        {(data?.bannedWords ?? []).length === 0 ? (
+          <div className="text-center py-8 bg-muted/30 rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+            No custom words added yet. The built-in filter is still active.
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {(data?.bannedWords ?? []).map((word) => (
+              <div key={word} className="flex items-center gap-1.5 bg-destructive/10 border border-destructive/20 text-destructive rounded-full px-3 py-1 text-sm font-medium">
+                <span>{word}</span>
+                <button
+                  onClick={() => deleteWordMutation.mutate(word)}
+                  className="hover:opacity-70 transition-opacity ml-0.5 text-destructive"
+                  title="Remove"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
             ))}
           </div>

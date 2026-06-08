@@ -123,9 +123,25 @@ router.post("/", requireAuth, async (req, res) => {
   const { title, description, games, pointsCost, steamUsername, steamPassword, unlockMethod } = parsed.data as typeof parsed.data & { unlockMethod?: string };
   const safeUnlockMethod = ["login", "like", "comment"].includes(unlockMethod ?? "") ? (unlockMethod as "login" | "like" | "comment") : "login";
 
+  const existingAccount = await db
+    .select({ id: accountsTable.id })
+    .from(accountsTable)
+    .where(eq(accountsTable.steamUsername, steamUsername))
+    .limit(1);
+
+  if (existingAccount.length > 0) {
+    res.status(409).json({ error: "This Steam account has already been listed. Duplicate listings are not allowed." });
+    return;
+  }
+
+  const [filteredTitle, filteredDescription] = await Promise.all([
+    filterContent(title),
+    filterContent(description ?? ""),
+  ]);
+
   const [account] = await db
     .insert(accountsTable)
-    .values({ userId, title: filterContent(title), description: filterContent(description ?? ""), games, pointsCost, steamUsername, steamPassword, unlockMethod: safeUnlockMethod })
+    .values({ userId, title: filteredTitle, description: filteredDescription, games, pointsCost, steamUsername, steamPassword, unlockMethod: safeUnlockMethod })
     .returning();
 
   await addXp(userId, 50);
