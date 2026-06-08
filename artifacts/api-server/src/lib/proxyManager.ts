@@ -2,8 +2,13 @@
 import { SocksProxyAgent } from "socks-proxy-agent";
 import { logger } from "./logger";
 
-const PROXY_LIST_URL = "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks4.txt";
-const PROXY_REFRESH_INTERVAL_MS = 60 * 60 * 1000; // 1 hour (proxies die fast)
+const PROXY_SOURCES: Array<{ url: string; protocol: "socks4" | "socks5" }> = [
+  { url: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks4.txt", protocol: "socks4" },
+  { url: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt", protocol: "socks5" },
+];
+
+// Refresh once per day — these lists are updated daily
+const PROXY_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 interface Proxy {
   host: string;
@@ -15,16 +20,13 @@ let cachedProxies: Proxy[] = [];
 let lastFetchTime = 0;
 
 /**
- * Fetch the SOCKS4 proxy list from GitHub and parse it.
- * Returns a list of validated proxies.
+ * Fetch and parse a single proxy list URL.
  */
-async function fetchProxyList(): Promise<Proxy[]> {
+async function fetchOneList(url: string, protocol: "socks4" | "socks5"): Promise<Proxy[]> {
   try {
-    const res = await fetch(PROXY_LIST_URL, {
-      signal: AbortSignal.timeout(15_000),
-    });
+    const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
     if (!res.ok) {
-      logger.warn({ status: res.status }, "Failed to fetch proxy list");
+      logger.warn({ status: res.status, url }, "Failed to fetch proxy list");
       return [];
     }
     const text = await res.text();
@@ -37,16 +39,28 @@ async function fetchProxyList(): Promise<Proxy[]> {
         const host = parts[0].trim();
         const port = parseInt(parts[1].trim(), 10);
         if (host && port > 0 && port < 65536) {
-          proxies.push({ host, port, url: `socks4://${host}:${port}` });
+          proxies.push({ host, port, url: `${protocol}://${host}:${port}` });
         }
       }
     }
-    logger.info({ count: proxies.length }, "Fetched proxy list");
+    logger.info({ count: proxies.length, protocol, url }, "Fetched proxy list");
     return proxies;
   } catch (e) {
-    logger.warn({ err: e }, "Error fetching proxy list");
+    logger.warn({ err: e, url }, "Error fetching proxy list");
     return [];
   }
+}
+
+/**
+ * Fetch both SOCKS4 and SOCKS5 proxy lists and merge them.
+ */
+async function fetchProxyList(): Promise<Proxy[]> {
+  const results = await Promise.all(
+    PROXY_SOURCES.map((s) => fetchOneList(s.url, s.protocol)),
+  );
+  const all = results.flat();
+  logger.info({ total: all.length }, "Total proxies loaded (socks4 + socks5)");
+  return all;
 }
 
 /**
