@@ -238,7 +238,14 @@ export default function AccountDetail() {
 
             {/* Back button */}
             <button
-              onClick={() => window.history.back()}
+              onClick={() => {
+                const prevPath = window.location.pathname;
+                window.history.back();
+                // If history.back() didn't change the URL (e.g. iframe), fallback to navigate
+                setTimeout(() => {
+                  if (window.location.pathname === prevPath) navigate("/browse");
+                }, 80);
+              }}
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors group w-fit"
             >
               <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
