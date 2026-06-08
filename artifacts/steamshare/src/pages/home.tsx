@@ -4,38 +4,7 @@ import { AccountCard } from "@/components/account-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { ShieldCheck, Users, Gamepad2, TrendingUp, Zap, Star, MessageSquare } from "lucide-react";
-
-const FEATURES = [
-  {
-    icon: ShieldCheck,
-    color: "text-primary",
-    bg: "bg-primary/10",
-    title: "Community Trusted",
-    desc: "Accounts vetted and reviewed by real gamers",
-  },
-  {
-    icon: Zap,
-    color: "text-amber-400",
-    bg: "bg-amber-400/10",
-    title: "Easy Access",
-    desc: "Instant credentials with direct copy buttons",
-  },
-  {
-    icon: Star,
-    color: "text-yellow-400",
-    bg: "bg-yellow-400/10",
-    title: "User Reviews",
-    desc: "Real feedback from the gaming community",
-  },
-  {
-    icon: MessageSquare,
-    color: "text-violet-400",
-    bg: "bg-violet-400/10",
-    title: "Active Community",
-    desc: "Join discussions and share your experiences",
-  },
-];
+import { ShieldCheck, Users, Gamepad2, TrendingUp } from "lucide-react";
 
 export default function Home() {
   const { data: stats, isLoading: statsLoading } = useGetStats();
@@ -92,37 +61,19 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Why Choose Section */}
-      <section className="border-b border-border py-16">
-        <div className="container mx-auto px-4">
-          <h2 className="text-2xl md:text-3xl font-black text-center mb-2">
-            Why Choose <span className="text-primary">Steam Family</span>?
-          </h2>
-          <p className="text-muted-foreground text-center mb-10 text-sm">Everything you need to trade and earn in one place.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 max-w-4xl mx-auto">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="flex flex-col items-center text-center p-6 bg-card border border-border rounded-xl hover:border-primary/30 transition-colors">
-                <div className={`flex items-center justify-center w-12 h-12 rounded-xl ${f.bg} mb-4`}>
-                  <f.icon className={`h-6 w-6 ${f.color}`} />
-                </div>
-                <h3 className="font-bold mb-1 text-sm">{f.title}</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Latest Accounts */}
       <section className="container mx-auto px-4 py-16">
-        <div className="flex items-end justify-between mb-8">
-          <div>
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <span className="w-2 h-6 bg-primary rounded-sm inline-block" />
-              Latest Accounts
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">Freshly dropped accounts ready to be claimed.</p>
-          </div>
+        <div className="flex flex-col items-center mb-8">
+          <h2 className="text-2xl font-bold flex items-center gap-2 justify-center">
+            <span className="w-2 h-6 bg-primary rounded-sm inline-block" />
+            Latest Accounts
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1 text-center">
+            Freshly dropped accounts ready to be claimed.
+          </p>
+        </div>
+
+        <div className="flex justify-end mb-4 -mt-2">
           <Link href="/browse">
             <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
               View All →

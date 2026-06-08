@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useGetMe, getGetMeQueryKey, useLogout } from "@workspace/api-client-react";
+import { useGetMe, getGetMeQueryKey, useLogout, useListGiveaways } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -7,8 +7,9 @@ import { Progress } from "@/components/ui/progress";
 import {
   Shield, Plus, LogOut, Coins, Trophy, Award, Gift,
   MessageSquare, Menu, X, ChevronRight, Bell, Home,
+  LayoutGrid,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 async function fetchUnreadCount(): Promise<number> {
   try {
@@ -21,9 +22,22 @@ async function fetchUnreadCount(): Promise<number> {
   }
 }
 
+const SEEN_GIVEAWAYS_KEY = "steamfamily_seen_giveaways";
+
+function getSeenIds(): number[] {
+  try {
+    return JSON.parse(localStorage.getItem(SEEN_GIVEAWAYS_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+function markAllSeen(ids: number[]) {
+  localStorage.setItem(SEEN_GIVEAWAYS_KEY, JSON.stringify(ids));
+}
+
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
-  { href: "/browse", label: "Browse", icon: null },
+  { href: "/browse", label: "Browse", icon: LayoutGrid },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/badges", label: "Badges", icon: Award },
   { href: "/giveaways", label: "Giveaways", icon: Gift },
@@ -36,6 +50,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [location] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
+  const bellRef = useRef<HTMLDivElement>(null);
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["unread-messages"],
@@ -43,6 +59,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
     enabled: !!user,
     refetchInterval: 30_000,
   });
+
+  // Giveaway notifications — track unseen active giveaways
+  const { data: giveaways = [] } = useListGiveaways({
+    query: { refetchInterval: 60_000 },
+  });
+  const activeGiveaways = giveaways.filter((g) => g.isActive);
+  const [seenIds, setSeenIds] = useState<number[]>(getSeenIds);
+  const newGiveaways = activeGiveaways.filter((g) => !seenIds.includes(g.id));
+  const notifCount = newGiveaways.length;
+
+  const openBell = () => {
+    setBellOpen((o) => !o);
+    if (!bellOpen && newGiveaways.length > 0) {
+      const allIds = activeGiveaways.map((g) => g.id);
+      markAllSeen(allIds);
+      setSeenIds(allIds);
+    }
+  };
+
+  // Close bell dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setBellOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -63,9 +108,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="flex h-14 items-center justify-between px-4">
 
-          {/* Left: Logo + Menu button */}
+          {/* Left: Logo (hidden on mobile) + Menu button */}
           <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center">
+            <Link href="/" className="hidden sm:flex items-center">
               <span className="font-black text-xl tracking-tight text-foreground">Steam Family</span>
             </Link>
             <button
@@ -77,22 +122,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
 
-          {/* Right: logged in vs logged out */}
-          <div className="flex items-center gap-2">
+          {/* Right */}
+          <div className="flex items-center gap-1.5">
             {user ? (
               <>
                 {(user.isAdmin || (user as any).isModerator) && (
                   <Link href="/admin">
                     <button className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-primary/40 text-primary text-sm font-medium hover:bg-primary/10 transition-colors">
                       <Shield className="h-3.5 w-3.5" />
-                      {user.isAdmin ? "Admin" : "Mod"}
+                      <span className="hidden sm:inline">{user.isAdmin ? "Admin" : "Mod"}</span>
                     </button>
                   </Link>
                 )}
 
+                {/* Post Account */}
+                <Link href="/submit">
+                  <button className="relative p-2 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors" title="Post Account">
+                    <Plus className="h-5 w-5" />
+                  </button>
+                </Link>
+
                 {/* Messages */}
                 <Link href="/messages">
-                  <button className="relative p-2 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors">
+                  <button className="relative p-2 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors" title="Messages">
                     <MessageSquare className="h-5 w-5" />
                     {unreadCount > 0 && (
                       <span className="absolute -top-0.5 -right-0.5 bg-primary text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
@@ -102,14 +154,73 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   </button>
                 </Link>
 
-                {/* Bell */}
-                <button className="relative p-2 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors">
-                  <Bell className="h-5 w-5" />
-                </button>
+                {/* Bell / Giveaway notifications */}
+                <div className="relative" ref={bellRef}>
+                  <button
+                    onClick={openBell}
+                    className="relative p-2 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+                    title="Notifications"
+                  >
+                    <Bell className="h-5 w-5" />
+                    {notifCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                        {notifCount > 9 ? "9+" : notifCount}
+                      </span>
+                    )}
+                  </button>
 
-                {/* Avatar + chevron */}
+                  {/* Bell dropdown */}
+                  {bellOpen && (
+                    <div className="absolute right-0 top-10 w-80 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                        <span className="text-sm font-bold">Notifications</span>
+                        <button onClick={() => setBellOpen(false)} className="text-muted-foreground hover:text-foreground">
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      {activeGiveaways.length === 0 ? (
+                        <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                          No active giveaways right now
+                        </div>
+                      ) : (
+                        <div className="max-h-72 overflow-y-auto divide-y divide-border">
+                          {activeGiveaways.map((g) => (
+                            <Link key={g.id} href="/giveaways">
+                              <button
+                                onClick={() => setBellOpen(false)}
+                                className="w-full px-4 py-3 text-left hover:bg-secondary/50 transition-colors"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="mt-0.5 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                    <Gift className="h-4 w-4 text-primary" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-foreground truncate">{g.title}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5 truncate">Prize: {g.prize}</p>
+                                    <p className="text-xs text-primary mt-0.5">
+                                      {g.entriesCount}/{g.maxEntries} entries · Active
+                                    </p>
+                                  </div>
+                                </div>
+                              </button>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                      <div className="px-4 py-2.5 border-t border-border">
+                        <Link href="/giveaways">
+                          <button onClick={() => setBellOpen(false)} className="text-xs text-primary hover:underline font-medium">
+                            View all giveaways →
+                          </button>
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Avatar */}
                 <Link href={`/profile/${user.id}`}>
-                  <div className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity">
+                  <div className="flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity ml-1">
                     <div className="relative">
                       <Avatar className="h-8 w-8 border border-border">
                         <AvatarImage src={user.avatarUrl || undefined} />
@@ -151,13 +262,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* ── Menu Panel Overlay ── */}
       {menuOpen && (
         <div className="fixed inset-0 z-[60] flex">
-          {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => setMenuOpen(false)}
           />
-
-          {/* Panel */}
           <div className="relative z-50 w-72 h-full bg-card border-r border-border flex flex-col overflow-y-auto shadow-2xl menu-panel-enter">
             {/* Panel Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -170,7 +278,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </button>
             </div>
 
-            {/* User info (if logged in) */}
+            {/* User info */}
             {user && (
               <div className="px-5 py-4 border-b border-border">
                 <Link href={`/profile/${user.id}`} onClick={() => setMenuOpen(false)}>
