@@ -1,7 +1,7 @@
 // @ts-nocheck
 import express from "express";
-import { db, productsTable, productReviewsTable, productPurchasesTable, usersTable, messagesTable } from "@workspace/db";
-import { eq, and, desc, sql, avg } from "drizzle-orm";
+import { db, productsTable, productReviewsTable, productPurchasesTable, productDeliveryUnitsTable, usersTable, messagesTable } from "@workspace/db";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 
 const router = express.Router();
@@ -31,9 +31,11 @@ router.get("/products", async (_req, res) => {
   res.json(result);
 });
 
-// ── Get single product with reviews ──
+// ── Get single product with reviews + purchase status + delivery units ──
 router.get("/products/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
+  const userId = req.session?.userId ?? null;
+
   const [product] = await db.select().from(productsTable).where(eq(productsTable.id, id)).limit(1);
   if (!product) {
     res.status(404).json({ error: "Product not found" });
@@ -57,17 +59,39 @@ router.get("/products/:id", async (req, res) => {
 
   const avgRating = reviews.length ? +(reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) : 0;
 
+  // Check if user has purchased this product
+  let hasPurchased = false;
+  let deliveredUnits = [];
+  if (userId) {
+    const [purchase] = await db
+      .select()
+      .from(productPurchasesTable)
+      .where(and(eq(productPurchasesTable.productId, id), eq(productPurchasesTable.userId, userId)))
+      .limit(1);
+    hasPurchased = !!purchase;
+
+    if (hasPurchased) {
+      deliveredUnits = await db
+        .select()
+        .from(productDeliveryUnitsTable)
+        .where(and(eq(productDeliveryUnitsTable.productId, id), eq(productDeliveryUnitsTable.userId, userId)))
+        .orderBy(desc(productDeliveryUnitsTable.createdAt));
+    }
+  }
+
   res.json({
     ...product,
     reviews,
     reviewsCount: reviews.length,
     avgRating,
+    hasPurchased,
+    deliveredUnits,
   });
 });
 
 // ── Create product (admin only) ──
 router.post("/products", requireAdmin, async (req, res) => {
-  const { title, description, imageUrl, price, stock } = req.body;
+  const { title, description, imageUrl, price, stock, deliveryContents } = req.body;
   const creatorId = req.session.userId;
 
   if (!title?.trim() || !description?.trim() || !price || price <= 0) {
@@ -86,6 +110,19 @@ router.post("/products", requireAdmin, async (req, res) => {
       createdBy: creatorId,
     })
     .returning();
+
+  // Insert delivery units if provided
+  if (Array.isArray(deliveryContents) && deliveryContents.length > 0) {
+    const units = deliveryContents
+      .filter((c) => c?.trim())
+      .map((content) => ({
+        productId: product.id,
+        content: content.trim(),
+      }));
+    if (units.length > 0) {
+      await db.insert(productDeliveryUnitsTable).values(units);
+    }
+  }
 
   res.status(201).json(product);
 });
@@ -115,6 +152,57 @@ router.patch("/products/:id/stock", requireAdmin, async (req, res) => {
   res.json(updated);
 });
 
+// ── Add delivery units (admin only) ──
+router.post("/products/:id/units", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { contents } = req.body;
+
+  if (!Array.isArray(contents) || contents.length === 0) {
+    res.status(400).json({ error: "contents array is required" });
+    return;
+  }
+
+  const [product] = await db.select().from(productsTable).where(eq(productsTable.id, id)).limit(1);
+  if (!product) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  const units = contents
+    .filter((c) => c?.trim())
+    .map((content) => ({
+      productId: id,
+      content: content.trim(),
+    }));
+
+  if (units.length === 0) {
+    res.status(400).json({ error: "No valid delivery contents provided" });
+    return;
+  }
+
+  await db.insert(productDeliveryUnitsTable).values(units);
+
+  // Also increase stock by the number of units added
+  await db
+    .update(productsTable)
+    .set({ stock: product.stock + units.length })
+    .where(eq(productsTable.id, id));
+
+  res.json({ added: units.length, productId: id });
+});
+
+// ── Get delivery units (admin only) ──
+router.get("/products/:id/units", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const units = await db
+    .select()
+    .from(productDeliveryUnitsTable)
+    .where(eq(productDeliveryUnitsTable.productId, id))
+    .orderBy(productDeliveryUnitsTable.id);
+
+  res.json(units);
+});
+
 // ── Delete product (admin only) ──
 router.delete("/products/:id", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
@@ -128,7 +216,7 @@ router.delete("/products/:id", requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Add review (auth) ──
+// ── Add review (auth, only if purchased) ──
 router.post("/products/:id/reviews", requireAuth, async (req, res) => {
   const productId = parseInt(req.params.id, 10);
   const userId = req.session.userId;
@@ -142,6 +230,18 @@ router.post("/products/:id/reviews", requireAuth, async (req, res) => {
   const [product] = await db.select().from(productsTable).where(eq(productsTable.id, productId)).limit(1);
   if (!product) {
     res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  // Check if user has purchased
+  const [purchase] = await db
+    .select()
+    .from(productPurchasesTable)
+    .where(and(eq(productPurchasesTable.productId, productId), eq(productPurchasesTable.userId, userId)))
+    .limit(1);
+
+  if (!purchase) {
+    res.status(403).json({ error: "You can only review products you have purchased" });
     return;
   }
 
@@ -195,6 +295,22 @@ router.post("/products/:id/buy", requireAuth, async (req, res) => {
     return;
   }
 
+  // Check available undelivered units
+  const availableUnits = await db
+    .select()
+    .from(productDeliveryUnitsTable)
+    .where(and(
+      eq(productDeliveryUnitsTable.productId, productId),
+      eq(productDeliveryUnitsTable.isDelivered, false)
+    ))
+    .orderBy(productDeliveryUnitsTable.id)
+    .limit(qty);
+
+  if (availableUnits.length < qty) {
+    res.status(400).json({ error: "Not enough delivery units available. Contact admin." });
+    return;
+  }
+
   // Deduct points
   await db
     .update(usersTable)
@@ -215,7 +331,14 @@ router.post("/products/:id/buy", requireAuth, async (req, res) => {
     totalPrice,
   });
 
-  // Auto-message the user (from admin "bot")
+  // Mark delivery units as delivered to this user
+  const unitIds = availableUnits.map((u) => u.id);
+  await db
+    .update(productDeliveryUnitsTable)
+    .set({ isDelivered: true, userId })
+    .where(inArray(productDeliveryUnitsTable.id, unitIds));
+
+  // Auto-message the user with the delivered items
   const [admin] = await db
     .select({ id: usersTable.id })
     .from(usersTable)
@@ -224,19 +347,29 @@ router.post("/products/:id/buy", requireAuth, async (req, res) => {
 
   const senderId = admin?.id ?? product.createdBy;
 
+  const deliveredItems = availableUnits.map((u, i) => `
+📦 Item ${i + 1}:
+${u.content}`).join("\n");
+
   const msgContent = `🛒 Order confirmed!
 
 Item: ${product.title}
 Qty: ${qty}
 Cost: ${totalPrice} pts
 
-Your product is ready. Click the button below to view your messages.`;
+${deliveredItems}
+
+All items delivered! Go to your messages to see this.`;
 
   await db
     .insert(messagesTable)
     .values({ senderId, receiverId: userId, content: msgContent });
 
-  res.json({ success: true, message: "Purchase successful! Check your messages for your item." });
+  res.json({
+    success: true,
+    message: "Purchase successful! Your items have been delivered to your messages.",
+    deliveredCount: qty,
+  });
 });
 
 // ── Admin: list all purchases ──

@@ -600,14 +600,30 @@ async function fetchAdminPurchases() {
   return res.json() as Promise<any[]>;
 }
 
-async function createProduct(title: string, description: string, imageUrl: string, price: number, stock: number) {
+async function createProduct(title: string, description: string, imageUrl: string, price: number, stock: number, deliveryContents: string[]) {
   const res = await fetch("/api/store/products", {
     method: "POST", credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, description, imageUrl, price, stock }),
+    body: JSON.stringify({ title, description, imageUrl, price, stock, deliveryContents }),
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
   return res.json();
+}
+
+async function addDeliveryUnits(id: number, contents: string[]) {
+  const res = await fetch(`/api/store/products/${id}/units`, {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents }),
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+  return res.json();
+}
+
+async function fetchProductUnits(id: number) {
+  const res = await fetch(`/api/store/products/${id}/units`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to load units");
+  return res.json() as Promise<any[]>;
 }
 
 async function addStock(id: number, amount: number) {
@@ -638,14 +654,20 @@ function StoreTab() {
   const [imgUrl, setImgUrl] = useState("");
   const [price, setPrice] = useState(100);
   const [stock, setStock] = useState(10);
+  const [deliveryContents, setDeliveryContents] = useState("");
+  const [unitsTarget, setUnitsTarget] = useState<any>(null);
+  const [unitsText, setUnitsText] = useState("");
 
   const { data: products = [], isLoading: productsLoading } = useQuery({ queryKey: ["admin-products"], queryFn: fetchAdminProducts });
   const { data: purchases = [], isLoading: purchasesLoading } = useQuery({ queryKey: ["admin-purchases"], queryFn: fetchAdminPurchases });
 
   const createMutation = useMutation({
-    mutationFn: () => createProduct(title, desc, imgUrl, price, stock),
+    mutationFn: () => {
+      const contents = deliveryContents.split("\n").map(s => s.trim()).filter(Boolean);
+      return createProduct(title, desc, imgUrl, price, stock, contents);
+    },
     onSuccess: () => {
-      setTitle(""); setDesc(""); setImgUrl(""); setPrice(100); setStock(10);
+      setTitle(""); setDesc(""); setImgUrl(""); setPrice(100); setStock(10); setDeliveryContents("");
       setCreateOpen(false);
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       toast({ title: "Product created" });
@@ -669,6 +691,20 @@ function StoreTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       toast({ title: "Product deleted" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const unitsMutation = useMutation({
+    mutationFn: () => {
+      const contents = unitsText.split("\n").map(s => s.trim()).filter(Boolean);
+      return addDeliveryUnits(unitsTarget.id, contents);
+    },
+    onSuccess: () => {
+      setUnitsTarget(null);
+      setUnitsText("");
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      toast({ title: "Delivery units added" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -711,6 +747,11 @@ function StoreTab() {
                     <Input type="number" value={stock} onChange={(e) => setStock(Number(e.target.value))} />
                   </div>
                 </div>
+                <div>
+                  <label className="text-sm font-medium block mb-1">Delivery Contents (one per line)</label>
+                  <textarea className="w-full min-h-[100px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" placeholder="e.g.&#10;ABC123-DEF456&#10;GHI789-JKL012" value={deliveryContents} onChange={(e) => setDeliveryContents(e.target.value)} />
+                  <p className="text-xs text-muted-foreground mt-1">Each line = 1 delivery unit. Stock auto-adjusted.</p>
+                </div>
                 <Button className="w-full" disabled={!title.trim() || !desc.trim() || price <= 0 || createMutation.isPending} onClick={() => createMutation.mutate()}>
                   {createMutation.isPending ? "Creating..." : "Create Product"}
                 </Button>
@@ -750,6 +791,9 @@ function StoreTab() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setUnitsTarget(p); setUnitsText(""); }}>
+                        + Units
+                      </Button>
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setStockTarget(p); setStockAmount(10); }}>
                         + Stock
                       </Button>
@@ -813,6 +857,24 @@ function StoreTab() {
             </div>
             <Button className="w-full" onClick={() => stockMutation.mutate()} disabled={stockAmount <= 0 || stockMutation.isPending}>
               {stockMutation.isPending ? "Adding..." : `Add ${stockAmount} units`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Units Dialog */}
+      <Dialog open={!!unitsTarget} onOpenChange={(open) => !open && setUnitsTarget(null)}>
+        <DialogContent className="bg-card border-border max-w-sm">
+          <DialogHeader><DialogTitle>Add Delivery Units — {unitsTarget?.title}</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">Current stock: <strong className="text-primary">{unitsTarget?.stock}</strong></p>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Delivery contents (one per line)</label>
+              <textarea className="w-full min-h-[120px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" placeholder="e.g.&#10;ABC123-DEF456&#10;GHI789-JKL012" value={unitsText} onChange={(e) => setUnitsText(e.target.value)} />
+              <p className="text-xs text-muted-foreground">Each line adds 1 stock unit + 1 delivery unit.</p>
+            </div>
+            <Button className="w-full" onClick={() => unitsMutation.mutate()} disabled={!unitsText.trim() || unitsMutation.isPending}>
+              {unitsMutation.isPending ? "Adding..." : "Add Units"}
             </Button>
           </div>
         </DialogContent>

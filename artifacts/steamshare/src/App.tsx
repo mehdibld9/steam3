@@ -21,6 +21,7 @@ import Banned from "./pages/banned";
 import Messages from "./pages/messages";
 import EditProfile from "./pages/edit-profile";
 import Store from "./pages/store";
+import ProductDetail from "./pages/product-detail";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,7 @@ function Router() {
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/banned" component={Banned} />
       <Route path="/store" component={Store} />
+      <Route path="/store/:id" component={ProductDetail} />
       <Route path="/messages" component={Messages} />
       <Route path="/edit-profile" component={EditProfile} />
       <Route component={NotFound} />
