@@ -29,18 +29,10 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import {
   Heart, Coins, MessageSquare, Trash, Lock,
   Copy, CheckCheck, ChevronDown, ChevronUp,
-  ThumbsUp, ThumbsDown, Flag, Edit2, Check, X, Shield, MessageCircle, Eye,
+  ThumbsUp, ThumbsDown, Flag, Edit2, Check, X, MessageCircle, Eye,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
-import { Megaphone, Pin } from "lucide-react";
-
-async function fetchAnnouncements() {
-  const res = await fetch("/api/announcements", { credentials: "include" });
-  if (!res.ok) return [];
-  return res.json() as Promise<any[]>;
-}
 
 function CopyField({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
@@ -126,19 +118,15 @@ export default function AccountDetail() {
   const [likeError, setLikeError] = useState("");
   const [commentError, setCommentError] = useState("");
 
-  // Edit state
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [editGames, setEditGames] = useState("");
   const [editCost, setEditCost] = useState(0);
 
-  // Report dialog
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
-
-  const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
 
   const likeAccount = useLikeAccount();
   const unlikeAccount = useUnlikeAccount();
@@ -215,8 +203,8 @@ export default function AccountDetail() {
 
   if (accountLoading) return (
     <Layout>
-      <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
-        <Skeleton className="h-64 w-full rounded-xl" />
+      <div className="container mx-auto px-4 py-8 max-w-5xl space-y-6">
+        <Skeleton className="h-48 w-full rounded-xl" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Skeleton className="h-96 col-span-2 rounded-xl" />
           <Skeleton className="h-96 col-span-1 rounded-xl" />
@@ -241,102 +229,56 @@ export default function AccountDetail() {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8 max-w-5xl space-y-6">
+      <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl space-y-5">
 
-        {/* Announcements Banner */}
-        {announcements.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {announcements.map((a: any) => (
-              <div key={a.id} className="relative bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 overflow-hidden flex items-start gap-3">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 blur-2xl rounded-full pointer-events-none" />
-                {a.pinned && <Pin className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0 rotate-45" />}
-                <Megaphone className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
-                <div className="relative z-10 min-w-0">
-                  <span className="font-bold text-sm text-foreground">{a.title}</span>
-                  <span className="text-muted-foreground text-sm"> — {a.description}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Header */}
+        {/* ── TOP BLOCK: Title + Description ── */}
         <div className="bg-card border border-border rounded-xl overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
-          <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center relative z-10">
-            <div className="space-y-4 flex-1">
-              <div className="flex items-center gap-3 flex-wrap">
-                {account.pointsCost === 0
-                  ? <Badge className="bg-green-600/20 text-green-600 border-green-600/30">Free</Badge>
-                  : <Badge variant="outline" className="border-primary/50 text-primary bg-primary/10 flex items-center gap-1"><Coins className="h-3 w-3" /> {account.pointsCost} Points</Badge>
-                }
-                <span className="text-xs text-muted-foreground">Posted {formatDistanceToNow(new Date(account.createdAt))} ago</span>
-                {(account as any).posterIsAdmin && <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 text-[10px]">ADMIN</Badge>}
-                {(account as any).posterIsModerator && !((account as any).posterIsAdmin) && <Badge className="bg-blue-500/20 text-blue-600 border-blue-500/30 text-[10px]">MOD</Badge>}
-              </div>
+          <div className="absolute top-0 right-0 w-56 h-56 bg-primary/10 rounded-full blur-3xl -mr-8 -mt-8 pointer-events-none" />
+          <div className="relative z-10 p-6 md:p-8 space-y-4">
 
-              {editing ? (
-                <div className="space-y-3">
-                  <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title" className="text-xl font-black" />
-                  <Textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Description" className="resize-none" rows={3} />
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input value={editGames} onChange={(e) => setEditGames(e.target.value)} placeholder="Games (comma-separated)" />
-                    <Input type="number" value={editCost} onChange={(e) => setEditCost(Number(e.target.value))} placeholder="Points cost" min={0} />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={() => editMutation.mutate()} disabled={editMutation.isPending} className="gap-1"><Check className="h-4 w-4" /> Save</Button>
-                    <Button size="sm" variant="outline" onClick={() => setEditing(false)} className="gap-1"><X className="h-4 w-4" /> Cancel</Button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <h1 className="text-3xl md:text-4xl font-black">{account.title}</h1>
-                  <div className="flex items-center gap-3 mt-4">
-                    <Link href={`/profile/${account.userId}`}>
-                      <Avatar className="h-10 w-10 border border-border cursor-pointer hover:border-primary transition-colors">
-                        <AvatarImage src={account.posterAvatarUrl || undefined} />
-                        <AvatarFallback>{(account.posterUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                    </Link>
-                    <div>
-                      <div className="text-sm font-medium text-muted-foreground">Uploaded by</div>
-                      <Link href={`/profile/${account.userId}`} className="text-primary hover:underline font-bold">{account.posterUsername}</Link>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="shrink-0 flex flex-col items-center gap-2 w-full md:w-40">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <div className={`w-2 h-2 rounded-full ${account.isAvailable ? "bg-green-500" : "bg-muted-foreground"}`} />
+            {/* Badges row */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {account.pointsCost === 0
+                ? <Badge className="bg-green-600/20 text-green-600 border-green-600/30">Free</Badge>
+                : <Badge variant="outline" className="border-primary/50 text-primary bg-primary/10 flex items-center gap-1"><Coins className="h-3 w-3" /> {account.pointsCost} Points</Badge>
+              }
+              <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${account.isAvailable ? "bg-green-500/10 text-green-600 border-green-500/30" : "bg-muted/40 text-muted-foreground border-border"}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${account.isAvailable ? "bg-green-500" : "bg-muted-foreground"}`} />
                 {account.isAvailable ? "Available" : "Claimed"}
               </div>
-              <div className="text-xs text-muted-foreground">{account.claimsCount} past claims</div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Eye className="h-3 w-3" /> {viewCount.toLocaleString()} views
-              </div>
-
-              {/* Admin/Mod/Owner actions only */}
-              {canManage && (
-                <div className="flex gap-2 w-full mt-1">
-                  {user.id === account.userId && (
-                    <Button size="sm" variant="outline" onClick={startEdit} className="flex-1 gap-1 text-xs">
-                      <Edit2 className="h-3 w-3" /> Edit
-                    </Button>
-                  )}
-                  <Button size="sm" variant="destructive" onClick={handleDelete} className="flex-1 gap-1 text-xs">
-                    <Trash className="h-3 w-3" /> Delete
-                  </Button>
-                </div>
-              )}
+              {(account as any).posterIsAdmin && <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 text-[10px]">ADMIN</Badge>}
+              {(account as any).posterIsModerator && !((account as any).posterIsAdmin) && <Badge className="bg-blue-500/20 text-blue-600 border-blue-500/30 text-[10px]">MOD</Badge>}
+              <span className="text-xs text-muted-foreground ml-auto">Posted {formatDistanceToNow(new Date(account.createdAt))} ago</span>
             </div>
+
+            {/* Title + Description — or edit form */}
+            {editing ? (
+              <div className="space-y-3">
+                <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title" className="text-xl font-black" />
+                <Textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Description" className="resize-none" rows={3} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Input value={editGames} onChange={(e) => setEditGames(e.target.value)} placeholder="Games (comma-separated)" />
+                  <Input type="number" value={editCost} onChange={(e) => setEditCost(Number(e.target.value))} placeholder="Points cost" min={0} />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => editMutation.mutate()} disabled={editMutation.isPending} className="gap-1"><Check className="h-4 w-4" /> Save</Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditing(false)} className="gap-1"><X className="h-4 w-4" /> Cancel</Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <h1 className="text-2xl md:text-4xl font-black leading-tight">{account.title}</h1>
+                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{account.description}</p>
+              </>
+            )}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Main */}
-          <div className="col-span-1 md:col-span-2 space-y-6">
+        {/* ── TWO-COLUMN: Main content + Sidebar ── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+          {/* ── LEFT: Credentials + Rating + Comments ── */}
+          <div className="col-span-1 md:col-span-2 space-y-5">
 
             {/* Credentials panel */}
             <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -344,7 +286,6 @@ export default function AccountDetail() {
                 <Lock className="h-4 w-4 text-muted-foreground" />
                 <span className="font-bold text-sm">STEAM Account Information</span>
               </div>
-
               <div className="p-5">
                 {claimResult ? (
                   <div className="space-y-3">
@@ -396,7 +337,31 @@ export default function AccountDetail() {
                   <CollapsibleSection title="Games List" items={account.games} />
                 </div>
 
-                {/* Community Rating + Like + Report — 4 buttons in 2 rows */}
+                {/* Unlock gate hint */}
+                {(() => {
+                  const method = (account as any).unlockMethod ?? "login";
+                  const hasLiked = account.userHasLiked;
+                  const hasCommented = (account as any).userHasCommented;
+                  if (method === "like" && !hasLiked && user && user.id !== account.userId) {
+                    return (
+                      <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-center space-y-1">
+                        <p className="font-medium text-primary">Like this post to unlock credentials</p>
+                        <p className="text-xs text-muted-foreground">The author requires a like before you can claim.</p>
+                      </div>
+                    );
+                  }
+                  if (method === "comment" && !hasCommented && user && user.id !== account.userId) {
+                    return (
+                      <div className="mt-3 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 text-sm text-center space-y-1">
+                        <p className="font-medium text-amber-600">Leave a comment to unlock credentials</p>
+                        <p className="text-xs text-muted-foreground">The author requires a comment before you can claim.</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {/* Community Rating */}
                 <div className="mt-4 border-t border-border pt-4 space-y-3">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Community Rating</p>
                   <div className="flex gap-3">
@@ -422,7 +387,6 @@ export default function AccountDetail() {
                     </Button>
                   </div>
 
-                  {/* Like + Report — same style & size as Working/Not Working, visible to all */}
                   <div className="flex gap-3">
                     <Button
                       size="sm"
@@ -460,39 +424,7 @@ export default function AccountDetail() {
                   {likeError && <p className="text-xs text-red-500">{likeError}</p>}
                   {!user && <p className="text-xs text-muted-foreground">Log in to vote, like, or report.</p>}
                 </div>
-
-                {/* Unlock gate — shown when unlock method is like or comment and not yet met */}
-                {(() => {
-                  const method = (account as any).unlockMethod ?? "login";
-                  const hasLiked = account.userHasLiked;
-                  const hasCommented = (account as any).userHasCommented;
-                  if (method === "like" && !hasLiked && user && user.id !== account.userId) {
-                    return (
-                      <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-center space-y-2">
-                        <p className="font-medium text-primary">Like this post to unlock credentials</p>
-                        <p className="text-xs text-muted-foreground">The author requires a like before you can claim.</p>
-                      </div>
-                    );
-                  }
-                  if (method === "comment" && !hasCommented && user && user.id !== account.userId) {
-                    return (
-                      <div className="mt-3 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 text-sm text-center space-y-2">
-                        <p className="font-medium text-amber-600">Leave a comment to unlock credentials</p>
-                        <p className="text-xs text-muted-foreground">The author requires a comment before you can claim.</p>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
               </div>
-            </div>
-
-            {/* Description */}
-            <div className="bg-card border border-border rounded-xl p-6">
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <span className="w-1.5 h-5 bg-primary rounded-sm inline-block" /> Description
-              </h3>
-              <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">{account.description}</p>
             </div>
 
             {/* Comments */}
@@ -578,12 +510,13 @@ export default function AccountDetail() {
             </div>
           </div>
 
-          {/* Sidebar — Poster Profile */}
+          {/* ── RIGHT SIDEBAR: Poster info + Stats + Actions ── */}
           <div className="space-y-4">
+
+            {/* Poster card */}
             <div className="bg-card border border-border rounded-xl p-5 space-y-4">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Posted by</p>
 
-              {/* Avatar + username */}
               <Link href={`/profile/${account.userId}`} className="flex items-center gap-3 group">
                 <Avatar className="h-12 w-12 border border-border group-hover:border-primary transition-colors">
                   <AvatarImage src={poster?.avatarUrl || undefined} />
@@ -597,7 +530,6 @@ export default function AccountDetail() {
                 </div>
               </Link>
 
-              {/* Stats row */}
               {poster && (
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="bg-muted/30 rounded-lg p-2">
@@ -615,53 +547,96 @@ export default function AccountDetail() {
                 </div>
               )}
 
-              {/* Message + Report — non-owners only */}
               {user && user.id !== account.userId && (
-                <div className="space-y-2">
-                  <Link href={`/messages?user=${account.userId}&username=${encodeURIComponent(account.posterUsername ?? "")}`}>
-                    <Button variant="outline" className="w-full gap-2">
-                      <MessageCircle className="h-4 w-4" /> Message {account.posterUsername}
-                    </Button>
-                  </Link>
-                  <Button
-                    variant="ghost"
-                    className="w-full gap-2 text-muted-foreground hover:text-red-500 text-sm"
-                    onClick={() => setReportOpen(true)}
-                  >
-                    <Flag className="h-4 w-4" /> Report this post
+                <Link href={`/messages?user=${account.userId}&username=${encodeURIComponent(account.posterUsername ?? "")}`}>
+                  <Button variant="outline" className="w-full gap-2">
+                    <MessageCircle className="h-4 w-4" /> Message {account.posterUsername}
                   </Button>
-                </div>
+                </Link>
               )}
             </div>
 
-            {/* Hidden report dialog — triggered by sidebar button */}
-            <Dialog open={reportOpen} onOpenChange={setReportOpen}>
-              <DialogContent className="bg-card border-border max-w-sm">
-                <DialogHeader><DialogTitle>Report this post</DialogTitle></DialogHeader>
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">Reason</label>
-                    <select className="w-full border border-border rounded-lg px-3 py-2 bg-background text-sm" value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
-                      <option value="">Select a reason...</option>
-                      <option value="spam">Spam or misleading</option>
-                      <option value="fake">Fake or invalid credentials</option>
-                      <option value="inappropriate">Inappropriate content</option>
-                      <option value="scam">Potential scam</option>
-                      <option value="other">Other</option>
-                    </select>
+            {/* Stats card */}
+            <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Listing Stats</p>
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2 text-muted-foreground"><Eye className="h-4 w-4" /> Views</span>
+                  <span className="font-semibold">{viewCount.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2 text-muted-foreground"><Heart className="h-4 w-4" /> Likes</span>
+                  <span className="font-semibold">{account.likesCount}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2 text-muted-foreground"><MessageSquare className="h-4 w-4" /> Comments</span>
+                  <span className="font-semibold">{comments?.length ?? 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2 text-muted-foreground"><Coins className="h-4 w-4" /> Claims</span>
+                  <span className="font-semibold">{account.claimsCount}</span>
+                </div>
+                {totalVotes > 0 && (
+                  <div className="pt-1 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><ThumbsUp className="h-3 w-3 text-green-500" /> Working</span>
+                      <span className="font-medium text-green-600">{workingPct}%</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-green-500 transition-all" style={{ width: `${workingPct}%` }} />
+                    </div>
+                    <p className="text-xs text-muted-foreground text-right">{totalVotes} votes total</p>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">Details (optional)</label>
-                    <Textarea placeholder="Add more details..." value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} className="resize-none" rows={3} />
-                  </div>
-                  <Button className="w-full" onClick={() => reportMutation.mutate()} disabled={!reportReason || reportMutation.isPending}>
-                    {reportMutation.isPending ? "Submitting..." : "Submit Report"}
+                )}
+              </div>
+            </div>
+
+            {/* Owner/Admin actions */}
+            {canManage && (
+              <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Manage Listing</p>
+                <div className="flex flex-col gap-2">
+                  {user.id === account.userId && (
+                    <Button variant="outline" onClick={startEdit} className="w-full gap-2">
+                      <Edit2 className="h-4 w-4" /> Edit Listing
+                    </Button>
+                  )}
+                  <Button variant="destructive" onClick={handleDelete} className="w-full gap-2">
+                    <Trash className="h-4 w-4" /> Delete Listing
                   </Button>
                 </div>
-              </DialogContent>
-            </Dialog>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Report dialog */}
+        <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+          <DialogContent className="bg-card border-border max-w-sm">
+            <DialogHeader><DialogTitle>Report this post</DialogTitle></DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Reason</label>
+                <select className="w-full border border-border rounded-lg px-3 py-2 bg-background text-sm" value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
+                  <option value="">Select a reason...</option>
+                  <option value="spam">Spam or misleading</option>
+                  <option value="fake">Fake or invalid credentials</option>
+                  <option value="inappropriate">Inappropriate content</option>
+                  <option value="scam">Potential scam</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Details (optional)</label>
+                <Textarea placeholder="Add more details..." value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} className="resize-none" rows={3} />
+              </div>
+              <Button className="w-full" onClick={() => reportMutation.mutate()} disabled={!reportReason || reportMutation.isPending}>
+                {reportMutation.isPending ? "Submitting..." : "Submit Report"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </Layout>
   );

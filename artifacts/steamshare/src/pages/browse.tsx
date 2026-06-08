@@ -7,6 +7,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
 import { Search, Filter } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Megaphone, Pin } from "lucide-react";
+
+async function fetchAnnouncements() {
+  const res = await fetch("/api/announcements", { credentials: "include" });
+  if (!res.ok) return [];
+  return res.json() as Promise<any[]>;
+}
 
 export default function Browse() {
   const [search, setSearch] = useState("");
@@ -18,6 +26,7 @@ export default function Browse() {
     game: selectedGame !== "all" ? selectedGame : undefined,
     sort
   });
+  const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
 
   const filteredAccounts = accountsData?.accounts?.filter(a => {
     const q = search.toLowerCase();
@@ -30,7 +39,26 @@ export default function Browse() {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
+      <div className="container mx-auto px-4 py-8 space-y-4">
+
+        {/* Announcements Banner */}
+        {announcements.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {(announcements as any[]).map((a: any) => (
+              <div key={a.id} className="relative bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 overflow-hidden flex items-start gap-3">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 blur-2xl rounded-full pointer-events-none" />
+                {a.pinned && <Pin className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0 rotate-45" />}
+                <Megaphone className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                <div className="relative z-10 min-w-0">
+                  <span className="font-bold text-sm text-foreground">{a.title}</span>
+                  <span className="text-muted-foreground text-sm"> — {a.description}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+      <div className="flex flex-col md:flex-row gap-8">
         
         {/* Sidebar Filters */}
         <aside className="w-full md:w-64 shrink-0 space-y-6">
@@ -148,6 +176,7 @@ export default function Browse() {
           )}
         </main>
 
+      </div>
       </div>
     </Layout>
   );
