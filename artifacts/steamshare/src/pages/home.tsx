@@ -1,14 +1,22 @@
-import { useListAccounts, useGetStats } from "@workspace/api-client-react";
+import { useListAccounts } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { AccountCard } from "@/components/account-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { ShieldCheck, Users, Gamepad2, TrendingUp } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Megaphone, Pin, ChevronRight } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+
+async function fetchAnnouncements() {
+  const res = await fetch("/api/announcements", { credentials: "include" });
+  if (!res.ok) return [];
+  return res.json() as Promise<any[]>;
+}
 
 export default function Home() {
-  const { data: stats, isLoading: statsLoading } = useGetStats();
   const { data: accountsData, isLoading: accountsLoading } = useListAccounts({ sort: "recent", limit: 12 });
+  const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
 
   return (
     <Layout>
@@ -38,68 +46,86 @@ export default function Home() {
               </Button>
             </Link>
           </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mt-16 w-full max-w-3xl">
-            {[
-              { icon: Users, label: "Active Users", value: stats?.totalUsers },
-              { icon: Gamepad2, label: "Accounts Shared", value: stats?.totalAccounts },
-              { icon: ShieldCheck, label: "Claims Made", value: stats?.totalClaims },
-              { icon: TrendingUp, label: "Points in Circulation", value: stats?.totalPointsCirculating },
-            ].map((stat, i) => (
-              <div key={i} className="flex flex-col items-center p-4 bg-card border border-border rounded-xl">
-                <stat.icon className="h-5 w-5 text-primary mb-2" />
-                {statsLoading ? (
-                  <Skeleton className="h-7 w-14 mb-1" />
-                ) : (
-                  <span className="text-xl font-bold font-mono">{stat.value?.toLocaleString() ?? "—"}</span>
-                )}
-                <span className="text-[11px] text-muted-foreground uppercase tracking-wide text-center">{stat.label}</span>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
-      {/* Latest Accounts */}
-      <section className="container mx-auto px-4 py-16">
-        <div className="flex flex-col items-center mb-8">
-          <h2 className="text-2xl font-bold flex items-center gap-2 justify-center">
-            <span className="w-2 h-6 bg-primary rounded-sm inline-block" />
-            Latest Accounts
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1 text-center">
-            Freshly dropped accounts ready to be claimed.
-          </p>
-        </div>
+      <div className="container mx-auto px-4 py-10 space-y-10">
 
-        <div className="flex justify-end mb-4 -mt-2">
-          <Link href="/browse">
-            <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
-              View All →
-            </Button>
-          </Link>
-        </div>
-
-        {accountsLoading ? (
-          <div className="flex flex-col gap-3">
-            {[...Array(8)].map((_, i) => (
-              <Skeleton key={i} className="h-20 w-full rounded-xl" />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {accountsData?.accounts?.map((account) => (
-              <AccountCard key={account.id} account={account} />
-            ))}
-            {(accountsData?.accounts?.length ?? 0) === 0 && (
-              <div className="py-12 text-center text-muted-foreground">
-                No accounts yet. Be the first to upload!
-              </div>
-            )}
-          </div>
+        {/* Announcements */}
+        {announcements.length > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-1.5 h-5 bg-primary rounded-sm inline-block" />
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Megaphone className="h-5 w-5 text-primary" />
+                Site News
+              </h2>
+            </div>
+            <div className="flex flex-col gap-3">
+              {announcements.map((a: any) => (
+                <div
+                  key={a.id}
+                  className="relative bg-primary/5 border border-primary/20 rounded-xl px-5 py-4 overflow-hidden"
+                >
+                  {/* subtle glow */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-2xl rounded-full pointer-events-none" />
+                  <div className="relative z-10 flex items-start gap-3">
+                    {a.pinned && (
+                      <Pin className="h-4 w-4 text-primary mt-0.5 shrink-0 rotate-45" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-baseline gap-2 mb-1">
+                        <h3 className="font-bold text-foreground">{a.title}</h3>
+                        <span className="text-[11px] text-muted-foreground">
+                          by {a.authorUsername} · {formatDistanceToNow(new Date(a.createdAt), { addSuffix: true })}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{a.description}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
-      </section>
+
+        {/* Latest Accounts */}
+        <section>
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-5 bg-primary rounded-sm inline-block" />
+              <div>
+                <h2 className="text-xl font-bold">Latest Accounts</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Freshly dropped accounts ready to be claimed.</p>
+              </div>
+            </div>
+            <Link href="/browse">
+              <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80 flex items-center gap-1">
+                View All <ChevronRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+
+          {accountsLoading ? (
+            <div className="flex flex-col gap-3">
+              {[...Array(8)].map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {accountsData?.accounts?.map((account) => (
+                <AccountCard key={account.id} account={account} />
+              ))}
+              {(accountsData?.accounts?.length ?? 0) === 0 && (
+                <div className="py-12 text-center text-muted-foreground border border-dashed border-border rounded-xl">
+                  No accounts yet. Be the first to upload!
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
     </Layout>
   );
 }

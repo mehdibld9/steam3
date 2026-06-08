@@ -33,6 +33,14 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { Megaphone, Pin } from "lucide-react";
+
+async function fetchAnnouncements() {
+  const res = await fetch("/api/announcements", { credentials: "include" });
+  if (!res.ok) return [];
+  return res.json() as Promise<any[]>;
+}
 
 function CopyField({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
@@ -129,6 +137,8 @@ export default function AccountDetail() {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
+
+  const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
 
   const likeAccount = useLikeAccount();
   const unlikeAccount = useUnlikeAccount();
@@ -232,6 +242,23 @@ export default function AccountDetail() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8 max-w-5xl space-y-6">
+
+        {/* Announcements Banner */}
+        {announcements.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {announcements.map((a: any) => (
+              <div key={a.id} className="relative bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 overflow-hidden flex items-start gap-3">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 blur-2xl rounded-full pointer-events-none" />
+                {a.pinned && <Pin className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0 rotate-45" />}
+                <Megaphone className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                <div className="relative z-10 min-w-0">
+                  <span className="font-bold text-sm text-foreground">{a.title}</span>
+                  <span className="text-muted-foreground text-sm"> — {a.description}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Header */}
         <div className="bg-card border border-border rounded-xl overflow-hidden relative">

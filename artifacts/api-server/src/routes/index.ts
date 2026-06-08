@@ -12,6 +12,7 @@ import statsRouter from "./stats";
 import giveawaysRouter from "./giveaways";
 import reportsRouter from "./reports";
 import messagesRouter from "./messages";
+import announcementsRouter from "./announcements";
 
 const router = express.Router();
 
@@ -27,5 +28,6 @@ router.use(statsRouter);
 router.use("/giveaways", giveawaysRouter);
 router.use("/reports", reportsRouter);
 router.use("/messages", messagesRouter);
+router.use("/announcements", announcementsRouter);
 
 export default router;

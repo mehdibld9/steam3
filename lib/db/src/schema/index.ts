@@ -10,3 +10,4 @@ export * from "./reports";
 export * from "./messages";
 export * from "./accountVotes";
 export * from "./session";
+export * from "./announcements";

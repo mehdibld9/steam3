@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX } from "lucide-react";
+import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus } from "lucide-react";
 import { Link } from "wouter";
 
 // --- API helpers ---
@@ -101,6 +101,7 @@ export default function Admin() {
     { value: "accounts", label: "Accounts" },
     { value: "reports", label: "Reports" },
     ...(user?.isAdmin ? [{ value: "ads", label: "Ad Links" }] : []),
+    ...(user?.isAdmin ? [{ value: "announcements", label: "News" }] : []),
   ];
 
   return (
@@ -125,6 +126,7 @@ export default function Admin() {
           <TabsContent value="accounts"><AccountsTab /></TabsContent>
           <TabsContent value="reports"><ReportsTab /></TabsContent>
           {user?.isAdmin && <TabsContent value="ads"><AdLinksTab /></TabsContent>}
+          {user?.isAdmin && <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>}
         </Tabs>
       </div>
     </Layout>
@@ -488,7 +490,7 @@ function AdLinksTab() {
   return (
     <div className="space-y-8">
       <div className="bg-card border border-border rounded-xl p-6">
-        <h3 className="font-bold text-lg mb-4">Generate New Link</h3>
+        <h3 className="font-bold text-lg mb-4">Generate New Ad Link</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div className="space-y-2 md:col-span-2">
             <label className="text-sm font-medium">Description / Campaign Name</label>
@@ -546,6 +548,167 @@ function AdLinksTab() {
           </TableBody>
         </Table>
       </div>
+    </div>
+  );
+}
+
+// --- Announcements Tab ---
+async function fetchAnnouncements() {
+  const res = await fetch("/api/announcements", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed");
+  return res.json() as Promise<any[]>;
+}
+
+async function createAnnouncement(title: string, description: string, pinned: boolean) {
+  const res = await fetch("/api/announcements", {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, description, pinned }),
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+  return res.json();
+}
+
+async function deleteAnnouncement(id: number) {
+  const res = await fetch(`/api/announcements/${id}`, { method: "DELETE", credentials: "include" });
+  if (!res.ok) throw new Error("Failed");
+  return res.json();
+}
+
+async function togglePin(id: number, pinned: boolean) {
+  const res = await fetch(`/api/announcements/${id}`, {
+    method: "PATCH", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pinned }),
+  });
+  if (!res.ok) throw new Error("Failed");
+  return res.json();
+}
+
+function AnnouncementsTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [pinned, setPinned] = useState(true);
+  const [open, setOpen] = useState(false);
+
+  const { data: announcements = [], isLoading } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
+
+  const createMutation = useMutation({
+    mutationFn: () => createAnnouncement(title, description, pinned),
+    onSuccess: () => {
+      setTitle(""); setDescription(""); setPinned(true); setOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["announcements"] });
+      toast({ title: "Announcement posted!" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteAnnouncement(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["announcements"] }); toast({ title: "Deleted" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const pinMutation = useMutation({
+    mutationFn: ({ id, pinned }: { id: number; pinned: boolean }) => togglePin(id, pinned),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["announcements"] }),
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-bold text-lg">Site Announcements</h3>
+          <p className="text-sm text-muted-foreground">Posts that appear on the home page and every account page.</p>
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-1.5"><Plus className="h-4 w-4" /> New Post</Button>
+          </DialogTrigger>
+          <DialogContent className="bg-card border-border max-w-md">
+            <DialogHeader><DialogTitle className="flex items-center gap-2"><Megaphone className="h-5 w-5 text-primary" /> New Announcement</DialogTitle></DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div>
+                <label className="text-sm font-medium block mb-1">Title</label>
+                <Input placeholder="e.g. Maintenance Tonight" value={title} onChange={(e) => setTitle(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">Description</label>
+                <textarea
+                  className="w-full min-h-[100px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="Full details of the announcement..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="pinned"
+                  checked={pinned}
+                  onChange={(e) => setPinned(e.target.checked)}
+                  className="accent-primary"
+                />
+                <label htmlFor="pinned" className="text-sm cursor-pointer">Pin this announcement</label>
+              </div>
+              <Button
+                className="w-full"
+                disabled={!title.trim() || !description.trim() || createMutation.isPending}
+                onClick={() => createMutation.mutate()}
+              >
+                {createMutation.isPending ? "Posting..." : "Post Announcement"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center py-8 text-muted-foreground">Loading...</div>
+      ) : announcements.length === 0 ? (
+        <div className="text-center py-12 bg-card border border-dashed border-border rounded-xl text-muted-foreground">
+          No announcements yet. Click "New Post" to create one.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {announcements.map((a: any) => (
+            <div key={a.id} className="bg-card border border-border rounded-xl px-5 py-4 flex items-start gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="font-bold text-foreground">{a.title}</span>
+                  {a.pinned && (
+                    <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] flex items-center gap-1">
+                      <Pin className="h-2.5 w-2.5 rotate-45" /> Pinned
+                    </Badge>
+                  )}
+                  <span className="text-[11px] text-muted-foreground">by {a.authorUsername}</span>
+                </div>
+                <p className="text-sm text-muted-foreground whitespace-pre-line">{a.description}</p>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <Button
+                  variant="ghost" size="icon"
+                  className={a.pinned ? "text-primary" : "text-muted-foreground"}
+                  onClick={() => pinMutation.mutate({ id: a.id, pinned: !a.pinned })}
+                  title={a.pinned ? "Unpin" : "Pin"}
+                >
+                  {a.pinned ? <Pin className="h-4 w-4 rotate-45" /> : <PinOff className="h-4 w-4" />}
+                </Button>
+                <Button
+                  variant="ghost" size="icon"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => deleteMutation.mutate(a.id)}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
