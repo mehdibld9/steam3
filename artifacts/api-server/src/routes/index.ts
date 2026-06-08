@@ -14,6 +14,7 @@ import reportsRouter from "./reports";
 import messagesRouter from "./messages";
 import announcementsRouter from "./announcements";
 import storeRouter from "./store";
+import siteSettingsRouter from "./siteSettings";
 
 const router = express.Router();
 
@@ -31,5 +32,6 @@ router.use("/reports", reportsRouter);
 router.use("/messages", messagesRouter);
 router.use("/announcements", announcementsRouter);
 router.use("/store", storeRouter);
+router.use("/site-settings", siteSettingsRouter);
 
 export default router;

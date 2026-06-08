@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star } from "lucide-react";
+import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 
 // --- API helpers ---
@@ -103,6 +103,7 @@ export default function Admin() {
     ...(user?.isAdmin ? [{ value: "ads", label: "Ad Links" }] : []),
     ...(user?.isAdmin ? [{ value: "store", label: "Store" }] : []),
     ...(user?.isAdmin ? [{ value: "announcements", label: "News" }] : []),
+    ...(user?.isAdmin ? [{ value: "site-settings", label: "Site Settings" }] : []),
   ];
 
   return (
@@ -129,6 +130,7 @@ export default function Admin() {
           {user?.isAdmin && <TabsContent value="ads"><AdLinksTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="store"><StoreTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>}
+          {user?.isAdmin && <TabsContent value="site-settings"><SiteSettingsTab /></TabsContent>}
         </Tabs>
       </div>
     </Layout>
@@ -1007,6 +1009,208 @@ function AnnouncementsTab() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// --- Site Settings Tab ---
+async function fetchSiteSettings() {
+  const res = await fetch("/api/site-settings", { credentials: "include" });
+  if (!res.ok) return { contact: {}, footerLinks: [] };
+  return res.json() as Promise<{ contact: Record<string, string>; footerLinks: { id: number; label: string; url: string; sortOrder: number }[] }>;
+}
+
+function SiteSettingsTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data, isLoading } = useQuery({ queryKey: ["site-settings"], queryFn: fetchSiteSettings });
+
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [discord, setDiscord] = useState("");
+  const [twitter, setTwitter] = useState("");
+
+  const [newLinkLabel, setNewLinkLabel] = useState("");
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+
+  const initialized = useState(false);
+
+  // Populate fields once data loads
+  if (data && !initialized[0]) {
+    (initialized as any)[1](true);
+    setEmail(data.contact.contact_email ?? "");
+    setPhone(data.contact.contact_phone ?? "");
+    setAddress(data.contact.contact_address ?? "");
+    setDiscord(data.contact.contact_discord ?? "");
+    setTwitter(data.contact.contact_twitter ?? "");
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/site-settings/contact", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contact_email: email,
+          contact_phone: phone,
+          contact_address: address,
+          contact_discord: discord,
+          contact_twitter: twitter,
+        }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["site-settings"] });
+      toast({ title: "Contact info saved" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const addLinkMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/site-settings/footer-links", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: newLinkLabel, url: newLinkUrl }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      setNewLinkLabel("");
+      setNewLinkUrl("");
+      queryClient.invalidateQueries({ queryKey: ["site-settings"] });
+      toast({ title: "Footer link added" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteLinkMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/site-settings/footer-links/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["site-settings"] });
+      toast({ title: "Footer link removed" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  if (isLoading) return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
+
+  return (
+    <div className="space-y-8 max-w-2xl">
+      {/* Contact Info */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <Mail className="h-5 w-5 text-primary" />
+          <h3 className="font-bold text-foreground text-lg">Contact Information</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">This information will be displayed in the site footer for visitors to see.</p>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-foreground mb-1.5 block">Email Address</label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="support@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-9" />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-1.5 block">Phone Number</label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="+1 (555) 000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} className="pl-9" />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-1.5 block">Address</label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="123 Main St, City, Country" value={address} onChange={(e) => setAddress(e.target.value)} className="pl-9" />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-1.5 block">Discord Invite URL</label>
+            <div className="relative">
+              <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="https://discord.gg/..." value={discord} onChange={(e) => setDiscord(e.target.value)} className="pl-9" />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-1.5 block">Twitter / X Profile URL</label>
+            <div className="relative">
+              <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="https://x.com/yourusername" value={twitter} onChange={(e) => setTwitter(e.target.value)} className="pl-9" />
+            </div>
+          </div>
+          <Button className="w-full" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? "Saving..." : "Save Contact Info"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Footer Links */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <ExternalLink className="h-5 w-5 text-primary" />
+          <h3 className="font-bold text-foreground text-lg">Footer Links</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">Add custom links that appear in the footer for all visitors.</p>
+
+        {/* Add new link */}
+        <div className="flex gap-2 mb-5">
+          <Input
+            placeholder="Label (e.g. Privacy Policy)"
+            value={newLinkLabel}
+            onChange={(e) => setNewLinkLabel(e.target.value)}
+            className="flex-1"
+          />
+          <Input
+            placeholder="URL (e.g. /privacy)"
+            value={newLinkUrl}
+            onChange={(e) => setNewLinkUrl(e.target.value)}
+            className="flex-1"
+          />
+          <Button
+            onClick={() => addLinkMutation.mutate()}
+            disabled={!newLinkLabel.trim() || !newLinkUrl.trim() || addLinkMutation.isPending}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Existing links */}
+        {(data?.footerLinks ?? []).length === 0 ? (
+          <div className="text-center py-8 bg-muted/30 rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+            No footer links yet. Add one above.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {(data?.footerLinks ?? []).map((link) => (
+              <div key={link.id} className="flex items-center gap-3 bg-muted/30 rounded-lg px-4 py-2.5 border border-border">
+                <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="font-medium text-sm text-foreground">{link.label}</span>
+                <span className="text-xs text-muted-foreground flex-1 truncate">{link.url}</span>
+                <Button
+                  variant="ghost" size="icon"
+                  className="h-7 w-7 text-destructive hover:text-destructive shrink-0"
+                  onClick={() => deleteLinkMutation.mutate(link.id)}
+                >
+                  <Trash className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
