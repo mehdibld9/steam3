@@ -112,6 +112,21 @@ router.get("/", async (req, res) => {
   res.json({ accounts: result, total: Number(count), page, limit });
 });
 
+// GET /check-username?username=xxx — public, checks if a steam username is already listed
+router.get("/check-username", async (req, res) => {
+  const username = String(req.query.username ?? "").trim();
+  if (!username) {
+    res.json({ exists: false });
+    return;
+  }
+  const [existing] = await db
+    .select({ id: accountsTable.id })
+    .from(accountsTable)
+    .where(eq(accountsTable.steamUsername, username))
+    .limit(1);
+  res.json({ exists: !!existing });
+});
+
 router.post("/", requireAuth, async (req, res) => {
   const parsed = CreateAccountBody.safeParse(req.body);
   if (!parsed.success) {

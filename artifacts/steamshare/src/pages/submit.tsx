@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { InfoIcon, CheckCircle2, XCircle, Loader2, Clock } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const formSchema = z.object({
   title: z.string().min(3).max(100),
@@ -34,6 +34,8 @@ export default function Submit() {
   const [verifyStatus, setVerifyStatus] = useState<VerifyStatus>("idle");
   const [verifyMessage, setVerifyMessage] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  const [dupStatus, setDupStatus] = useState<"idle" | "checking" | "exists" | "free">("idle");
+  const dupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -48,12 +50,36 @@ export default function Submit() {
     },
   });
 
+  // Watch fields — must be declared before effects that depend on them
+  const watchUsername = form.watch("steamUsername");
+  const watchPassword = form.watch("steamPassword");
+
   // Tick elapsed timer while checking
   useEffect(() => {
     if (verifyStatus !== "checking") { setElapsed(0); return; }
     const t = setInterval(() => setElapsed((s) => s + 1), 1000);
     return () => clearInterval(t);
   }, [verifyStatus]);
+
+  // Debounced duplicate username check
+  useEffect(() => {
+    if (dupTimerRef.current) clearTimeout(dupTimerRef.current);
+    if (!watchUsername || watchUsername.trim().length < 2) {
+      setDupStatus("idle");
+      return;
+    }
+    setDupStatus("checking");
+    dupTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/accounts/check-username?username=${encodeURIComponent(watchUsername.trim())}`);
+        const data = await res.json();
+        setDupStatus(data.exists ? "exists" : "free");
+      } catch {
+        setDupStatus("idle");
+      }
+    }, 600);
+    return () => { if (dupTimerRef.current) clearTimeout(dupTimerRef.current); };
+  }, [watchUsername]);
 
   if (!userLoading && !user) {
     setLocation("/login");
@@ -87,10 +113,6 @@ export default function Submit() {
       setVerifyMessage(e.message || "Could not reach Steam servers");
     }
   };
-
-  // Reset verify status when credentials change
-  const watchUsername = form.watch("steamUsername");
-  const watchPassword = form.watch("steamPassword");
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setSubmitError("");
@@ -127,7 +149,7 @@ export default function Submit() {
   }
 
   const hasCredentials = !!watchUsername && !!watchPassword;
-  const canSubmit = verifyStatus === "valid";
+  const canSubmit = verifyStatus === "valid" && dupStatus !== "exists";
 
   const verifyIcon = verifyStatus === "checking"
     ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -232,10 +254,29 @@ export default function Submit() {
                         <Input
                           placeholder="your_steam_username"
                           {...field}
-                          onChange={(e) => { field.onChange(e); setVerifyStatus("idle"); }}
+                          onChange={(e) => { field.onChange(e); setVerifyStatus("idle"); setDupStatus("idle"); }}
                         />
                       </FormControl>
                       <FormMessage />
+                      {dupStatus === "checking" && (
+                        <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Checking if this account is already listed…
+                        </p>
+                      )}
+                      {dupStatus === "exists" && (
+                        <div className="flex items-start gap-2 mt-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2.5 text-sm text-amber-600">
+                          <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-semibold">Account already listed</p>
+                            <p className="text-xs opacity-80 mt-0.5">This Steam username has already been submitted by someone. Duplicate listings are not allowed.</p>
+                          </div>
+                        </div>
+                      )}
+                      {dupStatus === "free" && watchUsername.trim().length >= 2 && (
+                        <p className="flex items-center gap-1.5 text-xs text-green-600 mt-1">
+                          <CheckCircle2 className="h-3 w-3" /> This username is not yet listed — good to go.
+                        </p>
+                      )}
                     </FormItem>
                   )} />
 
