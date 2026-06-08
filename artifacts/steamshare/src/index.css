@@ -49,52 +49,20 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* ── Dark theme (default) ── */
+/* ── Light theme ── */
 :root {
   --app-font-sans: 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
   --radius: 0.5rem;
 
-  --background: 222 47% 7%;
-  --foreground: 210 20% 92%;
-  --border: 216 25% 18%;
-  --input: 216 25% 16%;
-  --ring: 168 85% 40%;
-
-  --card: 220 40% 11%;
-  --card-foreground: 210 20% 92%;
-  --card-border: 216 25% 18%;
-
-  --popover: 220 40% 10%;
-  --popover-foreground: 210 20% 92%;
-  --popover-border: 216 25% 18%;
-
-  --primary: 168 85% 42%;
-  --primary-foreground: 0 0% 100%;
-
-  --secondary: 216 28% 16%;
-  --secondary-foreground: 210 15% 80%;
-
-  --muted: 216 28% 16%;
-  --muted-foreground: 210 12% 55%;
-
-  --accent: 168 85% 42%;
-  --accent-foreground: 0 0% 100%;
-
-  --destructive: 0 60% 45%;
-  --destructive-foreground: 0 0% 100%;
-}
-
-/* light variant for anything that opts in */
-.light {
-  --background: 0 0% 97%;
-  --foreground: 220 13% 13%;
-  --border: 220 10% 88%;
+  --background: 0 0% 97%;          /* #f7f7f7 */
+  --foreground: 220 13% 13%;        /* #1c1e21 */
+  --border: 220 10% 88%;            /* #dde1e7 */
   --input: 220 10% 92%;
   --ring: 168 100% 36%;
 
-  --card: 0 0% 100%;
+  --card: 0 0% 100%;                /* white */
   --card-foreground: 220 13% 13%;
   --card-border: 220 10% 90%;
 
@@ -102,6 +70,7 @@
   --popover-foreground: 220 13% 13%;
   --popover-border: 220 10% 88%;
 
+  /* Teal primary — #00b894 */
   --primary: 168 100% 36%;
   --primary-foreground: 0 0% 100%;
 
@@ -118,6 +87,38 @@
   --destructive-foreground: 0 0% 100%;
 }
 
+/* dark variant for anything that opts in */
+.dark {
+  --background: 217 33% 11%;
+  --foreground: 0 0% 90%;
+  --border: 210 20% 25%;
+  --input: 210 20% 20%;
+  --ring: 168 85% 40%;
+
+  --card: 215 30% 16%;
+  --card-foreground: 0 0% 95%;
+  --card-border: 210 20% 25%;
+
+  --popover: 215 30% 14%;
+  --popover-foreground: 0 0% 95%;
+  --popover-border: 210 20% 25%;
+
+  --primary: 168 85% 42%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 210 25% 20%;
+  --secondary-foreground: 0 0% 90%;
+
+  --muted: 210 25% 20%;
+  --muted-foreground: 210 10% 65%;
+
+  --accent: 168 85% 42%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 60% 45%;
+  --destructive-foreground: 0 0% 100%;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -127,27 +128,10 @@
   }
 }
 
-/* Circuit board background pattern */
-.circuit-bg {
-  background-color: hsl(222, 47%, 7%);
-  background-image:
-    linear-gradient(rgba(0, 185, 148, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 185, 148, 0.04) 1px, transparent 1px),
-    linear-gradient(rgba(0, 185, 148, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 185, 148, 0.02) 1px, transparent 1px);
-  background-size: 80px 80px, 80px 80px, 20px 20px, 20px 20px;
-  background-position: -2px -2px, -2px -2px, -1px -1px, -1px -1px;
-}
-
 /* Menu panel slide animation */
 @keyframes slideInLeft {
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }
-}
-
-@keyframes slideOutLeft {
-  from { transform: translateX(0); }
-  to { transform: translateX(-100%); }
 }
 
 .menu-panel-enter {

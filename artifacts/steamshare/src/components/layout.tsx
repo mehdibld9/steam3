@@ -60,19 +60,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-50 w-full border-b border-border bg-[hsl(222,47%,5%)]">
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="flex h-14 items-center justify-between px-4">
 
-          {/* Left: Logo + Menu */}
+          {/* Left: Logo + Menu button */}
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center">
-              <div className="bg-white text-black font-black text-sm px-3 py-1.5 rounded">
-                Steam Family
-              </div>
+              <span className="font-black text-xl tracking-tight text-foreground">Steam Family</span>
             </Link>
             <button
               onClick={() => setMenuOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
             >
               <Menu className="h-4 w-4" />
               Menu
@@ -94,7 +92,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
                 {/* Messages */}
                 <Link href="/messages">
-                  <button className="relative p-2 rounded text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
+                  <button className="relative p-2 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors">
                     <MessageSquare className="h-5 w-5" />
                     {unreadCount > 0 && (
                       <span className="absolute -top-0.5 -right-0.5 bg-primary text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
@@ -105,13 +103,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
 
                 {/* Bell */}
-                <button className="relative p-2 rounded text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
+                <button className="relative p-2 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors">
                   <Bell className="h-5 w-5" />
                 </button>
 
-                {/* Avatar */}
+                {/* Avatar + chevron */}
                 <Link href={`/profile/${user.id}`}>
-                  <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+                  <div className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity">
                     <div className="relative">
                       <Avatar className="h-8 w-8 border border-border">
                         <AvatarImage src={user.avatarUrl || undefined} />
@@ -135,9 +133,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button size="sm" className="bg-primary hover:bg-primary/90 text-white font-semibold">
-                    Register
-                  </Button>
+                  <Button size="sm">Register</Button>
                 </Link>
               </>
             )}
@@ -157,18 +153,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-0 z-[60] flex">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/40"
             onClick={() => setMenuOpen(false)}
           />
 
           {/* Panel */}
-          <div className="relative z-50 w-72 h-full bg-[hsl(222,47%,6%)] border-r border-border flex flex-col overflow-y-auto menu-panel-enter">
+          <div className="relative z-50 w-72 h-full bg-card border-r border-border flex flex-col overflow-y-auto shadow-2xl menu-panel-enter">
             {/* Panel Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <span className="text-base font-bold text-foreground">Menu</span>
               <button
                 onClick={() => setMenuOpen(false)}
-                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -207,19 +203,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     className={`w-full flex items-center justify-between px-5 py-3 text-sm font-medium transition-colors ${
                       location === item.href
                         ? "bg-primary/10 text-primary border-l-2 border-primary"
-                        : "text-muted-foreground hover:bg-white/5 hover:text-foreground border-l-2 border-transparent"
+                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border-l-2 border-transparent"
                     }`}
                   >
                     <span className="flex items-center gap-3">
                       {item.icon && <item.icon className="h-4 w-4" />}
                       {item.label}
                     </span>
-                    <ChevronRight className="h-4 w-4 opacity-50" />
+                    <ChevronRight className="h-4 w-4 opacity-40" />
                   </button>
                 </Link>
               ))}
 
-              {/* Divider */}
               <div className="my-2 mx-5 border-t border-border" />
 
               {user ? (
@@ -227,19 +222,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <Link href="/submit">
                     <button
                       onClick={() => setMenuOpen(false)}
-                      className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground border-l-2 border-transparent transition-colors"
+                      className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground border-l-2 border-transparent transition-colors"
                     >
                       <span className="flex items-center gap-3">
                         <Plus className="h-4 w-4" />
                         Submit Account
                       </span>
-                      <ChevronRight className="h-4 w-4 opacity-50" />
+                      <ChevronRight className="h-4 w-4 opacity-40" />
                     </button>
                   </Link>
                   <Link href="/messages">
                     <button
                       onClick={() => setMenuOpen(false)}
-                      className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground border-l-2 border-transparent transition-colors"
+                      className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground border-l-2 border-transparent transition-colors"
                     >
                       <span className="flex items-center gap-3">
                         <MessageSquare className="h-4 w-4" />
@@ -250,7 +245,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                           </span>
                         )}
                       </span>
-                      <ChevronRight className="h-4 w-4 opacity-50" />
+                      <ChevronRight className="h-4 w-4 opacity-40" />
                     </button>
                   </Link>
                   {(user.isAdmin || (user as any).isModerator) && (
@@ -263,7 +258,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                           <Shield className="h-4 w-4" />
                           {user.isAdmin ? "Admin Panel" : "Mod Panel"}
                         </span>
-                        <ChevronRight className="h-4 w-4 opacity-50" />
+                        <ChevronRight className="h-4 w-4 opacity-40" />
                       </button>
                     </Link>
                   )}
@@ -273,10 +268,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <Link href="/login">
                     <button
                       onClick={() => setMenuOpen(false)}
-                      className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground border-l-2 border-transparent transition-colors"
+                      className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground border-l-2 border-transparent transition-colors"
                     >
                       <span>Login</span>
-                      <ChevronRight className="h-4 w-4 opacity-50" />
+                      <ChevronRight className="h-4 w-4 opacity-40" />
                     </button>
                   </Link>
                   <Link href="/register">
@@ -285,7 +280,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-primary hover:bg-primary/10 border-l-2 border-transparent transition-colors"
                     >
                       <span>Register</span>
-                      <ChevronRight className="h-4 w-4 opacity-50" />
+                      <ChevronRight className="h-4 w-4 opacity-40" />
                     </button>
                   </Link>
                 </>
@@ -309,6 +304,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       )}
 
       <main className="flex-1">{children}</main>
+
+      <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
+        © {new Date().getFullYear()} Steam Family
+      </footer>
     </div>
   );
 }
