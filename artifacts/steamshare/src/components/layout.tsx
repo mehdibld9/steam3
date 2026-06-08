@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Shield, Plus, LogOut, Coins, Trophy, Award, Gift,
   MessageSquare, Menu, X, ChevronRight, Bell, Home,
-  LayoutGrid,
+  LayoutGrid, User, Settings,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
@@ -51,7 +51,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["unread-messages"],
@@ -78,11 +80,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Close bell dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
         setBellOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -218,9 +223,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   )}
                 </div>
 
-                {/* Avatar */}
-                <Link href={`/profile/${user.id}`}>
-                  <div className="flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity ml-1">
+                {/* Avatar + dropdown */}
+                <div className="relative ml-1" ref={profileRef}>
+                  <button
+                    onClick={() => setProfileOpen((o) => !o)}
+                    className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+                  >
                     <div className="relative">
                       <Avatar className="h-8 w-8 border border-border">
                         <AvatarImage src={user.avatarUrl || undefined} />
@@ -232,9 +240,33 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         {user.level}
                       </div>
                     </div>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground rotate-90" />
-                  </div>
-                </Link>
+                    <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${profileOpen ? "" : "rotate-90"}`} />
+                  </button>
+
+                  {profileOpen && (
+                    <div className="absolute right-0 top-11 w-48 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden py-1">
+                      <div className="px-4 py-2.5 border-b border-border">
+                        <p className="text-sm font-semibold truncate">{user.username}</p>
+                        <p className="text-xs text-primary">{user.points} pts · Lv {user.level}</p>
+                      </div>
+                      <Link href={`/profile/${user.id}`}>
+                        <button onClick={() => setProfileOpen(false)} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-colors">
+                          <User className="h-4 w-4" /> View Profile
+                        </button>
+                      </Link>
+                      <Link href="/edit-profile">
+                        <button onClick={() => setProfileOpen(false)} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-colors">
+                          <Settings className="h-4 w-4" /> Edit Profile
+                        </button>
+                      </Link>
+                      <div className="border-t border-border mt-1 pt-1">
+                        <button onClick={() => { setProfileOpen(false); handleLogout(); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors">
+                          <LogOut className="h-4 w-4" /> Log out
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
               <>

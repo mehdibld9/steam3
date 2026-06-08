@@ -19,6 +19,7 @@ import ForgotPassword from "./pages/forgot-password";
 import ResetPassword from "./pages/reset-password";
 import Banned from "./pages/banned";
 import Messages from "./pages/messages";
+import EditProfile from "./pages/edit-profile";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ function Router() {
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/banned" component={Banned} />
       <Route path="/messages" component={Messages} />
+      <Route path="/edit-profile" component={EditProfile} />
       <Route component={NotFound} />
     </Switch>
   );

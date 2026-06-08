@@ -75,7 +75,6 @@ router.post("/login", async (req, res) => {
     return;
   }
 
-  // Check if ban has expired — auto-unban
   if (user.isBanned && user.banExpiresAt && new Date() > new Date(user.banExpiresAt)) {
     await db.update(usersTable)
       .set({ isBanned: false, banReason: null, banExpiresAt: null })
@@ -113,7 +112,6 @@ router.get("/me", requireAuth, async (req, res) => {
     return;
   }
 
-  // Auto-unban if expired
   if (user.isBanned && user.banExpiresAt && new Date() > new Date(user.banExpiresAt)) {
     await db.update(usersTable)
       .set({ isBanned: false, banReason: null, banExpiresAt: null })
@@ -125,6 +123,68 @@ router.get("/me", requireAuth, async (req, res) => {
 
   const { passwordHash: _, ...safeUser } = user;
   res.json(safeUser);
+});
+
+// Update avatar URL
+router.put("/profile", requireAuth, async (req, res) => {
+  const { avatarUrl } = req.body;
+  if (typeof avatarUrl !== "string" && avatarUrl !== null) {
+    res.status(400).json({ error: "Invalid avatarUrl" });
+    return;
+  }
+  const [updated] = await db
+    .update(usersTable)
+    .set({ avatarUrl: avatarUrl || null })
+    .where(eq(usersTable.id, req.session.userId!))
+    .returning();
+  const { passwordHash: _, ...safeUser } = updated;
+  res.json(safeUser);
+});
+
+// Change password (requires current password)
+router.put("/change-password", requireAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+    res.status(400).json({ error: "New password must be at least 6 characters" });
+    return;
+  }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.session.userId!)).limit(1);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: "Current password is incorrect" });
+    return;
+  }
+  const newHash = await bcrypt.hash(newPassword, 10);
+  await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, user.id));
+  res.json({ message: "Password updated successfully" });
+});
+
+// Delete own account
+router.delete("/account", requireAuth, async (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    res.status(400).json({ error: "Password required to delete account" });
+    return;
+  }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.session.userId!)).limit(1);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: "Incorrect password" });
+    return;
+  }
+  await db.delete(usersTable).where(eq(usersTable.id, user.id));
+  req.session.destroy(() => {
+    res.clearCookie("connect.sid", { path: "/" });
+    res.json({ message: "Account deleted" });
+  });
 });
 
 export default router;

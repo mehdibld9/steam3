@@ -76,7 +76,7 @@ export default function Register() {
                       <FormItem>
                         <FormLabel>Username</FormLabel>
                         <FormControl>
-                          <Input placeholder="gamertag" {...field} data-testid="input-username" />
+                          <Input placeholder="Your Name" {...field} data-testid="input-username" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
