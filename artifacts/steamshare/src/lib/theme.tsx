@@ -35,13 +35,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     try { localStorage.setItem(STORAGE_KEY, theme); } catch {}
   }, [theme]);
 
-  useEffect(() => {
-    const initial = getInitialTheme();
-    const root = document.documentElement;
-    if (initial === "dark") root.classList.add("dark");
-    else root.classList.remove("dark");
-  }, []);
-
   const setTheme = (t: Theme) => setThemeState(t);
 
   return (

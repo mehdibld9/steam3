@@ -568,11 +568,11 @@ async function fetchAnnouncements() {
   return res.json() as Promise<any[]>;
 }
 
-async function createAnnouncement(title: string, description: string, pinned: boolean) {
+async function createAnnouncement(title: string, description: string, pinned: boolean, isPopup: boolean, popupButtons: {label: string; url: string}[]) {
   const res = await fetch("/api/announcements", {
     method: "POST", credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, description, pinned }),
+    body: JSON.stringify({ title, description, pinned, isPopup, popupButtons }),
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
   return res.json();
@@ -897,13 +897,18 @@ function AnnouncementsTab() {
   const [description, setDescription] = useState("");
   const [pinned, setPinned] = useState(true);
   const [open, setOpen] = useState(false);
+  const [showAsPopup, setShowAsPopup] = useState(false);
+  const [popupButtons, setPopupButtons] = useState<{label: string; url: string}[]>([]);
+  const [newBtnLabel, setNewBtnLabel] = useState("");
+  const [newBtnUrl, setNewBtnUrl] = useState("");
 
   const { data: announcements = [], isLoading } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
 
   const createMutation = useMutation({
-    mutationFn: () => createAnnouncement(title, description, pinned),
+    mutationFn: () => createAnnouncement(title, description, pinned, showAsPopup, popupButtons),
     onSuccess: () => {
       setTitle(""); setDescription(""); setPinned(true); setOpen(false);
+      setShowAsPopup(false); setPopupButtons([]); setNewBtnLabel(""); setNewBtnUrl("");
       queryClient.invalidateQueries({ queryKey: ["announcements"] });
       toast({ title: "Announcement posted!" });
     },
@@ -959,6 +964,45 @@ function AnnouncementsTab() {
                 />
                 <label htmlFor="pinned" className="text-sm cursor-pointer">Pin this announcement</label>
               </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="showAsPopup"
+                  checked={showAsPopup}
+                  onChange={(e) => setShowAsPopup(e.target.checked)}
+                  className="accent-primary"
+                />
+                <label htmlFor="showAsPopup" className="text-sm cursor-pointer">Show as popup once per user</label>
+              </div>
+              {showAsPopup && (
+                <div className="space-y-2 border border-border rounded-lg p-3 bg-muted/30">
+                  <p className="text-xs font-semibold text-muted-foreground">Popup Buttons (optional)</p>
+                  {popupButtons.map((btn, i) => (
+                    <div key={i} className="flex items-center gap-2 bg-background rounded px-2 py-1.5">
+                      <span className="flex-1 truncate text-xs font-medium">{btn.label}</span>
+                      <span className="text-muted-foreground text-xs truncate flex-1">{btn.url}</span>
+                      <button onClick={() => setPopupButtons(prev => prev.filter((_, j) => j !== i))} className="text-destructive hover:opacity-70 shrink-0">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="flex gap-1.5">
+                    <Input placeholder="Button label" value={newBtnLabel} onChange={(e) => setNewBtnLabel(e.target.value)} className="flex-1 h-8 text-xs" />
+                    <Input placeholder="URL" value={newBtnUrl} onChange={(e) => setNewBtnUrl(e.target.value)} className="flex-1 h-8 text-xs" />
+                    <Button
+                      size="sm" variant="outline" className="h-8 px-2 shrink-0"
+                      onClick={() => {
+                        if (newBtnLabel.trim() && newBtnUrl.trim()) {
+                          setPopupButtons(prev => [...prev, { label: newBtnLabel.trim(), url: newBtnUrl.trim() }]);
+                          setNewBtnLabel(""); setNewBtnUrl("");
+                        }
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )}
               <Button
                 className="w-full"
                 disabled={!title.trim() || !description.trim() || createMutation.isPending}
@@ -1040,6 +1084,48 @@ function SiteSettingsTab() {
   const [newLinkLabel, setNewLinkLabel] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [newWord, setNewWord] = useState("");
+
+  const [tickerEnabled, setTickerEnabled] = useState(false);
+  const [tickerIcon, setTickerIcon] = useState("");
+  const [tickerText, setTickerText] = useState("");
+  const [tickerLinkLabel, setTickerLinkLabel] = useState("");
+  const [tickerLinkUrl, setTickerLinkUrl] = useState("");
+  const tickerInitialized = useState(false);
+
+  const { data: tickerData } = useQuery({
+    queryKey: ["ticker"],
+    queryFn: async () => {
+      const res = await fetch("/api/site-settings/ticker", { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json() as Promise<{ enabled: boolean; icon: string; text: string; linkLabel: string; linkUrl: string }>;
+    },
+  });
+
+  if (tickerData && !tickerInitialized[0]) {
+    tickerInitialized[1](true);
+    setTickerEnabled(tickerData.enabled);
+    setTickerIcon(tickerData.icon);
+    setTickerText(tickerData.text);
+    setTickerLinkLabel(tickerData.linkLabel);
+    setTickerLinkUrl(tickerData.linkUrl);
+  }
+
+  const saveTickerMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/site-settings/ticker", {
+        method: "PUT", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: tickerEnabled, icon: tickerIcon, text: tickerText, linkLabel: tickerLinkLabel, linkUrl: tickerLinkUrl }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticker"] });
+      toast({ title: "Ticker saved" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
 
   const initialized = useState(false);
 
@@ -1383,6 +1469,68 @@ function SiteSettingsTab() {
         <Button className="w-full mt-5" onClick={() => saveXpMutation.mutate()} disabled={saveXpMutation.isPending}>
           {saveXpMutation.isPending ? "Saving..." : "Save Reward Settings"}
         </Button>
+      </div>
+
+      {/* Ticker Bar */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <ExternalLink className="h-5 w-5 text-primary" />
+            <h3 className="font-bold text-foreground text-lg">Home Page Ticker Bar</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">{tickerEnabled ? "Visible" : "Hidden"}</span>
+            <button
+              onClick={() => setTickerEnabled(!tickerEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${tickerEnabled ? "bg-primary" : "bg-muted border border-border"}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${tickerEnabled ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          Shows a pill-shaped banner below the site title on the home page. Great for promotions or links.
+        </p>
+        <div className="space-y-3">
+          <div className="flex gap-3">
+            <div className="w-20 shrink-0">
+              <label className="text-xs font-medium text-foreground mb-1.5 block">Icon (emoji)</label>
+              <Input placeholder="🎮" value={tickerIcon} onChange={(e) => setTickerIcon(e.target.value)} className="text-center" />
+            </div>
+            <div className="flex-1">
+              <label className="text-xs font-medium text-foreground mb-1.5 block">Bar Text</label>
+              <Input placeholder="e.g. Crypto Payment Gateway" value={tickerText} onChange={(e) => setTickerText(e.target.value)} />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="text-xs font-medium text-foreground mb-1.5 block">Link Button Label</label>
+              <Input placeholder="e.g. Visit Now" value={tickerLinkLabel} onChange={(e) => setTickerLinkLabel(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <label className="text-xs font-medium text-foreground mb-1.5 block">Link URL</label>
+              <Input placeholder="https://..." value={tickerLinkUrl} onChange={(e) => setTickerLinkUrl(e.target.value)} />
+            </div>
+          </div>
+          {tickerEnabled && tickerText && (
+            <div className="rounded-lg bg-muted/30 border border-border p-3">
+              <p className="text-xs text-muted-foreground mb-2 font-medium">Preview:</p>
+              <div className="inline-flex items-center gap-3 bg-card border border-border rounded-full px-4 py-2 shadow-sm">
+                {tickerIcon && <span className="text-lg leading-none">{tickerIcon}</span>}
+                <span className="text-sm font-semibold text-foreground">{tickerText}</span>
+                {tickerLinkLabel && (
+                  <span className="flex items-center gap-1 bg-muted border border-border rounded-full px-3 py-1 text-xs font-bold text-foreground">
+                    {tickerLinkLabel}
+                    <ChevronDown className="h-3 w-3 text-muted-foreground rotate-[-90deg]" />
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          <Button className="w-full" onClick={() => saveTickerMutation.mutate()} disabled={saveTickerMutation.isPending}>
+            {saveTickerMutation.isPending ? "Saving..." : "Save Ticker"}
+          </Button>
+        </div>
       </div>
     </div>
   );

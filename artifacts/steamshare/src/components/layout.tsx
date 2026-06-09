@@ -8,6 +8,7 @@ import {
   Shield, Plus, LogOut, Coins, Trophy, Gift,
   MessageSquare, Menu, X, ChevronRight, Bell, Home,
   LayoutGrid, User, Settings, ShoppingBag, Sun, Moon, ArrowLeft,
+  Megaphone, ExternalLink,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "@/lib/theme";
@@ -109,8 +110,88 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const xpProgress = user ? (user.xp % 100) : 0;
 
+  const { data: announcements = [] } = useQuery({
+    queryKey: ["announcements"],
+    queryFn: async () => {
+      const res = await fetch("/api/announcements", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json() as Promise<any[]>;
+    },
+    staleTime: 60_000,
+  });
+
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [popupAnn, setPopupAnn] = useState<any>(null);
+
+  useEffect(() => {
+    const popupAnns = (announcements as any[]).filter((a: any) => a.isPopup);
+    if (popupAnns.length === 0) return;
+    const latest = popupAnns.sort((a: any, b: any) => b.id - a.id)[0];
+    try {
+      const dismissed = localStorage.getItem("dismissed_popup");
+      if (dismissed !== String(latest.id)) {
+        setPopupAnn(latest);
+        setPopupOpen(true);
+      }
+    } catch {
+      setPopupAnn(latest);
+      setPopupOpen(true);
+    }
+  }, [announcements]);
+
+  const dismissPopup = () => {
+    if (popupAnn) {
+      try { localStorage.setItem("dismissed_popup", String(popupAnn.id)); } catch {}
+    }
+    setPopupOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
+      {/* Popup Announcement */}
+      {popupOpen && popupAnn && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={dismissPopup} />
+          <div className="relative z-10 bg-card border border-border rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <button
+              onClick={dismissPopup}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="flex items-start gap-3 mb-3">
+              <Megaphone className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+              <h2 className="font-bold text-lg text-foreground leading-tight">{popupAnn.title}</h2>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line mb-5 pl-8">{popupAnn.description}</p>
+            {popupAnn.popupButtons && popupAnn.popupButtons.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {popupAnn.popupButtons.map((btn: any, i: number) => (
+                  <a
+                    key={i}
+                    href={btn.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={dismissPopup}
+                    className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors"
+                  >
+                    {btn.label}
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <button
+                onClick={dismissPopup}
+                className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors"
+              >
+                Got it
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       {/* ── Header ── */}
       <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="flex h-14 items-center justify-between px-4">

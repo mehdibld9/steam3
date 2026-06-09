@@ -14,9 +14,16 @@ async function fetchAnnouncements() {
   return res.json() as Promise<any[]>;
 }
 
+async function fetchTicker() {
+  const res = await fetch("/api/site-settings/ticker", { credentials: "include" });
+  if (!res.ok) return null;
+  return res.json() as Promise<{ enabled: boolean; icon: string; text: string; linkLabel: string; linkUrl: string }>;
+}
+
 export default function Home() {
   const { data: accountsData, isLoading: accountsLoading } = useListAccounts({ sort: "recent", limit: 12 });
   const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
+  const { data: ticker } = useQuery({ queryKey: ["ticker"], queryFn: fetchTicker });
   const { data: me } = useGetMe();
 
   return (
@@ -30,6 +37,25 @@ export default function Home() {
             Welcome to{" "}
             <span className="text-primary">Steam Family</span>
           </h1>
+
+          {/* Ticker bar — admin controlled */}
+          {ticker?.enabled && ticker.text && (
+            <div className="inline-flex items-center gap-3 bg-card border border-border rounded-full px-4 py-2 mb-6 shadow-sm">
+              {ticker.icon && <span className="text-lg leading-none">{ticker.icon}</span>}
+              <span className="text-sm font-semibold text-foreground">{ticker.text}</span>
+              {ticker.linkLabel && ticker.linkUrl && (
+                <a
+                  href={ticker.linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 bg-muted border border-border rounded-full px-3 py-1 text-xs font-bold hover:bg-muted/70 transition-colors text-foreground"
+                >
+                  {ticker.linkLabel}
+                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                </a>
+              )}
+            </div>
+          )}
 
           <p className="text-base md:text-lg text-muted-foreground max-w-xl mb-10">
             Share unused Steam libraries, claim games you want, and rise through the ranks in the most active gaming exchange.

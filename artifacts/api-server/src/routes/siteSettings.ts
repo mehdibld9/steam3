@@ -135,4 +135,37 @@ router.put("/xp-points", requireAdmin, async (req, res) => {
   res.json({ message: "XP/points settings updated" });
 });
 
+// GET /site-settings/ticker — public
+router.get("/ticker", async (_req, res) => {
+  const rows = await db.select().from(siteSettingsTable);
+  const map: Record<string, string> = {};
+  for (const r of rows) map[r.key] = r.value;
+  res.json({
+    enabled: map.ticker_enabled === "1",
+    icon: map.ticker_icon ?? "",
+    text: map.ticker_text ?? "",
+    linkLabel: map.ticker_link_label ?? "",
+    linkUrl: map.ticker_link_url ?? "",
+  });
+});
+
+// PUT /site-settings/ticker — admin only
+router.put("/ticker", requireAdmin, async (req, res) => {
+  const { enabled, icon, text, linkLabel, linkUrl } = req.body;
+  const pairs: [string, string][] = [
+    ["ticker_enabled", enabled ? "1" : "0"],
+    ["ticker_icon", String(icon ?? "")],
+    ["ticker_text", String(text ?? "")],
+    ["ticker_link_label", String(linkLabel ?? "")],
+    ["ticker_link_url", String(linkUrl ?? "")],
+  ];
+  for (const [key, value] of pairs) {
+    await db
+      .insert(siteSettingsTable)
+      .values({ key, value, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: siteSettingsTable.key, set: { value, updatedAt: new Date() } });
+  }
+  res.json({ message: "Ticker updated" });
+});
+
 export default router;
