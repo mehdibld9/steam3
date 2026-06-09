@@ -5,6 +5,7 @@ import { eq, and, sql, inArray, asc } from "drizzle-orm";
 import { CreateCommentBody } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { filterContent } from "../lib/contentFilter";
+import { getSetting } from "../lib/settings";
 
 const router = express.Router({ mergeParams: true });
 
@@ -86,7 +87,8 @@ router.post("/", requireAuth, async (req, res) => {
     .where(eq(usersTable.id, userId))
     .limit(1);
 
-  await addXp(userId, 10);
+  const xpComment = await getSetting("xp_post_comment");
+  await addXp(userId, xpComment);
 
   res.status(201).json({
     ...comment,
@@ -143,7 +145,8 @@ router.post("/:commentId/like", requireAuth, async (req, res) => {
       .update(commentsTable)
       .set({ likesCount: sql`${commentsTable.likesCount} + 1` })
       .where(eq(commentsTable.id, commentId));
-    await addXp(userId, 5);
+    const xpLike = await getSetting("xp_like_comment");
+    await addXp(userId, xpLike);
   }
 
   res.json({ message: "Liked" });

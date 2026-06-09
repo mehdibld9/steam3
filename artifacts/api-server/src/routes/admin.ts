@@ -4,6 +4,7 @@ import { db, usersTable, accountsTable, reportsTable } from "@workspace/db";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { requireAdmin, requireModOrAdmin } from "../middlewares/auth";
 import { sendBotMessage } from "../lib/adminBot";
+import { getSetting } from "../lib/settings";
 
 function addXp(userId: number, amount: number) {
   return db
@@ -151,11 +152,12 @@ router.post("/accounts/:accountId/approve", requireModOrAdmin, async (req, res) 
   if (games && Array.isArray(games)) updates.games = games;
 
   await db.update(accountsTable).set(updates).where(eq(accountsTable.id, accountId));
-  await addXp(account.userId, 50);
+  const xpUpload = await getSetting("xp_upload_account");
+  await addXp(account.userId, xpUpload);
 
   await sendBotMessage(
     account.userId,
-    `✅ Your listing **${account.title}** has been approved and is now live! You've earned 50 XP.`,
+    `✅ Your listing **${account.title}** has been approved and is now live! You've earned ${xpUpload} XP.`,
   ).catch(() => {});
 
   res.json({ message: "Account approved and published" });

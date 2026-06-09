@@ -4,6 +4,7 @@ import { db, siteSettingsTable, footerLinksTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/auth";
 import { invalidateWordCache } from "../lib/contentFilter";
+import { XP_DEFAULTS, XpSettingKey, getAllXpSettings } from "../lib/settings";
 
 const router = express.Router();
 
@@ -106,6 +107,32 @@ router.delete("/footer-links/:id", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   await db.delete(footerLinksTable).where(eq(footerLinksTable.id, id));
   res.json({ message: "Footer link removed" });
+});
+
+// GET /site-settings/xp-points — admin only, returns all XP/points reward settings
+router.get("/xp-points", requireAdmin, async (_req, res) => {
+  const settings = await getAllXpSettings();
+  res.json(settings);
+});
+
+// PUT /site-settings/xp-points — admin only, update XP/points reward settings
+router.put("/xp-points", requireAdmin, async (req, res) => {
+  const body = req.body as Partial<Record<XpSettingKey, number>>;
+  const keys = Object.keys(XP_DEFAULTS) as XpSettingKey[];
+
+  for (const key of keys) {
+    if (key in body) {
+      const raw = body[key];
+      const value = typeof raw === "number" && !isNaN(raw) ? Math.max(0, Math.floor(raw)) : null;
+      if (value === null) continue;
+      await db
+        .insert(siteSettingsTable)
+        .values({ key, value: String(value), updatedAt: new Date() })
+        .onConflictDoUpdate({ target: siteSettingsTable.key, set: { value: String(value), updatedAt: new Date() } });
+    }
+  }
+
+  res.json({ message: "XP/points settings updated" });
 });
 
 export default router;

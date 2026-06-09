@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react";
+import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap } from "lucide-react";
 import { Link } from "wouter";
 
 // --- API helpers ---
@@ -1139,6 +1139,54 @@ function SiteSettingsTab() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  // XP / Points reward settings
+  const XP_LABELS: Record<string, { label: string; description: string; icon: "xp" | "pts" }> = {
+    xp_upload_account:  { label: "Upload Account",   description: "XP earned when a user submits an account listing",       icon: "xp" },
+    xp_redeem_adlink:   { label: "Redeem Ad Link",   description: "XP earned when a user redeems an ad link code",          icon: "xp" },
+    xp_post_comment:    { label: "Post Comment",     description: "XP earned when a user posts a comment",                  icon: "xp" },
+    xp_like_comment:    { label: "Like a Comment",   description: "XP earned when a user likes a comment",                  icon: "xp" },
+    xp_like_account:    { label: "Like an Account",  description: "XP earned (by liker & poster) when liking an account",  icon: "xp" },
+    points_registration:{ label: "Registration Bonus","description": "Points given to every new user on sign-up",           icon: "pts" },
+  };
+
+  const { data: xpData } = useQuery({
+    queryKey: ["site-settings-xp"],
+    queryFn: async () => {
+      const res = await fetch("/api/site-settings/xp-points", { credentials: "include" });
+      if (!res.ok) return {};
+      return res.json() as Promise<Record<string, number>>;
+    },
+  });
+
+  const [xpValues, setXpValues] = useState<Record<string, number>>({});
+  const xpInitialized = useState(false);
+  if (xpData && !xpInitialized[0]) {
+    xpInitialized[1](true);
+    setXpValues(xpData);
+  }
+
+  const saveXpMutation = useMutation({
+    mutationFn: async () => {
+      const body: Record<string, number> = {};
+      for (const key of Object.keys(XP_LABELS)) {
+        if (xpValues[key] !== undefined) body[key] = xpValues[key];
+      }
+      const res = await fetch("/api/site-settings/xp-points", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["site-settings-xp"] });
+      toast({ title: "Rewards settings saved" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   if (isLoading) return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
 
   return (
@@ -1295,6 +1343,42 @@ function SiteSettingsTab() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* XP & Points Rewards */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <Zap className="h-5 w-5 text-primary" />
+          <h3 className="font-bold text-foreground text-lg">XP &amp; Points Rewards</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          Control how much XP or points users receive for each action. Changes apply to all future events.
+        </p>
+        <div className="space-y-3">
+          {Object.entries(XP_LABELS).map(([key, { label, description, icon }]) => (
+            <div key={key} className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">{label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Input
+                  type="number"
+                  min={0}
+                  value={xpValues[key] ?? ""}
+                  onChange={(e) => setXpValues((prev) => ({ ...prev, [key]: Number(e.target.value) }))}
+                  className="w-24 h-9 text-center font-mono"
+                />
+                <span className="text-xs font-bold text-primary w-7">
+                  {icon === "xp" ? "XP" : "pts"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <Button className="w-full mt-5" onClick={() => saveXpMutation.mutate()} disabled={saveXpMutation.isPending}>
+          {saveXpMutation.isPending ? "Saving..." : "Save Reward Settings"}
+        </Button>
       </div>
     </div>
   );

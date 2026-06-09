@@ -1,5 +1,6 @@
 // @ts-nocheck
 import express from "express";
+import { getSetting } from "../lib/settings";
 import bcrypt from "bcrypt";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -36,9 +37,10 @@ router.post("/register", async (req, res) => {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
+  const startingPoints = await getSetting("points_registration");
   const [user] = await db
     .insert(usersTable)
-    .values({ username, email, passwordHash, registrationIp: ip })
+    .values({ username, email, passwordHash, registrationIp: ip, points: startingPoints })
     .returning();
 
   req.session.userId = user.id;

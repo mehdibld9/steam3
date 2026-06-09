@@ -5,6 +5,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { CreateAdLinkBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { randomBytes } from "crypto";
+import { getSetting } from "../lib/settings";
 
 const router = express.Router();
 
@@ -74,12 +75,13 @@ router.get("/:code/redeem", requireAuth, async (req, res) => {
     .set({ usesCount: sql`${adLinksTable.usesCount} + 1` })
     .where(eq(adLinksTable.id, link.id));
 
+  const xpAdlink = await getSetting("xp_redeem_adlink");
   const [updatedUser] = await db
     .update(usersTable)
     .set({
       points: sql`${usersTable.points} + ${link.pointsReward}`,
-      xp: sql`${usersTable.xp} + 20`,
-      level: sql`FLOOR((${usersTable.xp} + 20) / 100) + 1`,
+      xp: sql`${usersTable.xp} + ${xpAdlink}`,
+      level: sql`FLOOR((${usersTable.xp} + ${xpAdlink}) / 100) + 1`,
     })
     .where(eq(usersTable.id, userId))
     .returning({ points: usersTable.points });
@@ -87,7 +89,7 @@ router.get("/:code/redeem", requireAuth, async (req, res) => {
   res.json({
     pointsEarned: link.pointsReward,
     newTotal: updatedUser?.points ?? 0,
-    xpEarned: 20,
+    xpEarned: xpAdlink,
   });
 });
 

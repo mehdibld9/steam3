@@ -6,6 +6,7 @@ import { CreateAccountBody } from "@workspace/api-zod";
 import { requireAuth, requireModOrAdmin } from "../middlewares/auth";
 import { checkSteamCredentials } from "../lib/steamChecker";
 import { filterContent } from "../lib/contentFilter";
+import { getSetting } from "../lib/settings";
 
 const router = express.Router();
 
@@ -167,7 +168,8 @@ router.post("/", requireAuth, async (req, res) => {
 
   // Only award XP immediately for instantly published accounts
   if (!isFamilyShare) {
-    await addXp(userId, 50);
+    const xp = await getSetting("xp_upload_account");
+    await addXp(userId, xp);
   }
 
   const [user] = await db.select({ username: usersTable.username, avatarUrl: usersTable.avatarUrl, isAdmin: usersTable.isAdmin, isModerator: usersTable.isModerator })
@@ -378,8 +380,9 @@ router.post("/:accountId/like", requireAuth, async (req, res) => {
     await db.insert(likesTable).values({ userId, targetType: "account", targetId: accountId });
     await db.update(accountsTable).set({ likesCount: sql`${accountsTable.likesCount} + 1` }).where(eq(accountsTable.id, accountId));
     const [account] = await db.select({ userId: accountsTable.userId }).from(accountsTable).where(eq(accountsTable.id, accountId)).limit(1);
-    if (account) await addXp(account.userId, 5);
-    await addXp(userId, 5);
+    const xpLike = await getSetting("xp_like_account");
+    if (account) await addXp(account.userId, xpLike);
+    await addXp(userId, xpLike);
   }
 
   res.json({ message: "Liked" });
