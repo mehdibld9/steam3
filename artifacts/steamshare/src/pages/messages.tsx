@@ -181,15 +181,8 @@ function ReportModal({ targetId, targetUsername, onClose }: ReportModalProps) {
   );
 }
 
-interface MessageMenuProps {
-  messageId: number;
-  isOwn: boolean;
-  targetId: number;
-  targetUsername: string;
-  onDeleted: () => void;
-}
-
-function MessageMenu({ messageId, isOwn, targetId, targetUsername, onDeleted }: MessageMenuProps) {
+// Header 3-dot menu: Block + Report only (no delete)
+function HeaderMenu({ targetId, targetUsername }: { targetId: number; targetUsername: string }) {
   const [open, setOpen] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [blockDone, setBlockDone] = useState(false);
@@ -203,37 +196,23 @@ function MessageMenu({ messageId, isOwn, targetId, targetUsername, onDeleted }: 
     return () => document.removeEventListener("mousedown", handle);
   }, [open]);
 
-  async function handleDelete() {
-    setOpen(false);
-    await deleteMessage(messageId);
-    onDeleted();
-  }
-
   async function handleBlock() {
     setOpen(false);
-    await reportUser(targetId, "block", `User blocked by ${targetUsername}'s conversation partner`);
+    await reportUser(targetId, "block", `User blocked by conversation partner`);
     setBlockDone(true);
   }
 
   return (
     <>
-      <div className="relative" ref={menuRef}>
+      <div className="relative ml-auto shrink-0" ref={menuRef}>
         <button
           onClick={() => setOpen((v) => !v)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+          className="p-1.5 rounded-lg hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
         >
-          <MoreVertical className="h-3.5 w-3.5" />
+          <MoreVertical className="h-4 w-4" />
         </button>
         {open && (
-          <div className={`absolute z-20 bg-popover border border-border rounded-xl shadow-xl py-1 w-36 text-sm ${isOwn ? "right-0" : "left-0"} bottom-full mb-1`}>
-            {isOwn && (
-              <button
-                onClick={handleDelete}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/50 text-red-400 hover:text-red-300 transition-colors"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Delete
-              </button>
-            )}
+          <div className="absolute right-0 z-20 bg-popover border border-border rounded-xl shadow-xl py-1 w-36 text-sm top-full mt-1">
             <button
               onClick={() => { setOpen(false); setShowReport(true); }}
               className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/50 text-foreground hover:text-primary transition-colors"
@@ -266,6 +245,7 @@ export default function Messages() {
   const [location, navigate] = useLocation();
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedUsername, setSelectedUsername] = useState("");
+  const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string | null>(null);
   const [selectedIsAdmin, setSelectedIsAdmin] = useState(false);
   const [selectedIsMod, setSelectedIsMod] = useState(false);
   const [draft, setDraft] = useState("");
@@ -319,10 +299,14 @@ export default function Messages() {
   const selectUser = (conv: Conversation) => {
     setSelectedUserId(conv.partner_id);
     setSelectedUsername(conv.partner_username);
+    setSelectedAvatarUrl(conv.partner_avatar_url ?? null);
     setSelectedIsAdmin(!!conv.partner_is_admin);
     setSelectedIsMod(!!conv.partner_is_moderator);
     setMobileView("chat");
   };
+
+  // Derive avatar when conversation is opened via URL param (no selectUser call)
+  const derivedAvatarUrl = selectedAvatarUrl ?? conversations?.find(c => c.partner_id === selectedUserId)?.partner_avatar_url ?? null;
 
   if (!me) {
     return (
@@ -408,6 +392,7 @@ export default function Messages() {
                     </div>
                   ) : (
                     <Avatar className="h-8 w-8">
+                      <AvatarImage src={derivedAvatarUrl || undefined} />
                       <AvatarFallback>{(selectedUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                     </Avatar>
                   )}
@@ -425,6 +410,9 @@ export default function Messages() {
                       </span>
                     )}
                     {!isBot && <RoleBadge isAdmin={selectedIsAdmin} isModerator={selectedIsMod} />}
+                    {!isBot && (
+                      <HeaderMenu targetId={selectedUserId!} targetUsername={selectedUsername} />
+                    )}
                   </div>
                 </div>
 
@@ -439,17 +427,6 @@ export default function Messages() {
                           <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mr-1 shrink-0">
                             <Bot className="h-3.5 w-3.5 text-primary" />
                           </div>
-                        )}
-
-                        {/* 3-dot menu left side (other's messages) */}
-                        {!isMe && !isBotMsg && (
-                          <MessageMenu
-                            messageId={msg.id}
-                            isOwn={false}
-                            targetId={selectedUserId!}
-                            targetUsername={selectedUsername}
-                            onDeleted={() => refetchMessages()}
-                          />
                         )}
 
                         <div
@@ -467,15 +444,13 @@ export default function Messages() {
                           </p>
                         </div>
 
-                        {/* 3-dot menu right side (own messages) */}
                         {isMe && (
-                          <MessageMenu
-                            messageId={msg.id}
-                            isOwn={true}
-                            targetId={selectedUserId!}
-                            targetUsername={selectedUsername}
-                            onDeleted={() => refetchMessages()}
-                          />
+                          <button
+                            onClick={async () => { await deleteMessage(msg.id); refetchMessages(); }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-muted/60 text-muted-foreground hover:text-red-400 shrink-0"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         )}
                       </div>
                     );
