@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, MessageSquare, ArrowLeft, Bot } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Send, MessageSquare, ArrowLeft, Bot, MoreVertical, Trash2, Flag, Ban, X } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -13,6 +14,8 @@ interface Conversation {
   partner_id: number;
   partner_username: string;
   partner_avatar_url: string | null;
+  partner_is_admin: boolean;
+  partner_is_moderator: boolean;
   content: string;
   created_at: string;
   unread_count: number;
@@ -49,9 +52,213 @@ async function sendMessage(receiverId: number, content: string): Promise<Message
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to send message");
+    throw new Error((err as any).error || "Failed to send message");
   }
   return res.json();
+}
+
+async function deleteMessage(messageId: number): Promise<void> {
+  const res = await fetch(`/api/messages/${messageId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to delete message");
+}
+
+async function reportUser(targetId: number, reason: string, details: string): Promise<void> {
+  const res = await fetch("/api/reports", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ targetType: "user", targetId, reason, details }),
+  });
+  if (!res.ok) throw new Error("Failed to submit report");
+}
+
+function RoleBadge({ isAdmin, isModerator }: { isAdmin?: boolean; isModerator?: boolean }) {
+  if (isAdmin) {
+    return (
+      <span className="bg-yellow-500/15 text-yellow-400 border border-yellow-500/30 text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+        Admin
+      </span>
+    );
+  }
+  if (isModerator) {
+    return (
+      <span className="bg-blue-500/15 text-blue-400 border border-blue-500/30 text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+        Mod
+      </span>
+    );
+  }
+  return null;
+}
+
+interface ReportModalProps {
+  targetId: number;
+  targetUsername: string;
+  onClose: () => void;
+}
+
+function ReportModal({ targetId, targetUsername, onClose }: ReportModalProps) {
+  const [reason, setReason] = useState("");
+  const [proof, setProof] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit() {
+    if (!reason.trim()) { setError("Please describe the reason."); return; }
+    if (!proof.trim()) { setError("Please provide proof or details."); return; }
+    setLoading(true);
+    setError("");
+    try {
+      await reportUser(targetId, reason.trim(), proof.trim());
+      setSubmitted(true);
+    } catch {
+      setError("Failed to submit report. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <div className="flex items-center gap-2">
+            <Flag className="h-4 w-4 text-red-400" />
+            <h3 className="font-bold text-foreground">Report {targetUsername}</h3>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {submitted ? (
+          <div className="p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mx-auto mb-3">
+              <Flag className="h-5 w-5 text-green-400" />
+            </div>
+            <p className="font-semibold text-foreground">Report submitted</p>
+            <p className="text-sm text-muted-foreground mt-1">Our team will review it shortly.</p>
+            <Button className="mt-5 w-full" variant="outline" onClick={onClose}>Close</Button>
+          </div>
+        ) : (
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="text-sm font-semibold text-foreground block mb-1.5">Reason</label>
+              <Input
+                placeholder="e.g. Spam, harassment, scam..."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="bg-secondary/40 border-border rounded-xl"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-foreground block mb-1.5">
+                Proof / Details <span className="text-red-400">*</span>
+              </label>
+              <Textarea
+                placeholder="Describe what happened and provide any relevant evidence (screenshots, links, message content, etc.)"
+                value={proof}
+                onChange={(e) => setProof(e.target.value)}
+                rows={4}
+                className="bg-secondary/40 border-border rounded-xl resize-none"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Proof is required to process your report.</p>
+            </div>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
+              <Button onClick={handleSubmit} disabled={loading} className="flex-1 bg-red-500 hover:bg-red-600 text-white">
+                {loading ? "Submitting…" : "Submit Report"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface MessageMenuProps {
+  messageId: number;
+  isOwn: boolean;
+  targetId: number;
+  targetUsername: string;
+  onDeleted: () => void;
+}
+
+function MessageMenu({ messageId, isOwn, targetId, targetUsername, onDeleted }: MessageMenuProps) {
+  const [open, setOpen] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [blockDone, setBlockDone] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [open]);
+
+  async function handleDelete() {
+    setOpen(false);
+    await deleteMessage(messageId);
+    onDeleted();
+  }
+
+  async function handleBlock() {
+    setOpen(false);
+    await reportUser(targetId, "block", `User blocked by ${targetUsername}'s conversation partner`);
+    setBlockDone(true);
+  }
+
+  return (
+    <>
+      <div className="relative" ref={menuRef}>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+        >
+          <MoreVertical className="h-3.5 w-3.5" />
+        </button>
+        {open && (
+          <div className={`absolute z-20 bg-popover border border-border rounded-xl shadow-xl py-1 w-36 text-sm ${isOwn ? "right-0" : "left-0"} bottom-full mb-1`}>
+            {isOwn && (
+              <button
+                onClick={handleDelete}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/50 text-red-400 hover:text-red-300 transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
+            )}
+            <button
+              onClick={() => { setOpen(false); setShowReport(true); }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/50 text-foreground hover:text-primary transition-colors"
+            >
+              <Flag className="h-3.5 w-3.5" /> Report
+            </button>
+            <button
+              onClick={handleBlock}
+              disabled={blockDone}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/50 text-foreground hover:text-red-400 transition-colors disabled:opacity-50"
+            >
+              <Ban className="h-3.5 w-3.5" /> {blockDone ? "Blocked" : "Block"}
+            </button>
+          </div>
+        )}
+      </div>
+      {showReport && (
+        <ReportModal
+          targetId={targetId}
+          targetUsername={targetUsername}
+          onClose={() => setShowReport(false)}
+        />
+      )}
+    </>
+  );
 }
 
 export default function Messages() {
@@ -59,12 +266,13 @@ export default function Messages() {
   const [location, navigate] = useLocation();
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedUsername, setSelectedUsername] = useState("");
+  const [selectedIsAdmin, setSelectedIsAdmin] = useState(false);
+  const [selectedIsMod, setSelectedIsMod] = useState(false);
   const [draft, setDraft] = useState("");
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
-  // Auto-open a conversation when navigating from a profile page (?user=ID&username=NAME)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const userId = parseInt(params.get("user") || "0", 10);
@@ -82,7 +290,7 @@ export default function Messages() {
     refetchInterval: 5000,
   });
 
-  const { data: messages } = useQuery({
+  const { data: messages, refetch: refetchMessages } = useQuery({
     queryKey: ["messages", selectedUserId],
     queryFn: () => fetchMessages(selectedUserId!),
     enabled: !!selectedUserId,
@@ -108,9 +316,11 @@ export default function Messages() {
     sendMutation.mutate({ receiverId: selectedUserId, content: draft.trim() });
   };
 
-  const selectUser = (userId: number, username: string) => {
-    setSelectedUserId(userId);
-    setSelectedUsername(username);
+  const selectUser = (conv: Conversation) => {
+    setSelectedUserId(conv.partner_id);
+    setSelectedUsername(conv.partner_username);
+    setSelectedIsAdmin(!!conv.partner_is_admin);
+    setSelectedIsMod(!!conv.partner_is_moderator);
     setMobileView("chat");
   };
 
@@ -123,6 +333,8 @@ export default function Messages() {
       </Layout>
     );
   }
+
+  const isBot = selectedUsername === "Admin Bot";
 
   return (
     <Layout>
@@ -148,7 +360,7 @@ export default function Messages() {
                 conversations.map((conv) => (
                   <button
                     key={conv.partner_id}
-                    onClick={() => selectUser(conv.partner_id, conv.partner_username)}
+                    onClick={() => selectUser(conv)}
                     className={`w-full flex items-center gap-3 p-3 hover:bg-muted/40 transition-colors text-left ${selectedUserId === conv.partner_id ? "bg-primary/10 border-r-2 border-primary" : ""}`}
                   >
                     <Avatar className="h-10 w-10 shrink-0">
@@ -156,8 +368,11 @@ export default function Messages() {
                       <AvatarFallback>{(conv.partner_username?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-sm truncate">{conv.partner_username}</span>
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-semibold text-sm truncate">{conv.partner_username}</span>
+                          <RoleBadge isAdmin={conv.partner_is_admin} isModerator={conv.partner_is_moderator} />
+                        </div>
                         {Number(conv.unread_count) > 0 && (
                           <span className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1 shrink-0">
                             {conv.unread_count}
@@ -182,11 +397,12 @@ export default function Messages() {
               </div>
             ) : (
               <>
+                {/* Chat header */}
                 <div className="p-3 border-b border-border flex items-center gap-3">
                   <button className="md:hidden mr-1" onClick={() => setMobileView("list")}>
                     <ArrowLeft className="h-5 w-5" />
                   </button>
-                  {selectedUsername === "Admin Bot" ? (
+                  {isBot ? (
                     <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
                       <Bot className="h-4 w-4 text-primary" />
                     </div>
@@ -195,38 +411,52 @@ export default function Messages() {
                       <AvatarFallback>{(selectedUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                     </Avatar>
                   )}
-                  <div className="flex items-center gap-2">
-                    {selectedUsername === "Admin Bot" ? (
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    {isBot ? (
                       <span className="font-semibold">{selectedUsername}</span>
                     ) : (
-                      <Link href={`/profile/${selectedUserId}`} className="font-semibold hover:text-primary">
+                      <Link href={`/profile/${selectedUserId}`} className="font-semibold hover:text-primary truncate">
                         {selectedUsername}
                       </Link>
                     )}
-                    {selectedUsername === "Admin Bot" && (
+                    {isBot && (
                       <span className="bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide">
                         System
                       </span>
                     )}
+                    {!isBot && <RoleBadge isAdmin={selectedIsAdmin} isModerator={selectedIsMod} />}
                   </div>
                 </div>
 
+                {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {messages?.map((msg) => {
                     const isMe = msg.senderId === me.id;
-                    const isBot = !isMe && selectedUsername === "Admin Bot";
+                    const isBotMsg = !isMe && isBot;
                     return (
-                      <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                        {isBot && (
-                          <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mr-2 shrink-0 mt-1">
+                      <div key={msg.id} className={`flex group items-end gap-1 ${isMe ? "justify-end" : "justify-start"}`}>
+                        {isBotMsg && (
+                          <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mr-1 shrink-0">
                             <Bot className="h-3.5 w-3.5 text-primary" />
                           </div>
                         )}
+
+                        {/* 3-dot menu left side (other's messages) */}
+                        {!isMe && !isBotMsg && (
+                          <MessageMenu
+                            messageId={msg.id}
+                            isOwn={false}
+                            targetId={selectedUserId!}
+                            targetUsername={selectedUsername}
+                            onDeleted={() => refetchMessages()}
+                          />
+                        )}
+
                         <div
                           className={`max-w-[70%] rounded-2xl px-4 py-2 text-sm ${
                             isMe
                               ? "bg-primary text-white rounded-br-sm"
-                              : isBot
+                              : isBotMsg
                                 ? "bg-primary/10 border border-primary/20 text-foreground rounded-bl-sm"
                                 : "bg-muted text-foreground rounded-bl-sm"
                           }`}
@@ -236,13 +466,24 @@ export default function Messages() {
                             {formatDistanceToNow(new Date(msg.createdAt))} ago
                           </p>
                         </div>
+
+                        {/* 3-dot menu right side (own messages) */}
+                        {isMe && (
+                          <MessageMenu
+                            messageId={msg.id}
+                            isOwn={true}
+                            targetId={selectedUserId!}
+                            targetUsername={selectedUsername}
+                            onDeleted={() => refetchMessages()}
+                          />
+                        )}
                       </div>
                     );
                   })}
                   <div ref={messagesEndRef} />
                 </div>
 
-                {selectedUsername === "Admin Bot" ? (
+                {isBot ? (
                   <div className="p-3 border-t border-border flex items-center justify-center gap-2 text-sm text-muted-foreground bg-muted/20">
                     <Bot className="h-4 w-4 text-primary/60" />
                     This is an automated notification channel — replies are disabled

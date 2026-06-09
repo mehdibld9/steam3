@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Eye, EyeOff, Gamepad2, Zap } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Zap } from "lucide-react";
 import { useState } from "react";
 
 const formSchema = z.object({
@@ -42,32 +42,20 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left panel — branding */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#0d1117] items-center justify-center">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-purple-600/10" />
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl" />
-        <div className="relative z-10 text-center px-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary/15 border border-primary/30 mb-8 shadow-[0_0_40px_rgba(var(--primary-rgb),0.2)]">
-            <Gamepad2 className="h-10 w-10 text-primary" />
-          </div>
-          <h1 className="text-4xl font-black text-white mb-4 tracking-tight">Steam Family</h1>
-          <p className="text-slate-400 text-lg leading-relaxed max-w-xs mx-auto">
-            The most active Steam library exchange. Share, earn, and rise through the ranks.
-          </p>
-          <div className="mt-10 grid grid-cols-3 gap-6 text-center">
-            {[
-              { label: "Members", value: "10K+" },
-              { label: "Accounts", value: "50K+" },
-              { label: "Games", value: "1M+" },
-            ].map(({ label, value }) => (
-              <div key={label}>
-                <p className="text-2xl font-black text-primary">{value}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Left panel — game collage */}
+      <div className="hidden lg:block lg:w-1/2 relative overflow-hidden">
+        <img
+          src="/games-collage.png"
+          alt=""
+          className="absolute inset-0 w-full h-full"
+          style={{ objectFit: "cover", objectPosition: "left center", transform: "scaleX(-1)" }}
+        />
+        <div className="absolute inset-0 bg-black/45" />
+        {/* Fade out the left edge where the Steam logo bleeds in */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: "linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 28%, rgba(0,0,0,0.6) 44%, transparent 60%)" }}
+        />
       </div>
 
       {/* Right panel — form */}
@@ -75,9 +63,6 @@ export default function Login() {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-10 justify-center">
-            <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center">
-              <Gamepad2 className="h-5 w-5 text-primary" />
-            </div>
             <span className="font-black text-xl text-foreground">Steam Family</span>
           </div>
 
