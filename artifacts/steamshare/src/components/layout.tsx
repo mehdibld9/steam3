@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Shield, Plus, LogOut, Coins, Trophy, Gift,
   MessageSquare, Menu, X, ChevronRight, Bell, Home,
-  LayoutGrid, User, Settings, ShoppingBag, Sun, Moon,
+  LayoutGrid, User, Settings, ShoppingBag, Sun, Moon, ArrowLeft,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "@/lib/theme";
@@ -115,8 +115,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="flex h-14 items-center justify-between px-4">
 
-          {/* Left: Logo (hidden on mobile) + Menu button */}
-          <div className="flex items-center gap-3">
+          {/* Left: Logo (hidden on mobile) + Menu button + Back button */}
+          <div className="flex items-center gap-2">
             <Link href="/" className="hidden sm:flex items-center">
               <span className="font-black text-xl tracking-tight text-foreground">Steam Family</span>
             </Link>
@@ -127,6 +127,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Menu className="h-4 w-4" />
               Menu
             </button>
+            {location !== "/" && (
+              <button
+                onClick={() => window.history.back()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </button>
+            )}
           </div>
 
           {/* Right */}
