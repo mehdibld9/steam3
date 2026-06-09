@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X } from "lucide-react";
+import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react";
 import { Link } from "wouter";
 
 // --- API helpers ---
@@ -97,6 +97,7 @@ export default function Admin() {
   }
 
   const tabs = [
+    { value: "pending", label: "Pending Reviews" },
     { value: "users", label: "Users" },
     { value: "accounts", label: "Accounts" },
     { value: "reports", label: "Reports" },
@@ -117,13 +118,14 @@ export default function Admin() {
           </div>
         </div>
 
-        <Tabs defaultValue="users" className="w-full">
+        <Tabs defaultValue="pending" className="w-full">
           <TabsList className="flex w-full mb-8 bg-card border border-border h-12 overflow-x-auto">
             {tabs.map((t) => (
               <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
             ))}
           </TabsList>
 
+          <TabsContent value="pending"><PendingReviewTab /></TabsContent>
           <TabsContent value="users"><UsersTab isAdmin={!!user?.isAdmin} /></TabsContent>
           <TabsContent value="accounts"><AccountsTab /></TabsContent>
           <TabsContent value="reports"><ReportsTab /></TabsContent>
@@ -1294,6 +1296,251 @@ function SiteSettingsTab() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// --- Pending Review Tab ---
+async function fetchPendingAccounts() {
+  const res = await fetch("/api/admin/pending-accounts", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to load pending accounts");
+  return res.json() as Promise<any[]>;
+}
+
+async function approveAccount(accountId: number, games: string[]) {
+  const res = await fetch(`/api/admin/accounts/${accountId}/approve`, {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ games }),
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+  return res.json();
+}
+
+async function rejectAccount(accountId: number, note: string) {
+  const res = await fetch(`/api/admin/accounts/${accountId}/reject`, {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ note }),
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+  return res.json();
+}
+
+function PendingReviewTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [rejectNote, setRejectNote] = useState<Record<number, string>>({});
+  const [gameSelections, setGameSelections] = useState<Record<number, string[]>>({});
+
+  const { data: pending = [], isLoading } = useQuery({
+    queryKey: ["admin-pending-accounts"],
+    queryFn: fetchPendingAccounts,
+    refetchInterval: 30_000,
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: ({ id, games }: { id: number; games: string[] }) => approveAccount(id, games),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-accounts"] });
+      toast({ title: "Account approved", description: "It's now live and the user earned 50 XP." });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, note }: { id: number; note: string }) => rejectAccount(id, note),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-accounts"] });
+      toast({ title: "Account rejected" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const getGames = (acc: any): string[] => {
+    if (gameSelections[acc.id]) return gameSelections[acc.id];
+    return acc.games ?? [];
+  };
+
+  const initGames = (acc: any) => {
+    if (!gameSelections[acc.id]) {
+      setGameSelections((prev) => ({ ...prev, [acc.id]: [...(acc.games ?? [])] }));
+    }
+  };
+
+  const toggleGame = (accountId: number, game: string) => {
+    setGameSelections((prev) => {
+      const current = prev[accountId] ?? [];
+      return {
+        ...prev,
+        [accountId]: current.includes(game)
+          ? current.filter((g) => g !== game)
+          : [...current, game],
+      };
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-muted-foreground">
+        <Hourglass className="h-5 w-5 animate-pulse mr-2" /> Loading pending reviews…
+      </div>
+    );
+  }
+
+  if (pending.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mb-4">
+          <Check className="h-8 w-8 text-green-500" />
+        </div>
+        <p className="text-lg font-semibold text-foreground">All clear!</p>
+        <p className="text-sm text-muted-foreground mt-1">No accounts are pending review right now.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Hourglass className="h-5 w-5 text-amber-500" />
+        <h2 className="text-lg font-bold text-foreground">Pending Reviews</h2>
+        <span className="ml-1 bg-amber-500/20 text-amber-600 border border-amber-500/30 text-xs font-bold px-2 py-0.5 rounded-full">
+          {pending.length}
+        </span>
+      </div>
+      <p className="text-sm text-muted-foreground mb-4">
+        These paid account listings are waiting for your approval before going live. You can remove individual games before approving.
+      </p>
+
+      {pending.map((acc: any) => {
+        const isExpanded = expandedId === acc.id;
+        const games = getGames(acc);
+        const allGames: string[] = acc.games ?? [];
+
+        return (
+          <div key={acc.id} className="bg-card border border-border rounded-xl overflow-hidden">
+            {/* Header row */}
+            <div className="flex items-center justify-between px-5 py-4 gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-foreground truncate">{acc.title}</span>
+                  <span className="bg-amber-500/15 text-amber-600 border border-amber-500/25 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">Pending</span>
+                  <span className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full">{acc.pointsCost} pts</span>
+                </div>
+                <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+                  <span>by {acc.posterUsername ?? "Unknown"}</span>
+                  <span>·</span>
+                  <span>{allGames.length} games</span>
+                  <span>·</span>
+                  <span>{new Date(acc.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => { setExpandedId(isExpanded ? null : acc.id); initGames(acc); }}
+                className="p-2 rounded hover:bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                title="Expand"
+              >
+                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+            </div>
+
+            {/* Expanded content */}
+            {isExpanded && (
+              <div className="border-t border-border px-5 py-4 space-y-5">
+                {/* Description */}
+                {acc.description && (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Description</p>
+                    <p className="text-sm text-foreground">{acc.description}</p>
+                  </div>
+                )}
+
+                {/* Game selector */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Games — toggle to show/hide ({games.length}/{allGames.length} selected)
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setGameSelections((p) => ({ ...p, [acc.id]: [...allGames] }))}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Select all
+                      </button>
+                      <span className="text-muted-foreground text-xs">·</span>
+                      <button
+                        onClick={() => setGameSelections((p) => ({ ...p, [acc.id]: [] }))}
+                        className="text-xs text-destructive hover:underline"
+                      >
+                        Clear all
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1">
+                    {allGames.map((game: string) => {
+                      const isVisible = games.includes(game);
+                      return (
+                        <button
+                          key={game}
+                          onClick={() => toggleGame(acc.id, game)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                            isVisible
+                              ? "bg-primary/10 border-primary/30 text-primary"
+                              : "bg-muted/40 border-border text-muted-foreground line-through"
+                          }`}
+                          title={isVisible ? "Click to hide this game" : "Click to show this game"}
+                        >
+                          {isVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                          {game}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {games.length === 0 && (
+                    <p className="text-xs text-amber-500 mt-2">⚠ All games are hidden — at least one game must be visible to approve.</p>
+                  )}
+                </div>
+
+                {/* Reject note */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Rejection reason (optional)</p>
+                  <input
+                    type="text"
+                    className="w-full border border-border bg-background rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    placeholder="e.g. Invalid credentials, spam listing…"
+                    value={rejectNote[acc.id] ?? ""}
+                    onChange={(e) => setRejectNote((p) => ({ ...p, [acc.id]: e.target.value }))}
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <Button
+                    className="flex-1 gap-2 bg-green-600 hover:bg-green-700 text-white"
+                    disabled={games.length === 0 || approveMutation.isPending}
+                    onClick={() => approveMutation.mutate({ id: acc.id, games })}
+                  >
+                    <Check className="h-4 w-4" />
+                    Approve & Publish
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="flex-1 gap-2"
+                    disabled={rejectMutation.isPending}
+                    onClick={() => rejectMutation.mutate({ id: acc.id, note: rejectNote[acc.id] ?? "" })}
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

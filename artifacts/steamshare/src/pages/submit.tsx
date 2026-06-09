@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { InfoIcon, CheckCircle2, XCircle, Loader2, Clock } from "lucide-react";
+import { InfoIcon, CheckCircle2, XCircle, Loader2, Clock, HourglassIcon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 
 const formSchema = z.object({
@@ -31,6 +31,7 @@ export default function Submit() {
   const createAccount = useCreateAccount();
   const verifyCredentials = useVerifyCredentials();
   const [submitError, setSubmitError] = useState("");
+  const [pendingReview, setPendingReview] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<VerifyStatus>("idle");
   const [verifyMessage, setVerifyMessage] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -146,6 +147,10 @@ export default function Submit() {
         } as any,
       });
 
+      if ((res as any).pendingReview) {
+        setPendingReview(true);
+        return;
+      }
       setLocation(`/accounts/${res.id}`);
     } catch (e: any) {
       setSubmitError(e.message || "Submission failed. Please try again.");
@@ -162,6 +167,31 @@ export default function Submit() {
       : verifyStatus === "invalid"
         ? <XCircle className="h-4 w-4 text-red-400" />
         : null;
+
+  if (pendingReview) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-24 max-w-lg text-center">
+          <div className="flex justify-center mb-6">
+            <div className="w-20 h-20 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+              <HourglassIcon className="h-10 w-10 text-amber-500" />
+            </div>
+          </div>
+          <h1 className="text-3xl font-black mb-3">Under Review</h1>
+          <p className="text-muted-foreground mb-6 text-base leading-relaxed">
+            Your paid account listing has been submitted and is <strong className="text-foreground">pending admin review</strong>. It will be published once a moderator approves it. You'll earn <strong className="text-foreground">50 XP</strong> when it goes live.
+          </p>
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-5 py-4 text-sm text-amber-600 text-left space-y-1 mb-8">
+            <p className="font-semibold">What happens next?</p>
+            <p>• An admin will review your listing soon</p>
+            <p>• They may adjust which games are displayed</p>
+            <p>• You'll be notified once it's approved or rejected</p>
+          </div>
+          <Button className="w-full" onClick={() => setLocation("/")}>Back to Home</Button>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

@@ -155,12 +155,20 @@ router.post("/", requireAuth, async (req, res) => {
     filterContent(description ?? ""),
   ]);
 
+  // Paid accounts go into pending review; free accounts publish immediately
+  const isPaid = (pointsCost ?? 0) > 0;
+  const status = isPaid ? "pending" : "approved";
+  const isAvailable = !isPaid;
+
   const [account] = await db
     .insert(accountsTable)
-    .values({ userId, title: filteredTitle, description: filteredDescription, games, pointsCost, steamUsername, steamPassword, unlockMethod: safeUnlockMethod })
+    .values({ userId, title: filteredTitle, description: filteredDescription, games, pointsCost, steamUsername, steamPassword, unlockMethod: safeUnlockMethod, status, isAvailable })
     .returning();
 
-  await addXp(userId, 50);
+  // Only award XP immediately for free (instantly published) accounts
+  if (!isPaid) {
+    await addXp(userId, 50);
+  }
 
   const [user] = await db.select({ username: usersTable.username, avatarUrl: usersTable.avatarUrl, isAdmin: usersTable.isAdmin, isModerator: usersTable.isModerator })
     .from(usersTable).where(eq(usersTable.id, userId));
@@ -174,6 +182,7 @@ router.post("/", requireAuth, async (req, res) => {
     posterIsModerator: user?.isModerator ?? false,
     userHasLiked: false,
     myVote: null,
+    pendingReview: isPaid,
   });
 });
 

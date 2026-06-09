@@ -7,9 +7,10 @@ import { Progress } from "@/components/ui/progress";
 import {
   Shield, Plus, LogOut, Coins, Trophy, Award, Gift,
   MessageSquare, Menu, X, ChevronRight, Bell, Home,
-  LayoutGrid, User, Settings, ShoppingBag, Mail, Phone, MapPin,
+  LayoutGrid, User, Settings, ShoppingBag, Sun, Moon,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { useTheme } from "@/lib/theme";
 
 async function fetchUnreadCount(): Promise<number> {
   try {
@@ -55,6 +56,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const { theme, setTheme } = useTheme();
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["unread-messages"],
@@ -130,6 +132,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           {/* Right */}
           <div className="flex items-center gap-1.5">
+            {/* Dark mode toggle */}
+            <button
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="p-2 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+
             {user ? (
               <>
                 {(user.isAdmin || (user as any).isModerator) && (
