@@ -115,6 +115,8 @@ router.get("/pending-accounts", requireModOrAdmin, async (req, res) => {
       status: accountsTable.status,
       reviewNote: accountsTable.reviewNote,
       createdAt: accountsTable.createdAt,
+      steamUsername: accountsTable.steamUsername,
+      steamPassword: accountsTable.steamPassword,
       posterUsername: usersTable.username,
       posterAvatarUrl: usersTable.avatarUrl,
     })

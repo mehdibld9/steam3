@@ -119,7 +119,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="pending" className="w-full">
-          <TabsList className="flex w-full mb-8 bg-card border border-border h-12 overflow-x-auto">
+          <TabsList className="flex flex-wrap w-full mb-8 bg-card border border-border h-auto min-h-12 sm:flex-nowrap sm:overflow-x-auto sm:h-12">
             {tabs.map((t) => (
               <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
             ))}
@@ -1333,6 +1333,13 @@ function PendingReviewTab() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [rejectNote, setRejectNote] = useState<Record<number, string>>({});
   const [gameSelections, setGameSelections] = useState<Record<number, string[]>>({});
+  const [showPassword, setShowPassword] = useState<Record<number, boolean>>({});
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast({ title: `${label} copied`, description: text });
+    });
+  };
 
   const { data: pending = [], isLoading } = useQuery({
     queryKey: ["admin-pending-accounts"],
@@ -1456,6 +1463,49 @@ function PendingReviewTab() {
                     <p className="text-sm text-foreground">{acc.description}</p>
                   </div>
                 )}
+
+                {/* Steam Credentials */}
+                <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-3 space-y-2">
+                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                    <Shield className="h-3.5 w-3.5" />
+                    Steam Credentials — for testing only
+                  </p>
+                  {/* Username */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-20 shrink-0">Username</span>
+                    <code className="flex-1 bg-background border border-border rounded px-2.5 py-1.5 text-sm font-mono text-foreground select-all">
+                      {acc.steamUsername}
+                    </code>
+                    <button
+                      onClick={() => copyToClipboard(acc.steamUsername, "Username")}
+                      className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                      title="Copy username"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  {/* Password */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-20 shrink-0">Password</span>
+                    <code className="flex-1 bg-background border border-border rounded px-2.5 py-1.5 text-sm font-mono text-foreground select-all">
+                      {showPassword[acc.id] ? acc.steamPassword : "••••••••••••"}
+                    </code>
+                    <button
+                      onClick={() => setShowPassword((p) => ({ ...p, [acc.id]: !p[acc.id] }))}
+                      className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                      title={showPassword[acc.id] ? "Hide password" : "Show password"}
+                    >
+                      {showPassword[acc.id] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                    <button
+                      onClick={() => copyToClipboard(acc.steamPassword, "Password")}
+                      className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                      title="Copy password"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
 
                 {/* Game selector */}
                 <div>
