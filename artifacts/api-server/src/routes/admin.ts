@@ -152,12 +152,20 @@ router.post("/accounts/:accountId/approve", requireModOrAdmin, async (req, res) 
   if (games && Array.isArray(games)) updates.games = games;
 
   await db.update(accountsTable).set(updates).where(eq(accountsTable.id, accountId));
-  const xpUpload = await getSetting("xp_upload_account");
+  const [xpUpload, ptsUpload] = await Promise.all([
+    getSetting("xp_upload_account"),
+    getSetting("points_upload_account"),
+  ]);
   await addXp(account.userId, xpUpload);
+  if (ptsUpload > 0) {
+    await db.update(usersTable)
+      .set({ points: sql`${usersTable.points} + ${ptsUpload}` })
+      .where(eq(usersTable.id, account.userId));
+  }
 
   await sendBotMessage(
     account.userId,
-    `✅ Your listing **${account.title}** has been approved and is now live! You've earned ${xpUpload} XP.`,
+    `✅ Your listing **${account.title}** has been approved and is now live! You've earned ${xpUpload} XP${ptsUpload > 0 ? ` and ${ptsUpload} points` : ""}.`,
   ).catch(() => {});
 
   res.json({ message: "Account approved and published" });

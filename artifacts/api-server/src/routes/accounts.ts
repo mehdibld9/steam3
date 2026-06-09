@@ -166,10 +166,18 @@ router.post("/", requireAuth, async (req, res) => {
     .values({ userId, title: filteredTitle, description: filteredDescription, games, pointsCost, steamUsername, steamPassword, unlockMethod: safeUnlockMethod, status, isAvailable })
     .returning();
 
-  // Only award XP immediately for instantly published accounts
+  // Only award XP and points immediately for instantly published accounts
   if (!isFamilyShare) {
-    const xp = await getSetting("xp_upload_account");
+    const [xp, pts] = await Promise.all([
+      getSetting("xp_upload_account"),
+      getSetting("points_upload_account"),
+    ]);
     await addXp(userId, xp);
+    if (pts > 0) {
+      await db.update(usersTable)
+        .set({ points: sql`${usersTable.points} + ${pts}` })
+        .where(eq(usersTable.id, userId));
+    }
   }
 
   const [user] = await db.select({ username: usersTable.username, avatarUrl: usersTable.avatarUrl, isAdmin: usersTable.isAdmin, isModerator: usersTable.isModerator })

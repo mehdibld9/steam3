@@ -1141,12 +1141,13 @@ function SiteSettingsTab() {
 
   // XP / Points reward settings
   const XP_LABELS: Record<string, { label: string; description: string; icon: "xp" | "pts" }> = {
-    xp_upload_account:  { label: "Upload Account",   description: "XP earned when a user submits an account listing",       icon: "xp" },
-    xp_redeem_adlink:   { label: "Redeem Ad Link",   description: "XP earned when a user redeems an ad link code",          icon: "xp" },
-    xp_post_comment:    { label: "Post Comment",     description: "XP earned when a user posts a comment",                  icon: "xp" },
-    xp_like_comment:    { label: "Like a Comment",   description: "XP earned when a user likes a comment",                  icon: "xp" },
-    xp_like_account:    { label: "Like an Account",  description: "XP earned (by liker & poster) when liking an account",  icon: "xp" },
-    points_registration:{ label: "Registration Bonus","description": "Points given to every new user on sign-up",           icon: "pts" },
+    xp_upload_account:    { label: "Upload Account (XP)",      description: "XP earned when a user submits an account listing",         icon: "xp"  },
+    points_upload_account:{ label: "Upload Account (Points)",  description: "Points earned when a user submits an account listing",     icon: "pts" },
+    xp_redeem_adlink:     { label: "Redeem Ad Link",           description: "XP earned when a user redeems an ad link code",           icon: "xp"  },
+    xp_post_comment:      { label: "Post Comment",             description: "XP earned when a user posts a comment",                   icon: "xp"  },
+    xp_like_comment:      { label: "Like a Comment",           description: "XP earned when a user likes a comment",                   icon: "xp"  },
+    xp_like_account:      { label: "Like an Account",          description: "XP earned (by liker & poster) when liking an account",   icon: "xp"  },
+    points_registration:  { label: "Registration Bonus",       description: "Points given to every new user on sign-up",               icon: "pts" },
   };
 
   const { data: xpData } = useQuery({

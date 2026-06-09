@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 
 export const XP_DEFAULTS = {
   xp_upload_account: 50,
+  points_upload_account: 0,
   xp_redeem_adlink: 20,
   xp_post_comment: 10,
   xp_like_comment: 5,
