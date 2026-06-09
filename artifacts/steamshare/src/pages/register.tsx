@@ -8,7 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Eye, EyeOff, Zap } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Zap, X } from "lucide-react";
 import { useState } from "react";
 
 const formSchema = z.object({
@@ -55,10 +55,18 @@ export default function Register() {
           className="absolute inset-0 w-full h-full"
           style={{ objectFit: "cover", objectPosition: "center" }}
         />
+        <div className="absolute inset-0 bg-black/10" />
       </div>
 
       {/* Right panel — form */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-background">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-background relative">
+        <button
+          onClick={() => setLocation("/")}
+          className="absolute top-4 right-4 p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+          aria-label="Close"
+        >
+          <X className="h-5 w-5" />
+        </button>
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-10 justify-center">
