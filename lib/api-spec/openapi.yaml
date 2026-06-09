@@ -1280,6 +1280,8 @@ components:
             type: string
         steamid:
           type: string
+        isFamilyShare:
+          type: boolean
 
     Giveaway:
       type: object

@@ -108,11 +108,11 @@ export default function Submit() {
       setVerifyMessage(result.message);
 
       if (result.status === "valid") {
-        const hasGames = result.games && result.games.length > 0;
-        // If checker returned 0 games it's a family share account — flag it for review
-        setIsFamilyShare(!hasGames);
+        // Use the API's isFamilyShare flag — set by IFamilyGroupsService/GetFamilyGroupForUser
+        setIsFamilyShare(!!(result as any).isFamilyShare);
 
-        // Auto-fill games list if Steam returned games
+        // Auto-fill games list if Steam returned owned games
+        const hasGames = result.games && result.games.length > 0;
         if (hasGames) {
           const currentGames = form.getValues("gamesList");
           if (!currentGames || currentGames.trim() === "") {

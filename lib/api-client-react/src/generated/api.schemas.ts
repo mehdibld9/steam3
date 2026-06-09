@@ -253,6 +253,7 @@ export interface VerifyCredentialsResult {
   message: string;
   games?: string[];
   steamid?: string;
+  isFamilyShare?: boolean;
 }
 
 export interface Giveaway {
