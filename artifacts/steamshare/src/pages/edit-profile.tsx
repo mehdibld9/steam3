@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Lock, Trash2, CheckCircle2, AlertTriangle, User } from "lucide-react";
+import { Camera, Lock, Trash2, CheckCircle2, AlertTriangle, User, ArrowLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const BAD_WORDS = [
@@ -190,6 +190,9 @@ export default function EditProfile() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-10 max-w-lg space-y-6">
+        <button onClick={() => window.history.back()} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
         <h1 className="text-2xl font-black">Edit Profile</h1>
 
         {/* ── Display Name ── */}

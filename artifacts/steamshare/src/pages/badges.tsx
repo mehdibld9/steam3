@@ -3,7 +3,7 @@ import { useListBadges, useGetMe } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Award, Star, Flame, Zap, Crown, Shield, Trophy, Rocket } from "lucide-react";
+import { Award, Star, Flame, Zap, Crown, Shield, Trophy, Rocket, ArrowLeft } from "lucide-react";
 
 const ICONS = [Shield, Star, Flame, Zap, Crown, Award, Trophy, Rocket];
 const COLORS = [
@@ -34,6 +34,9 @@ export default function Badges() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-12 max-w-5xl">
+        <button onClick={() => window.history.back()} className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 border border-primary/20 mb-4">
             <Award className="h-8 w-8 text-primary" />

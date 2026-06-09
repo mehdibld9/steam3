@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { InfoIcon, CheckCircle2, XCircle, Loader2, Clock, HourglassIcon } from "lucide-react";
+import { InfoIcon, CheckCircle2, XCircle, Loader2, Clock, HourglassIcon, ArrowLeft } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 
 const formSchema = z.object({
@@ -206,6 +206,9 @@ export default function Submit() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-12 max-w-3xl">
+        <button onClick={() => window.history.back()} className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
         <div className="mb-8">
           <h1 className="text-3xl font-black">Upload Account</h1>
           <p className="text-muted-foreground mt-2">Share your Steam account and earn XP. You must verify the credentials before posting.</p>

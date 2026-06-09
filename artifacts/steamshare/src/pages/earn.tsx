@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Coins, Share2, Upload, MessageSquare, CheckCircle2, XCircle } from "lucide-react";
+import { Coins, Share2, Upload, MessageSquare, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 
 export default function Earn() {
@@ -38,6 +38,9 @@ export default function Earn() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-12 max-w-4xl">
+        <button onClick={() => window.history.back()} className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
         <div className="text-center mb-12">
           <h1 className="text-3xl md:text-5xl font-black mb-4 tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-primary to-blue-400">
             Earn Points. Get Games.

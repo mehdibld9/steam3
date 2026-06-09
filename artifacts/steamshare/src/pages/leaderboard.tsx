@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
-import { Trophy, Medal, Crown, Star, Shield } from "lucide-react";
+import { Trophy, Medal, Crown, Star, Shield, ArrowLeft } from "lucide-react";
 import { getLevelColor } from "@/lib/level-colors";
 
 export default function Leaderboard() {
@@ -13,6 +13,9 @@ export default function Leaderboard() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-12 max-w-4xl">
+        <button onClick={() => window.history.back()} className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center p-3 bg-primary/10 rounded-full mb-4">
             <Trophy className="h-8 w-8 text-primary" />

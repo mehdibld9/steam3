@@ -37,6 +37,11 @@ export default function ForgotPassword() {
   return (
     <Layout>
       <div className="min-h-[80vh] flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md mb-4">
+          <button onClick={() => window.history.back()} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="h-4 w-4" /> Back
+          </button>
+        </div>
         <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-xl overflow-hidden">
           <div className="bg-muted/30 p-8 text-center border-b border-border">
             <KeyRound className="h-10 w-10 text-primary mx-auto mb-4" />

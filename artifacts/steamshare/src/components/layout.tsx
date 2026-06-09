@@ -127,15 +127,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Menu className="h-4 w-4" />
               Menu
             </button>
-            {location !== "/" && (
-              <button
-                onClick={() => window.history.back()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </button>
-            )}
           </div>
 
           {/* Right */}

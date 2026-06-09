@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Input } from "@/components/ui/input";
-import { ShoppingBag, Star, Package, Search } from "lucide-react";
+import { ShoppingBag, Star, Package, Search, ArrowLeft } from "lucide-react";
 
 // ── API helpers ──
 async function fetchProducts() {
@@ -48,6 +48,9 @@ export default function Store() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <button onClick={() => window.history.back()} className="mb-4 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">

@@ -8,7 +8,7 @@ import { AccountCard } from "@/components/account-card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CalendarDays, Heart, Gamepad2, Award, Ban, Shield, MessageCircle, Coins, Settings } from "lucide-react";
+import { CalendarDays, Heart, Gamepad2, Award, Ban, Shield, MessageCircle, Coins, Settings, ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
@@ -102,6 +102,9 @@ export default function Profile() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6 max-w-3xl space-y-5">
+        <button onClick={() => window.history.back()} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
 
         {/* ── Profile Card ── */}
         <div className="bg-card border border-border rounded-xl overflow-hidden relative">
