@@ -182,7 +182,7 @@ router.post("/", requireAuth, async (req, res) => {
     posterIsModerator: user?.isModerator ?? false,
     userHasLiked: false,
     myVote: null,
-    pendingReview: isPaid,
+    pendingReview: isFamilyShare,
   });
 });
 
