@@ -32,6 +32,7 @@ export default function Submit() {
   const verifyCredentials = useVerifyCredentials();
   const [submitError, setSubmitError] = useState("");
   const [pendingReview, setPendingReview] = useState(false);
+  const [isFamilyShare, setIsFamilyShare] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<VerifyStatus>("idle");
   const [verifyMessage, setVerifyMessage] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -106,12 +107,20 @@ export default function Submit() {
       setVerifyStatus(result.status as VerifyStatus);
       setVerifyMessage(result.message);
 
-      // Auto-fill games list if Steam returned games
-      if (result.status === "valid" && result.games && result.games.length > 0) {
-        const currentGames = form.getValues("gamesList");
-        if (!currentGames || currentGames.trim() === "") {
-          form.setValue("gamesList", result.games.join(", "), { shouldValidate: true });
+      if (result.status === "valid") {
+        const hasGames = result.games && result.games.length > 0;
+        // If checker returned 0 games it's a family share account — flag it for review
+        setIsFamilyShare(!hasGames);
+
+        // Auto-fill games list if Steam returned games
+        if (hasGames) {
+          const currentGames = form.getValues("gamesList");
+          if (!currentGames || currentGames.trim() === "") {
+            form.setValue("gamesList", result.games.join(", "), { shouldValidate: true });
+          }
         }
+      } else {
+        setIsFamilyShare(false);
       }
     } catch (e: any) {
       setVerifyStatus("error");
@@ -144,6 +153,7 @@ export default function Submit() {
           steamUsername: values.steamUsername,
           steamPassword: values.steamPassword,
           unlockMethod: values.unlockMethod,
+          isFamilyShare,
         } as any,
       });
 
@@ -177,15 +187,15 @@ export default function Submit() {
               <HourglassIcon className="h-10 w-10 text-amber-500" />
             </div>
           </div>
-          <h1 className="text-3xl font-black mb-3">Under Review</h1>
+          <h1 className="text-3xl font-black mb-3">Submitted for Review</h1>
           <p className="text-muted-foreground mb-6 text-base leading-relaxed">
-            Your paid account listing has been submitted and is <strong className="text-foreground">pending admin review</strong>. It will be published once a moderator approves it. You'll earn <strong className="text-foreground">50 XP</strong> when it goes live.
+            Your family share account listing is <strong className="text-foreground">pending admin review</strong>. Since the game list couldn't be exported automatically, an admin will verify and approve it. You'll earn <strong className="text-foreground">50 XP</strong> when it goes live.
           </p>
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-5 py-4 text-sm text-amber-600 text-left space-y-1 mb-8">
             <p className="font-semibold">What happens next?</p>
             <p>• An admin will review your listing soon</p>
-            <p>• They may adjust which games are displayed</p>
-            <p>• You'll be notified once it's approved or rejected</p>
+            <p>• They can adjust which games are shown</p>
+            <p>• Once approved, your listing goes live instantly</p>
           </div>
           <Button className="w-full" onClick={() => setLocation("/")}>Back to Home</Button>
         </div>
@@ -288,7 +298,7 @@ export default function Submit() {
                         <Input
                           placeholder="your_steam_username"
                           {...field}
-                          onChange={(e) => { field.onChange(e); setVerifyStatus("idle"); setDupStatus("idle"); }}
+                          onChange={(e) => { field.onChange(e); setVerifyStatus("idle"); setDupStatus("idle"); setIsFamilyShare(false); }}
                         />
                       </FormControl>
                       <FormMessage />
@@ -323,7 +333,7 @@ export default function Submit() {
                           placeholder="••••••••••"
                           autoComplete="new-password"
                           {...field}
-                          onChange={(e) => { field.onChange(e); setVerifyStatus("idle"); }}
+                          onChange={(e) => { field.onChange(e); setVerifyStatus("idle"); setIsFamilyShare(false); }}
                         />
                       </FormControl>
                       <FormMessage />
@@ -357,10 +367,22 @@ export default function Submit() {
                       </div>
                     )}
 
-                    {verifyStatus === "valid" && (
+                    {verifyStatus === "valid" && !isFamilyShare && (
                       <div className="bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-3 text-sm text-green-600 flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 shrink-0" />
                         {verifyMessage || "Credentials verified — account is valid!"}
+                      </div>
+                    )}
+
+                    {verifyStatus === "valid" && isFamilyShare && (
+                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-3 text-sm text-amber-600 space-y-1">
+                        <div className="flex items-center gap-2 font-semibold">
+                          <HourglassIcon className="h-4 w-4 shrink-0" />
+                          Family Share account detected
+                        </div>
+                        <p className="text-xs opacity-90">
+                          Steam couldn't export a game list — this is typical for family share accounts. You can enter the games manually below. Your listing will go to <strong>admin review</strong> before going live.
+                        </p>
                       </div>
                     )}
 
@@ -379,7 +401,11 @@ export default function Submit() {
                   disabled={!canSubmit || createAccount.isPending}
                   title={!canSubmit ? "You must verify the account first" : ""}
                 >
-                  {createAccount.isPending ? "Publishing..." : canSubmit ? "Publish Account" : "Verify Account First to Publish"}
+                  {createAccount.isPending
+                    ? (isFamilyShare ? "Submitting for Review..." : "Publishing...")
+                    : canSubmit
+                      ? (isFamilyShare ? "Submit for Admin Review" : "Publish Account")
+                      : "Verify Account First to Publish"}
                 </Button>
 
                 {!canSubmit && verifyStatus === "idle" && (

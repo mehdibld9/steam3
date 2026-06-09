@@ -155,18 +155,18 @@ router.post("/", requireAuth, async (req, res) => {
     filterContent(description ?? ""),
   ]);
 
-  // Paid accounts go into pending review; free accounts publish immediately
-  const isPaid = (pointsCost ?? 0) > 0;
-  const status = isPaid ? "pending" : "approved";
-  const isAvailable = !isPaid;
+  // Family share accounts (checker returned 0 games) go into pending review
+  const isFamilyShare = !!(req.body as any).isFamilyShare;
+  const status = isFamilyShare ? "pending" : "approved";
+  const isAvailable = !isFamilyShare;
 
   const [account] = await db
     .insert(accountsTable)
     .values({ userId, title: filteredTitle, description: filteredDescription, games, pointsCost, steamUsername, steamPassword, unlockMethod: safeUnlockMethod, status, isAvailable })
     .returning();
 
-  // Only award XP immediately for free (instantly published) accounts
-  if (!isPaid) {
+  // Only award XP immediately for instantly published accounts
+  if (!isFamilyShare) {
     await addXp(userId, 50);
   }
 
