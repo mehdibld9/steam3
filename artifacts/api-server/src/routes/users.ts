@@ -1,7 +1,7 @@
 // @ts-nocheck
 import express from "express";
 import { db, usersTable, accountsTable, likesTable } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, ne } from "drizzle-orm";
 
 const router = express.Router();
 
@@ -24,7 +24,7 @@ router.get("/leaderboard", async (req, res) => {
       createdAt: usersTable.createdAt,
     })
     .from(usersTable)
-    .where(eq(usersTable.isBanned, false))
+    .where(sql`${usersTable.isBanned} = false AND ${usersTable.email} != 'adminbot@system.internal'`)
     .orderBy(desc(usersTable.xp))
     .limit(limit);
 
