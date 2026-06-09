@@ -3,6 +3,7 @@ import express from "express";
 import { db, usersTable, accountsTable, reportsTable } from "@workspace/db";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { requireAdmin, requireModOrAdmin } from "../middlewares/auth";
+import { sendBotMessage } from "../lib/adminBot";
 
 function addXp(userId: number, amount: number) {
   return db
@@ -132,7 +133,7 @@ router.post("/accounts/:accountId/approve", requireModOrAdmin, async (req, res) 
   const { games } = req.body as { games?: string[] };
 
   const [account] = await db
-    .select({ id: accountsTable.id, userId: accountsTable.userId, status: accountsTable.status })
+    .select({ id: accountsTable.id, userId: accountsTable.userId, status: accountsTable.status, title: accountsTable.title })
     .from(accountsTable)
     .where(eq(accountsTable.id, accountId))
     .limit(1);
@@ -152,6 +153,11 @@ router.post("/accounts/:accountId/approve", requireModOrAdmin, async (req, res) 
   await db.update(accountsTable).set(updates).where(eq(accountsTable.id, accountId));
   await addXp(account.userId, 50);
 
+  await sendBotMessage(
+    account.userId,
+    `✅ Your listing **${account.title}** has been approved and is now live! You've earned 50 XP.`,
+  ).catch(() => {});
+
   res.json({ message: "Account approved and published" });
 });
 
@@ -160,7 +166,7 @@ router.post("/accounts/:accountId/reject", requireModOrAdmin, async (req, res) =
   const { note } = req.body as { note?: string };
 
   const [account] = await db
-    .select({ id: accountsTable.id, status: accountsTable.status })
+    .select({ id: accountsTable.id, status: accountsTable.status, userId: accountsTable.userId, title: accountsTable.title })
     .from(accountsTable)
     .where(eq(accountsTable.id, accountId))
     .limit(1);
@@ -173,6 +179,12 @@ router.post("/accounts/:accountId/reject", requireModOrAdmin, async (req, res) =
   await db.update(accountsTable)
     .set({ status: "rejected", reviewNote: note ?? null })
     .where(eq(accountsTable.id, accountId));
+
+  const reason = note?.trim() ? ` Reason: ${note.trim()}` : "";
+  await sendBotMessage(
+    account.userId,
+    `❌ Your listing **${account.title}** was not approved.${reason} You can edit and resubmit it.`,
+  ).catch(() => {});
 
   res.json({ message: "Account rejected" });
 });

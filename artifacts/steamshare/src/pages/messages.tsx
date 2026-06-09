@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, MessageSquare, ArrowLeft } from "lucide-react";
+import { Send, MessageSquare, ArrowLeft, Bot } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -186,24 +186,49 @@ export default function Messages() {
                   <button className="md:hidden mr-1" onClick={() => setMobileView("list")}>
                     <ArrowLeft className="h-5 w-5" />
                   </button>
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>{(selectedUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <Link href={`/profile/${selectedUserId}`} className="font-semibold hover:text-primary">
-                    {selectedUsername}
-                  </Link>
+                  {selectedUsername === "Admin Bot" ? (
+                    <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
+                      <Bot className="h-4 w-4 text-primary" />
+                    </div>
+                  ) : (
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback>{(selectedUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div className="flex items-center gap-2">
+                    {selectedUsername === "Admin Bot" ? (
+                      <span className="font-semibold">{selectedUsername}</span>
+                    ) : (
+                      <Link href={`/profile/${selectedUserId}`} className="font-semibold hover:text-primary">
+                        {selectedUsername}
+                      </Link>
+                    )}
+                    {selectedUsername === "Admin Bot" && (
+                      <span className="bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                        System
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {messages?.map((msg) => {
                     const isMe = msg.senderId === me.id;
+                    const isBot = !isMe && selectedUsername === "Admin Bot";
                     return (
                       <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                        {isBot && (
+                          <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mr-2 shrink-0 mt-1">
+                            <Bot className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                        )}
                         <div
                           className={`max-w-[70%] rounded-2xl px-4 py-2 text-sm ${
                             isMe
                               ? "bg-primary text-white rounded-br-sm"
-                              : "bg-muted text-foreground rounded-bl-sm"
+                              : isBot
+                                ? "bg-primary/10 border border-primary/20 text-foreground rounded-bl-sm"
+                                : "bg-muted text-foreground rounded-bl-sm"
                           }`}
                         >
                           <p>{msg.content}</p>
@@ -217,18 +242,25 @@ export default function Messages() {
                   <div ref={messagesEndRef} />
                 </div>
 
-                <div className="p-3 border-t border-border flex gap-2">
-                  <Input
-                    placeholder="Type a message..."
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                    className="flex-1"
-                  />
-                  <Button size="icon" onClick={handleSend} disabled={!draft.trim() || sendMutation.isPending}>
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
+                {selectedUsername === "Admin Bot" ? (
+                  <div className="p-3 border-t border-border flex items-center justify-center gap-2 text-sm text-muted-foreground bg-muted/20">
+                    <Bot className="h-4 w-4 text-primary/60" />
+                    This is an automated notification channel — replies are disabled
+                  </div>
+                ) : (
+                  <div className="p-3 border-t border-border flex gap-2">
+                    <Input
+                      placeholder="Type a message..."
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                      className="flex-1"
+                    />
+                    <Button size="icon" onClick={handleSend} disabled={!draft.trim() || sendMutation.isPending}>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </>
             )}
           </div>

@@ -91,6 +91,11 @@ router.post("/", requireAuth, async (req, res) => {
     return;
   }
 
+  if (target.username === "Admin Bot") {
+    res.status(403).json({ error: "You cannot reply to Admin Bot" });
+    return;
+  }
+
   const [message] = await db
     .insert(messagesTable)
     .values({ senderId, receiverId, content: content.trim() })
