@@ -7,14 +7,29 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Lock, Trash2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Camera, Lock, Trash2, CheckCircle2, AlertTriangle, User } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+const BAD_WORDS = [
+  "nigger","nigga","faggot","retard","cunt","kike","spic","chink","tranny",
+  "whore","slut","bitch","asshole","bastard","motherfucker","fucker","shit",
+  "cock","dick","pussy","anal","porn","sex","nude","naked","rape","kill",
+];
+
+function containsBadWord(text: string): boolean {
+  const lower = text.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return BAD_WORDS.some((w) => lower.includes(w));
+}
 
 export default function EditProfile() {
   const { data: me, isLoading } = useGetMe();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Display name
+  const [displayName, setDisplayName] = useState("");
+  const [displayNameLoading, setDisplayNameLoading] = useState(false);
 
   // Avatar
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -36,6 +51,39 @@ export default function EditProfile() {
     setLocation("/login");
     return null;
   }
+
+  const handleDisplayNameSave = async () => {
+    const trimmed = displayName.trim();
+    if (!trimmed) return;
+    if (trimmed.length < 2 || trimmed.length > 30) {
+      toast({ title: "Display name must be 2–30 characters", variant: "destructive" });
+      return;
+    }
+    if (containsBadWord(trimmed)) {
+      toast({ title: "Display name contains inappropriate content", variant: "destructive" });
+      return;
+    }
+    setDisplayNameLoading(true);
+    try {
+      const res = await fetch("/api/auth/profile", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: trimmed }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || "Failed to update display name");
+      }
+      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      toast({ title: "Display name updated!" });
+      setDisplayName("");
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setDisplayNameLoading(false);
+    }
+  };
 
   const handleAvatarSave = async () => {
     setAvatarLoading(true);
@@ -135,11 +183,48 @@ export default function EditProfile() {
   };
 
   const previewUrl = avatarUrl || me.avatarUrl || undefined;
+  const currentDisplayName = (me as any).displayName || "";
+  const displayedDisplayName = displayName || currentDisplayName;
+  const isBadWord = displayName.trim().length > 0 && containsBadWord(displayName.trim());
 
   return (
     <Layout>
       <div className="container mx-auto px-4 py-10 max-w-lg space-y-6">
         <h1 className="text-2xl font-black">Edit Profile</h1>
+
+        {/* ── Display Name ── */}
+        <div className="bg-card border border-border rounded-xl p-6 space-y-5">
+          <h2 className="font-bold flex items-center gap-2 text-sm uppercase tracking-wide text-muted-foreground">
+            <User className="h-4 w-4" /> Display Name
+          </h2>
+          <p className="text-xs text-muted-foreground -mt-2">
+            This is the name others see on your profile. Your login username (<strong className="text-foreground">{me.username}</strong>) stays the same.
+          </p>
+          <div className="space-y-2">
+            <Input
+              placeholder={currentDisplayName || "Enter a display name…"}
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              maxLength={30}
+              className={isBadWord ? "border-destructive focus:border-destructive" : ""}
+            />
+            {isBadWord && (
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> This name contains inappropriate content.
+              </p>
+            )}
+            {displayedDisplayName && !isBadWord && (
+              <p className="text-xs text-muted-foreground">Preview: <span className="text-foreground font-medium">{displayedDisplayName}</span></p>
+            )}
+          </div>
+          <Button
+            onClick={handleDisplayNameSave}
+            disabled={!displayName.trim() || isBadWord || displayNameLoading}
+            className="w-full"
+          >
+            {displayNameLoading ? "Saving…" : "Save Display Name"}
+          </Button>
+        </div>
 
         {/* ── Avatar ── */}
         <div className="bg-card border border-border rounded-xl p-6 space-y-5">
@@ -255,7 +340,6 @@ export default function EditProfile() {
         </div>
       </div>
 
-      {/* Delete confirmation dialog */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="bg-card border-border max-w-sm">
           <DialogHeader>

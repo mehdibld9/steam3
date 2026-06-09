@@ -1,11 +1,11 @@
-import { useListAccounts } from "@workspace/api-client-react";
+import { useListAccounts, useGetMe } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { AccountCard } from "@/components/account-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Megaphone, Pin, ChevronRight } from "lucide-react";
+import { Megaphone, Pin, ChevronRight, Plus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 async function fetchAnnouncements() {
@@ -17,6 +17,7 @@ async function fetchAnnouncements() {
 export default function Home() {
   const { data: accountsData, isLoading: accountsLoading } = useListAccounts({ sort: "recent", limit: 12 });
   const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
+  const { data: me } = useGetMe();
 
   return (
     <Layout>
@@ -40,11 +41,20 @@ export default function Home() {
                 Explore Accounts
               </Button>
             </Link>
-            <Link href="/register">
-              <Button size="lg" variant="outline" className="font-bold px-8 h-12 border-border hover:border-primary/50" data-testid="button-join-hero">
-                Join Community
-              </Button>
-            </Link>
+            {me ? (
+              <Link href="/submit">
+                <Button size="lg" variant="outline" className="font-bold px-8 h-12 border-border hover:border-primary/50 gap-2" data-testid="button-post-acc-hero">
+                  <Plus className="h-4 w-4" />
+                  Post Account
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/register">
+                <Button size="lg" variant="outline" className="font-bold px-8 h-12 border-border hover:border-primary/50" data-testid="button-join-hero">
+                  Join Community
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </section>
@@ -67,7 +77,6 @@ export default function Home() {
                   key={a.id}
                   className="relative bg-primary/5 border border-primary/20 rounded-xl px-5 py-4 overflow-hidden"
                 >
-                  {/* subtle glow */}
                   <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-2xl rounded-full pointer-events-none" />
                   <div className="relative z-10 flex items-start gap-3">
                     {a.pinned && (

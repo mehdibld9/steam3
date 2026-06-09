@@ -14,7 +14,6 @@ import Admin from "./pages/admin";
 import Earn from "./pages/earn";
 import Login from "./pages/login";
 import Register from "./pages/register";
-import Badges from "./pages/badges";
 import Giveaways from "./pages/giveaways";
 import ForgotPassword from "./pages/forgot-password";
 import ResetPassword from "./pages/reset-password";
@@ -59,7 +58,6 @@ function Router() {
       <Route path="/earn" component={Earn} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
-      <Route path="/badges" component={Badges} />
       <Route path="/giveaways" component={Giveaways} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />

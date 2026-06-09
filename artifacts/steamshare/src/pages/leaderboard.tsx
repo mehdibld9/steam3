@@ -4,7 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
-import { Trophy, Medal, Crown, Star } from "lucide-react";
+import { Trophy, Medal, Crown, Star, Shield } from "lucide-react";
+import { getLevelColor } from "@/lib/level-colors";
 
 export default function Leaderboard() {
   const { data: users, isLoading } = useGetLeaderboard({ limit: 50 });
@@ -25,10 +26,9 @@ export default function Leaderboard() {
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xl">
           <div className="grid grid-cols-12 gap-4 p-4 border-b border-border bg-muted/50 text-sm font-semibold text-muted-foreground">
             <div className="col-span-2 md:col-span-1 text-center">Rank</div>
-            <div className="col-span-6 md:col-span-5">User</div>
-            <div className="col-span-2 hidden md:block text-center">Level</div>
-            <div className="col-span-4 md:col-span-2 text-right md:text-center">Total XP</div>
-            <div className="col-span-2 hidden md:block text-right">Badge</div>
+            <div className="col-span-7 md:col-span-7">User</div>
+            <div className="col-span-3 md:col-span-2 text-center hidden md:block">Level</div>
+            <div className="col-span-3 md:col-span-2 text-right">Total XP</div>
           </div>
 
           <div className="divide-y divide-border">
@@ -45,6 +45,9 @@ export default function Leaderboard() {
                 "text-slate-300 bg-slate-300/10 border-slate-300/20",
                 "text-amber-600 bg-amber-600/10 border-amber-600/20"
               ];
+              const levelColor = getLevelColor(user.level);
+              const isAdmin = (user as any).isAdmin;
+              const isModerator = (user as any).isModerator;
               
               return (
                 <Link key={user.id} href={`/profile/${user.id}`} className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-muted/50 transition-colors group">
@@ -58,34 +61,41 @@ export default function Leaderboard() {
                     )}
                   </div>
                   
-                  <div className="col-span-6 md:col-span-5 flex items-center gap-3">
-                    <Avatar className="h-10 w-10 border border-border group-hover:border-primary/50 transition-colors">
-                      <AvatarImage src={user.avatarUrl || undefined} />
-                      <AvatarFallback>{(user.username?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div className="font-semibold text-base group-hover:text-primary transition-colors truncate">
-                      {user.username}
+                  <div className="col-span-7 flex items-center gap-3">
+                    <div
+                      className="rounded-full p-[2px] shrink-0"
+                      style={{ background: levelColor }}
+                    >
+                      <Avatar className="h-9 w-9 border-2 border-background">
+                        <AvatarImage src={user.avatarUrl || undefined} />
+                        <AvatarFallback className="text-xs">{(user.username?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <span className="font-semibold text-base group-hover:text-primary transition-colors truncate">
+                        {(user as any).displayName || user.username}
+                      </span>
+                      {isAdmin && (
+                        <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/40 text-[10px] flex items-center gap-0.5 h-4 px-1.5">
+                          <Shield className="h-2.5 w-2.5" />ADMIN
+                        </Badge>
+                      )}
+                      {isModerator && !isAdmin && (
+                        <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/40 text-[10px] flex items-center gap-0.5 h-4 px-1.5">
+                          <Shield className="h-2.5 w-2.5" />MOD
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   
-                  <div className="col-span-2 hidden md:flex text-center justify-center">
-                    <Badge variant="secondary" className="font-mono bg-background border-border">
+                  <div className="col-span-3 md:col-span-2 hidden md:flex text-center justify-center">
+                    <Badge variant="secondary" className="font-mono text-xs" style={{ color: levelColor, borderColor: `${levelColor}40` }}>
                       LVL {user.level}
                     </Badge>
                   </div>
                   
-                  <div className="col-span-4 md:col-span-2 text-right md:text-center font-mono font-medium text-primary">
+                  <div className="col-span-3 md:col-span-2 text-right font-mono font-medium text-primary">
                     {user.xp.toLocaleString()} XP
-                  </div>
-                  
-                  <div className="col-span-2 hidden md:flex justify-end">
-                    {user.badgeName ? (
-                      <Badge variant="outline" className="text-xs bg-card/50">
-                        {user.badgeName}
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
-                    )}
                   </div>
                 </Link>
               );

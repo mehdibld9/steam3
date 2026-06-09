@@ -12,11 +12,14 @@ router.get("/leaderboard", async (req, res) => {
     .select({
       id: usersTable.id,
       username: usersTable.username,
+      displayName: usersTable.displayName,
       avatarUrl: usersTable.avatarUrl,
       points: usersTable.points,
       xp: usersTable.xp,
       level: usersTable.level,
       badgeName: usersTable.badgeName,
+      isAdmin: usersTable.isAdmin,
+      isModerator: usersTable.isModerator,
       isBanned: usersTable.isBanned,
       createdAt: usersTable.createdAt,
     })

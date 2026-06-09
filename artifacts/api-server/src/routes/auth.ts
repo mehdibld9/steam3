@@ -125,16 +125,34 @@ router.get("/me", requireAuth, async (req, res) => {
   res.json(safeUser);
 });
 
-// Update avatar URL
+// Update avatar URL and/or display name
 router.put("/profile", requireAuth, async (req, res) => {
-  const { avatarUrl } = req.body;
-  if (typeof avatarUrl !== "string" && avatarUrl !== null) {
+  const { avatarUrl, displayName } = req.body;
+  if (typeof avatarUrl !== "string" && avatarUrl !== null && avatarUrl !== undefined) {
     res.status(400).json({ error: "Invalid avatarUrl" });
+    return;
+  }
+  if (displayName !== undefined && typeof displayName !== "string") {
+    res.status(400).json({ error: "Invalid displayName" });
+    return;
+  }
+  const updates: Record<string, any> = {};
+  if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl || null;
+  if (displayName !== undefined) {
+    const trimmed = displayName.trim();
+    if (trimmed && (trimmed.length < 2 || trimmed.length > 30)) {
+      res.status(400).json({ error: "Display name must be 2–30 characters" });
+      return;
+    }
+    updates.displayName = trimmed || null;
+  }
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "Nothing to update" });
     return;
   }
   const [updated] = await db
     .update(usersTable)
-    .set({ avatarUrl: avatarUrl || null })
+    .set(updates)
     .where(eq(usersTable.id, req.session.userId!))
     .returning();
   const { passwordHash: _, ...safeUser } = updated;

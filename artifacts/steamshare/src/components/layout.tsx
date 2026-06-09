@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Progress } from "@/components/ui/progress";
 import {
-  Shield, Plus, LogOut, Coins, Trophy, Award, Gift,
+  Shield, Plus, LogOut, Coins, Trophy, Gift,
   MessageSquare, Menu, X, ChevronRight, Bell, Home,
   LayoutGrid, User, Settings, ShoppingBag, Sun, Moon,
 } from "lucide-react";
@@ -40,7 +40,6 @@ const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/browse", label: "Browse", icon: LayoutGrid },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
-  { href: "/badges", label: "Badges", icon: Award },
   { href: "/giveaways", label: "Giveaways", icon: Gift },
   { href: "/store", label: "Store", icon: ShoppingBag },
   { href: "/earn", label: "Earn Points", icon: Coins },

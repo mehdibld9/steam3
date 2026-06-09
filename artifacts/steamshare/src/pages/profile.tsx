@@ -14,6 +14,7 @@ import { useState } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { getLevelColor } from "@/lib/level-colors";
 
 async function banUser(userId: number, durationHours: number | null, reason: string) {
   const res = await fetch(`/api/admin/users/${userId}/ban`, {
@@ -95,27 +96,37 @@ export default function Profile() {
     </Layout>
   );
 
+  const levelColor = getLevelColor(user.level);
+  const displayedName = (user as any).displayName || user.username;
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6 max-w-3xl space-y-5">
 
-        {/* ── Profile Card (mobile-first) ── */}
+        {/* ── Profile Card ── */}
         <div className="bg-card border border-border rounded-xl overflow-hidden relative">
-          {/* Decorative glow */}
           <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
 
           {/* Top section: avatar + name */}
           <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-5 p-6">
-            {/* Avatar */}
+            {/* Avatar with level-colored border */}
             <div className="relative shrink-0">
-              <Avatar className="h-24 w-24 sm:h-20 sm:w-20 border-4 border-background shadow-lg">
-                <AvatarImage src={user.avatarUrl || undefined} />
-                <AvatarFallback className="text-3xl sm:text-2xl bg-secondary">
-                  {(user.username?.substring(0, 2) ?? "").toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              <div
+                className="rounded-full p-[3px]"
+                style={{ background: levelColor, boxShadow: `0 0 16px ${levelColor}55` }}
+              >
+                <Avatar className="h-24 w-24 sm:h-20 sm:w-20 border-2 border-background shadow-lg">
+                  <AvatarImage src={user.avatarUrl || undefined} />
+                  <AvatarFallback className="text-3xl sm:text-2xl bg-secondary">
+                    {(user.username?.substring(0, 2) ?? "").toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
               {/* Level badge */}
-              <div className="absolute -bottom-1 -right-1 bg-primary text-white text-xs font-black rounded-full w-7 h-7 flex items-center justify-center shadow">
+              <div
+                className="absolute -bottom-1 -right-1 text-white text-xs font-black rounded-full w-7 h-7 flex items-center justify-center shadow"
+                style={{ background: levelColor }}
+              >
                 {user.level}
               </div>
             </div>
@@ -123,15 +134,18 @@ export default function Profile() {
             {/* Name + meta */}
             <div className="flex-1 text-center sm:text-left min-w-0">
               <h1 className="text-2xl sm:text-xl font-black mb-1.5 flex items-center justify-center sm:justify-start gap-2 flex-wrap">
-                {user.username}
+                {displayedName}
+                {(user as any).displayName && (
+                  <span className="text-xs text-muted-foreground font-normal">@{user.username}</span>
+                )}
                 {user.isBanned && <Badge variant="destructive" className="text-xs">BANNED</Badge>}
                 {(user as any).isAdmin && (
-                  <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 text-xs flex items-center gap-1">
+                  <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/40 text-xs flex items-center gap-1">
                     <Shield className="h-3 w-3" />ADMIN
                   </Badge>
                 )}
                 {(user as any).isModerator && !((user as any).isAdmin) && (
-                  <Badge className="bg-blue-500/20 text-blue-600 border-blue-500/30 text-xs flex items-center gap-1">
+                  <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/40 text-xs flex items-center gap-1">
                     <Shield className="h-3 w-3" />MOD
                   </Badge>
                 )}
@@ -152,10 +166,15 @@ export default function Profile() {
               {/* XP bar */}
               <div className="max-w-xs mx-auto sm:mx-0">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs font-bold">Level {user.level}</span>
-                  <span className="text-xs text-primary font-mono">{user.xp} XP</span>
+                  <span className="text-xs font-bold" style={{ color: levelColor }}>Level {user.level}</span>
+                  <span className="text-xs font-mono" style={{ color: levelColor }}>{user.xp} XP</span>
                 </div>
-                <Progress value={xpProgress} className="h-2" />
+                <div className="w-full h-2 rounded-full bg-muted/30 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${xpProgress}%`, background: levelColor }}
+                  />
+                </div>
                 <div className="text-[10px] text-muted-foreground mt-0.5 text-right">{100 - xpProgress} XP to next level</div>
               </div>
             </div>
@@ -192,7 +211,6 @@ export default function Profile() {
           {/* Action buttons */}
           {(isOwn || canManage || (me && me.id !== id)) && (
             <div className="flex flex-wrap gap-2 px-6 pb-5 pt-4 border-t border-border">
-              {/* Own profile: Edit button (mobile) */}
               {isOwn && (
                 <Link href="/edit-profile" className="sm:hidden">
                   <Button size="sm" variant="outline" className="gap-1.5">
@@ -201,7 +219,6 @@ export default function Profile() {
                 </Link>
               )}
 
-              {/* Message button */}
               {me && me.id !== id && (
                 <Link href={`/messages?user=${id}&username=${encodeURIComponent(user.username)}`}>
                   <Button size="sm" variant="outline" className="gap-1.5">
@@ -210,7 +227,6 @@ export default function Profile() {
                 </Link>
               )}
 
-              {/* Admin/mod actions */}
               {canManage && (
                 <>
                   {!user.isBanned ? (
@@ -221,7 +237,7 @@ export default function Profile() {
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="bg-card border-border max-w-sm">
-                        <DialogHeader><DialogTitle>Ban {user.username}</DialogTitle></DialogHeader>
+                        <DialogHeader><DialogTitle>Ban {displayedName}</DialogTitle></DialogHeader>
                         <div className="space-y-4 pt-2">
                           <div className="space-y-1">
                             <label className="text-sm font-medium">Duration</label>
