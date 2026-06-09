@@ -53,12 +53,7 @@ export default function Register() {
           src="/games-collage.png"
           alt=""
           className="absolute inset-0 w-full h-full"
-          style={{ objectFit: "cover", objectPosition: "left center", transform: "scaleX(-1)" }}
-        />
-        <div className="absolute inset-0 bg-black/45" />
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: "linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 28%, rgba(0,0,0,0.6) 44%, transparent 60%)" }}
+          style={{ objectFit: "cover", objectPosition: "center" }}
         />
       </div>
 
