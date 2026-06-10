@@ -84,6 +84,12 @@ async function actionReport(reportId: number) {
   return res.json();
 }
 
+async function deleteAdminComment(commentId: number) {
+  const res = await fetch(`/api/admin/comments/${commentId}`, { method: "DELETE", credentials: "include" });
+  if (!res.ok) throw new Error("Failed to delete comment");
+  return res.json();
+}
+
 const BAN_DURATIONS = [
   { label: "1 hr", hours: 1 },
   { label: "24 hrs", hours: 24 },
@@ -395,10 +401,23 @@ function AccountsTab() {
 }
 
 // --- Reports Tab ---
+type CommentActionTarget = {
+  reportId: number;
+  commentId: number;
+  commentContent: string;
+  authorId: number;
+  authorUsername: string;
+};
+
 function ReportsTab() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [showDismissed, setShowDismissed] = useState(false);
+  const [actionTarget, setActionTarget] = useState<CommentActionTarget | null>(null);
+  const [banDuration, setBanDuration] = useState<number | null>(null);
+  const [banReason, setBanReason] = useState("");
+  const [deleteContent, setDeleteContent] = useState(false);
+  const [isActioning, setIsActioning] = useState(false);
 
   const { data: reports = [], isLoading, isError, error } = useQuery({ queryKey: ["admin-reports"], queryFn: fetchReports });
 
@@ -413,6 +432,27 @@ function ReportsTab() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-reports"] }); toast({ title: "Report actioned — reporter notified" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  async function handleCommentApprove() {
+    if (!actionTarget) return;
+    if (!banReason.trim()) { toast({ title: "Ban reason required", variant: "destructive" }); return; }
+    setIsActioning(true);
+    try {
+      await banUser(actionTarget.authorId, banDuration, banReason.trim());
+      if (deleteContent) await deleteAdminComment(actionTarget.commentId);
+      await actionReport(actionTarget.reportId);
+      queryClient.invalidateQueries({ queryKey: ["admin-reports"] });
+      toast({ title: "User banned and report actioned" });
+      setActionTarget(null);
+      setBanDuration(null);
+      setBanReason("");
+      setDeleteContent(false);
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setIsActioning(false);
+    }
+  }
 
   const filtered = reports.filter((r: any) => showDismissed || !r.isDismissed);
   const pendingCount = reports.filter((r: any) => !r.isDismissed).length;
@@ -449,7 +489,7 @@ function ReportsTab() {
           {filtered.map((report: any) => (
             <div key={report.id} className={`bg-card border rounded-xl p-4 ${report.isDismissed ? "opacity-50 border-border" : "border-red-500/20 bg-red-500/5"}`}>
               <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1 flex-1">
+                <div className="space-y-1.5 flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline" className="text-xs">{report.targetType}</Badge>
                     <span className="text-sm font-medium">#{report.targetId}</span>
@@ -458,8 +498,16 @@ function ReportsTab() {
                   </div>
                   <p className="text-sm font-semibold">{report.reason}</p>
                   {report.details && <p className="text-sm text-muted-foreground">{report.details}</p>}
+                  {report.targetType === "comment" && report.commentContent && (
+                    <div className="mt-2 bg-background border border-border rounded-lg px-3 py-2">
+                      <p className="text-xs text-muted-foreground mb-0.5">
+                        Comment by <strong>{report.commentAuthorUsername ?? "unknown"}</strong>:
+                      </p>
+                      <p className="text-sm italic text-foreground/80 line-clamp-3">"{report.commentContent}"</p>
+                    </div>
+                  )}
                 </div>
-                <div className="flex gap-2 shrink-0">
+                <div className="flex flex-col gap-2 shrink-0 items-end">
                   {report.targetType === "account" && (
                     <Link href={`/accounts/${report.targetId}`}>
                       <Button size="sm" variant="outline" className="h-7 text-xs">View</Button>
@@ -469,9 +517,25 @@ function ReportsTab() {
                     <span className="text-xs font-semibold text-green-600 bg-green-500/10 border border-green-500/20 rounded px-2 py-0.5">Actioned</span>
                   )}
                   {!report.isDismissed && !report.isActioned && (
-                    <Button size="sm" className="h-7 text-xs gap-1 bg-green-600 hover:bg-green-700 text-white border-0" onClick={() => actionMutation.mutate(report.id)} disabled={actionMutation.isPending}>
-                      <CheckCircle className="h-3 w-3" /> Action Taken
-                    </Button>
+                    report.targetType === "comment" ? (
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs gap-1 bg-green-600 hover:bg-green-700 text-white border-0"
+                        onClick={() => setActionTarget({
+                          reportId: report.id,
+                          commentId: report.targetId,
+                          commentContent: report.commentContent ?? "",
+                          authorId: report.commentAuthorId ?? 0,
+                          authorUsername: report.commentAuthorUsername ?? "unknown",
+                        })}
+                      >
+                        <CheckCircle className="h-3 w-3" /> Approve
+                      </Button>
+                    ) : (
+                      <Button size="sm" className="h-7 text-xs gap-1 bg-green-600 hover:bg-green-700 text-white border-0" onClick={() => actionMutation.mutate(report.id)} disabled={actionMutation.isPending}>
+                        <CheckCircle className="h-3 w-3" /> Action Taken
+                      </Button>
+                    )
                   )}
                   {!report.isDismissed && (
                     <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => dismissMutation.mutate(report.id)} disabled={dismissMutation.isPending}>
@@ -484,6 +548,78 @@ function ReportsTab() {
           ))}
         </div>
       )}
+
+      {/* Ban + delete dialog for comment reports */}
+      <Dialog open={!!actionTarget} onOpenChange={(open) => { if (!open) { setActionTarget(null); setBanDuration(null); setBanReason(""); setDeleteContent(false); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ban className="h-5 w-5 text-red-500" /> Ban User
+            </DialogTitle>
+          </DialogHeader>
+          {actionTarget && (
+            <div className="space-y-4">
+              <div className="bg-muted/50 border border-border rounded-lg px-3 py-2 space-y-1">
+                <p className="text-xs text-muted-foreground">Reported comment by <strong>{actionTarget.authorUsername}</strong>:</p>
+                <p className="text-sm italic text-foreground/80">"{actionTarget.commentContent}"</p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Ban duration</p>
+                <div className="flex flex-wrap gap-2">
+                  {BAN_DURATIONS.map((d) => (
+                    <button
+                      key={d.label}
+                      type="button"
+                      onClick={() => setBanDuration(d.hours)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${banDuration === d.hours ? "bg-red-500 text-white border-red-500" : "border-border hover:border-red-400 hover:text-red-600"}`}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Ban reason <span className="text-red-500">*</span></label>
+                <textarea
+                  className="w-full border border-border rounded-lg px-3 py-2 bg-background text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                  rows={2}
+                  placeholder="Reason for the ban..."
+                  value={banReason}
+                  onChange={(e) => setBanReason(e.target.value)}
+                />
+              </div>
+
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={deleteContent}
+                  onChange={(e) => setDeleteContent(e.target.checked)}
+                  className="mt-0.5 rounded accent-red-500"
+                />
+                <div>
+                  <p className="text-sm font-medium group-hover:text-red-600 transition-colors">Delete reported comment</p>
+                  <p className="text-xs text-muted-foreground">Permanently removes the comment from the listing</p>
+                </div>
+              </label>
+
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" className="flex-1" onClick={() => { setActionTarget(null); setBanDuration(null); setBanReason(""); setDeleteContent(false); }}>
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  disabled={!banReason.trim() || isActioning}
+                  onClick={handleCommentApprove}
+                >
+                  {isActioning ? "Processing..." : `Ban${deleteContent ? " & Delete" : ""}`}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

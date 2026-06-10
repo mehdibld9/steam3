@@ -1,7 +1,7 @@
 // @ts-nocheck
 import express from "express";
-import { db, usersTable, accountsTable, reportsTable } from "@workspace/db";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { db, usersTable, accountsTable, reportsTable, commentsTable } from "@workspace/db";
+import { eq, desc, sql, and, inArray } from "drizzle-orm";
 import { requireAdmin, requireModOrAdmin } from "../middlewares/auth";
 import { sendBotMessage } from "../lib/adminBot";
 import { getSetting } from "../lib/settings";
@@ -217,13 +217,55 @@ router.get("/reports", requireModOrAdmin, async (req, res) => {
     .from(reportsTable)
     .leftJoin(usersTable, eq(reportsTable.reporterId, usersTable.id))
     .orderBy(desc(reportsTable.createdAt));
-  res.json(reports);
+
+  // Enrich comment reports with comment content and author info
+  const commentTargetIds = reports
+    .filter((r) => r.targetType === "comment")
+    .map((r) => r.targetId);
+
+  let commentMap: Record<number, { content: string; authorId: number; authorUsername: string }> = {};
+  if (commentTargetIds.length > 0) {
+    const comments = await db
+      .select({
+        id: commentsTable.id,
+        content: commentsTable.content,
+        authorId: commentsTable.userId,
+        authorUsername: usersTable.username,
+      })
+      .from(commentsTable)
+      .leftJoin(usersTable, eq(commentsTable.userId, usersTable.id))
+      .where(inArray(commentsTable.id, commentTargetIds));
+
+    for (const c of comments) {
+      commentMap[c.id] = {
+        content: c.content,
+        authorId: c.authorId,
+        authorUsername: c.authorUsername ?? "",
+      };
+    }
+  }
+
+  const enriched = reports.map((r) => ({
+    ...r,
+    commentContent: r.targetType === "comment" ? (commentMap[r.targetId]?.content ?? null) : null,
+    commentAuthorId: r.targetType === "comment" ? (commentMap[r.targetId]?.authorId ?? null) : null,
+    commentAuthorUsername: r.targetType === "comment" ? (commentMap[r.targetId]?.authorUsername ?? null) : null,
+  }));
+
+  res.json(enriched);
 });
 
 router.patch("/reports/:reportId/dismiss", requireModOrAdmin, async (req, res) => {
   const reportId = parseInt(req.params.reportId, 10);
   await db.update(reportsTable).set({ isDismissed: true }).where(eq(reportsTable.id, reportId));
   res.json({ message: "Report dismissed" });
+});
+
+// Delete a comment (used when actioning a comment report with "delete content")
+router.delete("/comments/:commentId", requireModOrAdmin, async (req, res) => {
+  const commentId = parseInt(req.params.commentId, 10);
+  await db.delete(commentsTable).where(eq(commentsTable.id, commentId));
+  res.json({ ok: true });
 });
 
 export default router;

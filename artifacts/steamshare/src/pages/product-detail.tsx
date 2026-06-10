@@ -238,12 +238,18 @@ export default function ProductDetail() {
                     >
                       {buyMutation.isPending ? "Processing..." : `Buy for ${product.price * buyQty} pts`}
                     </Button>
-                    {product.priceUsd && product.buyUrl && (
-                      <a href={product.buyUrl} target="_blank" rel="noopener noreferrer" className="block w-full">
-                        <Button variant="outline" className="w-full gap-2 border-green-500/40 text-green-600 hover:bg-green-500/10">
-                          Buy for ${product.priceUsd} USD
+                    {product.priceUsd && (
+                      product.buyUrl ? (
+                        <a href={product.buyUrl} target="_blank" rel="noopener noreferrer" className="block w-full">
+                          <Button variant="outline" className="w-full gap-2 border-green-500/40 text-green-600 hover:bg-green-500/10">
+                            Buy for ${product.priceUsd} USD
+                          </Button>
+                        </a>
+                      ) : (
+                        <Button variant="outline" className="w-full gap-2 border-green-500/40 text-green-600 hover:bg-green-500/10" disabled>
+                          ${product.priceUsd} USD (link coming soon)
                         </Button>
-                      </a>
+                      )
                     )}
                   </div>
                 )}
