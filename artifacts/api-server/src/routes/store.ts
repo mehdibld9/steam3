@@ -99,6 +99,8 @@ router.post("/products", requireAdmin, async (req, res) => {
     return;
   }
 
+  const { priceUsd, buyUrl } = req.body as { priceUsd?: string; buyUrl?: string };
+
   const [product] = await db
     .insert(productsTable)
     .values({
@@ -106,6 +108,8 @@ router.post("/products", requireAdmin, async (req, res) => {
       description: description.trim(),
       imageUrl: imageUrl?.trim() || null,
       price: Math.max(1, price),
+      priceUsd: priceUsd?.trim() || null,
+      buyUrl: buyUrl?.trim() || null,
       stock: Math.max(0, stock ?? 0),
       createdBy: creatorId,
     })

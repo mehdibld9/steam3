@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { InfoIcon, CheckCircle2, XCircle, Loader2, Clock, HourglassIcon, ArrowLeft } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { MarkdownEditor } from "@/components/markdown-editor";
 
 const formSchema = z.object({
   title: z.string().min(3).max(100),
@@ -248,7 +249,12 @@ export default function Submit() {
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Description</FormLabel>
-                    <FormControl><Textarea placeholder="Describe the account, games included, any notes..." className="min-h-[100px] resize-none" {...field} /></FormControl>
+                    <MarkdownEditor
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Describe the account, games included, any notes..."
+                      rows={4}
+                    />
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -300,6 +306,7 @@ export default function Submit() {
                       <FormControl>
                         <Input
                           placeholder="your_steam_username"
+                          autoComplete="off"
                           {...field}
                           onChange={(e) => { field.onChange(e); setVerifyStatus("idle"); setDupStatus("idle"); setIsFamilyShare(false); }}
                         />

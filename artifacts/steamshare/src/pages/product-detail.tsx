@@ -161,8 +161,11 @@ export default function ProductDetail() {
           <div className="space-y-4">
             <div>
               <h1 className="text-2xl font-bold">{product.title}</h1>
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <span className="text-3xl font-bold text-primary font-mono">{product.price} pts</span>
+                {product.priceUsd && (
+                  <span className="text-2xl font-bold text-green-600">${product.priceUsd}</span>
+                )}
                 <span className="text-sm text-muted-foreground">· {product.stock > 0 ? `${product.stock} in stock` : <span className="text-red-500">Out of stock</span>}</span>
               </div>
             </div>
@@ -235,6 +238,13 @@ export default function ProductDetail() {
                     >
                       {buyMutation.isPending ? "Processing..." : `Buy for ${product.price * buyQty} pts`}
                     </Button>
+                    {product.priceUsd && product.buyUrl && (
+                      <a href={product.buyUrl} target="_blank" rel="noopener noreferrer" className="block w-full">
+                        <Button variant="outline" className="w-full gap-2 border-green-500/40 text-green-600 hover:bg-green-500/10">
+                          Buy for ${product.priceUsd} USD
+                        </Button>
+                      </a>
+                    )}
                   </div>
                 )}
               </div>

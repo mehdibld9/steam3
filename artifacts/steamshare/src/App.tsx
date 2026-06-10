@@ -1,5 +1,6 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
 import NotFound from "@/pages/not-found";
@@ -24,6 +25,14 @@ import Store from "./pages/store";
 import ProductDetail from "./pages/product-detail";
 
 const queryClient = new QueryClient();
+
+function ScrollToTop() {
+  const [location] = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [location]);
+  return null;
+}
 
 function BannedGuard({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -78,6 +87,7 @@ function App() {
         <TooltipProvider>
           <WouterRouter base="">
             <BannedGuard>
+              <ScrollToTop />
               <Router />
             </BannedGuard>
           </WouterRouter>

@@ -20,6 +20,7 @@ import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap, ArrowLeft } from "lucide-react";
+import { MarkdownEditor } from "@/components/markdown-editor";
 import { Link } from "wouter";
 
 // --- API helpers ---
@@ -73,6 +74,12 @@ async function fetchReports() {
 
 async function dismissReport(reportId: number) {
   const res = await fetch(`/api/admin/reports/${reportId}/dismiss`, { method: "PATCH", credentials: "include" });
+  if (!res.ok) throw new Error("Failed");
+  return res.json();
+}
+
+async function actionReport(reportId: number) {
+  const res = await fetch(`/api/reports/${reportId}/action`, { method: "PATCH", credentials: "include" });
   if (!res.ok) throw new Error("Failed");
   return res.json();
 }
@@ -401,6 +408,12 @@ function ReportsTab() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const actionMutation = useMutation({
+    mutationFn: (reportId: number) => actionReport(reportId),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-reports"] }); toast({ title: "Report actioned — reporter notified" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const filtered = reports.filter((r: any) => showDismissed || !r.isDismissed);
   const pendingCount = reports.filter((r: any) => !r.isDismissed).length;
 
@@ -452,9 +465,17 @@ function ReportsTab() {
                       <Button size="sm" variant="outline" className="h-7 text-xs">View</Button>
                     </Link>
                   )}
+                  {report.isActioned && (
+                    <span className="text-xs font-semibold text-green-600 bg-green-500/10 border border-green-500/20 rounded px-2 py-0.5">Actioned</span>
+                  )}
+                  {!report.isDismissed && !report.isActioned && (
+                    <Button size="sm" className="h-7 text-xs gap-1 bg-green-600 hover:bg-green-700 text-white border-0" onClick={() => actionMutation.mutate(report.id)} disabled={actionMutation.isPending}>
+                      <CheckCircle className="h-3 w-3" /> Action Taken
+                    </Button>
+                  )}
                   {!report.isDismissed && (
                     <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => dismissMutation.mutate(report.id)} disabled={dismissMutation.isPending}>
-                      <CheckCircle className="h-3 w-3" /> Dismiss
+                      Dismiss
                     </Button>
                   )}
                 </div>
@@ -607,11 +628,11 @@ async function fetchAdminPurchases() {
   return res.json() as Promise<any[]>;
 }
 
-async function createProduct(title: string, description: string, imageUrl: string, price: number, stock: number, deliveryContents: string[]) {
+async function createProduct(title: string, description: string, imageUrl: string, price: number, priceUsd: string, buyUrl: string, stock: number, deliveryContents: string[]) {
   const res = await fetch("/api/store/products", {
     method: "POST", credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, description, imageUrl, price, stock, deliveryContents }),
+    body: JSON.stringify({ title, description, imageUrl, price, priceUsd: priceUsd || null, buyUrl: buyUrl || null, stock, deliveryContents }),
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
   return res.json();
@@ -660,6 +681,8 @@ function StoreTab() {
   const [desc, setDesc] = useState("");
   const [imgUrl, setImgUrl] = useState("");
   const [price, setPrice] = useState(100);
+  const [priceUsd, setPriceUsd] = useState("");
+  const [buyUrl, setBuyUrl] = useState("");
   const [stock, setStock] = useState(10);
   const [deliveryContents, setDeliveryContents] = useState("");
   const [unitsTarget, setUnitsTarget] = useState<any>(null);
@@ -671,10 +694,10 @@ function StoreTab() {
   const createMutation = useMutation({
     mutationFn: () => {
       const contents = deliveryContents.split("\n").map(s => s.trim()).filter(Boolean);
-      return createProduct(title, desc, imgUrl, price, stock, contents);
+      return createProduct(title, desc, imgUrl, price, priceUsd, buyUrl, stock, contents);
     },
     onSuccess: () => {
-      setTitle(""); setDesc(""); setImgUrl(""); setPrice(100); setStock(10); setDeliveryContents("");
+      setTitle(""); setDesc(""); setImgUrl(""); setPrice(100); setPriceUsd(""); setBuyUrl(""); setStock(10); setDeliveryContents("");
       setCreateOpen(false);
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       toast({ title: "Product created" });
@@ -752,6 +775,16 @@ function StoreTab() {
                   <div>
                     <label className="text-sm font-medium block mb-1">Initial Stock</label>
                     <Input type="number" value={stock} onChange={(e) => setStock(Number(e.target.value))} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium block mb-1">USD Price (optional)</label>
+                    <Input placeholder="e.g. 4.99" value={priceUsd} onChange={(e) => setPriceUsd(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium block mb-1">Buy URL (for $ button)</label>
+                    <Input placeholder="https://..." value={buyUrl} onChange={(e) => setBuyUrl(e.target.value)} />
                   </div>
                 </div>
                 <div>
@@ -947,11 +980,11 @@ function AnnouncementsTab() {
               </div>
               <div>
                 <label className="text-sm font-medium block mb-1">Description</label>
-                <textarea
-                  className="w-full min-h-[100px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="Full details of the announcement..."
+                <MarkdownEditor
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={setDescription}
+                  placeholder="Full details of the announcement..."
+                  rows={4}
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -1494,8 +1527,8 @@ function SiteSettingsTab() {
         <div className="space-y-3">
           <div className="flex gap-3">
             <div className="w-20 shrink-0">
-              <label className="text-xs font-medium text-foreground mb-1.5 block">Icon (emoji)</label>
-              <Input placeholder="🎮" value={tickerIcon} onChange={(e) => setTickerIcon(e.target.value)} className="text-center" />
+              <label className="text-xs font-medium text-foreground mb-1.5 block">Icon (emoji or image URL)</label>
+              <Input placeholder="🎮 or https://..." value={tickerIcon} onChange={(e) => setTickerIcon(e.target.value)} />
             </div>
             <div className="flex-1">
               <label className="text-xs font-medium text-foreground mb-1.5 block">Bar Text</label>

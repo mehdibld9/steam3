@@ -41,7 +41,11 @@ export default function Home() {
           {/* Ticker bar — admin controlled */}
           {ticker?.enabled && ticker.text && (
             <div className="inline-flex items-center gap-3 bg-card border border-border rounded-full px-4 py-2 mb-6 shadow-sm">
-              {ticker.icon && <span className="text-lg leading-none">{ticker.icon}</span>}
+              {ticker.icon && (
+                ticker.icon.startsWith("http")
+                  ? <img src={ticker.icon} alt="" className="h-5 w-5 object-contain shrink-0" />
+                  : <span className="text-lg leading-none">{ticker.icon}</span>
+              )}
               <span className="text-sm font-semibold text-foreground">{ticker.text}</span>
               {ticker.linkLabel && ticker.linkUrl && (
                 <a

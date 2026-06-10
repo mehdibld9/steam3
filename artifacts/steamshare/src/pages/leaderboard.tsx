@@ -20,10 +20,7 @@ export default function Leaderboard() {
           <div className="inline-flex items-center justify-center p-3 bg-primary/10 rounded-full mb-4">
             <Trophy className="h-8 w-8 text-primary" />
           </div>
-          <h1 className="text-3xl md:text-4xl font-black mb-4 tracking-tight">Hall of Fame</h1>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            The most elite traders, uploaders, and contributors in the SteamShare network. Earn XP by contributing to climb the ranks.
-          </p>
+          <h1 className="text-3xl md:text-4xl font-black mb-4 tracking-tight">Leaderboard</h1>
         </div>
 
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xl">

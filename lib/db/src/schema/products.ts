@@ -9,6 +9,8 @@ export const productsTable = pgTable("products", {
   description: text("description").notNull(),
   imageUrl: text("image_url"),
   price: integer("price").notNull(),
+  priceUsd: text("price_usd"),
+  buyUrl: text("buy_url"),
   stock: integer("stock").notNull().default(0),
   createdBy: integer("created_by").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

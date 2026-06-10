@@ -113,8 +113,11 @@ export default function Store() {
                 </div>
                 <div className="p-4 space-y-2">
                   <h3 className="font-semibold line-clamp-1">{p.title}</h3>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-primary font-bold font-mono">{p.price} pts</span>
+                    {p.priceUsd && (
+                      <span className="text-xs font-semibold text-green-600 bg-green-500/10 border border-green-500/20 rounded px-1.5 py-0.5">${p.priceUsd}</span>
+                    )}
                     <span className="text-xs text-muted-foreground">
                       {p.stock > 0 ? `${p.stock} in stock` : "Out of stock"}
                     </span>

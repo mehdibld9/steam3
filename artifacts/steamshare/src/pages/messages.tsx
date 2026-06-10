@@ -10,6 +10,17 @@ import { Link, useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+function renderBotMarkdown(text: string): string {
+  return text
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/__(.+?)__/g, "<u>$1</u>")
+    .replace(/_(.+?)_/g, "<em>$1</em>")
+    .replace(/`(.+?)`/g, '<code class="bg-black/20 rounded px-0.5 font-mono text-xs">$1</code>')
+    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="underline">$1</a>')
+    .replace(/\n/g, "<br/>");
+}
+
 interface Conversation {
   partner_id: number;
   partner_username: string;
@@ -438,7 +449,14 @@ export default function Messages() {
                                 : "bg-muted text-foreground rounded-bl-sm"
                           }`}
                         >
-                          <p>{msg.content}</p>
+                          {isBotMsg ? (
+                            <p
+                              className="whitespace-pre-wrap"
+                              dangerouslySetInnerHTML={{ __html: renderBotMarkdown(msg.content) }}
+                            />
+                          ) : (
+                            <p>{msg.content}</p>
+                          )}
                           <p className={`text-[10px] mt-0.5 ${isMe ? "text-white/70 text-right" : "text-muted-foreground"}`}>
                             {formatDistanceToNow(new Date(msg.createdAt))} ago
                           </p>

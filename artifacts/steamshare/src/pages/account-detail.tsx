@@ -72,6 +72,17 @@ function CollapsibleSection({ title, items }: { title: string; items: string[] }
   );
 }
 
+function renderAccountDescription(text: string): string {
+  return text
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/__(.+?)__/g, "<u>$1</u>")
+    .replace(/_(.+?)_/g, "<em>$1</em>")
+    .replace(/`(.+?)`/g, '<code class="bg-muted rounded px-0.5 font-mono text-xs">$1</code>')
+    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="underline text-primary">$1</a>')
+    .replace(/\n/g, "<br/>");
+}
+
 async function submitVote(accountId: number, vote: "working" | "not_working") {
   const res = await fetch(`/api/accounts/${accountId}/vote`, {
     method: "POST", credentials: "include",
@@ -127,6 +138,9 @@ export default function AccountDetail() {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
+  const [commentReportId, setCommentReportId] = useState<number | null>(null);
+  const [commentReportReason, setCommentReportReason] = useState("");
+  const [commentReportDetails, setCommentReportDetails] = useState("");
 
   const likeAccount = useLikeAccount();
   const unlikeAccount = useUnlikeAccount();
@@ -146,6 +160,12 @@ export default function AccountDetail() {
   const reportMutation = useMutation({
     mutationFn: () => submitReport("account", id, reportReason, reportDetails),
     onSuccess: () => { setReportOpen(false); setReportReason(""); setReportDetails(""); toast({ title: "Report submitted" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const commentReportMutation = useMutation({
+    mutationFn: () => submitReport("comment", commentReportId!, commentReportReason, commentReportDetails),
+    onSuccess: () => { setCommentReportId(null); setCommentReportReason(""); setCommentReportDetails(""); toast({ title: "Comment reported" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -262,8 +282,6 @@ export default function AccountDetail() {
                 <span className={`w-1.5 h-1.5 rounded-full ${account.isAvailable ? "bg-green-500" : "bg-muted-foreground"}`} />
                 {account.isAvailable ? "Available" : "Claimed"}
               </div>
-              {(account as any).posterIsAdmin && <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 text-[10px]">ADMIN</Badge>}
-              {(account as any).posterIsModerator && !((account as any).posterIsAdmin) && <Badge className="bg-blue-500/20 text-blue-600 border-blue-500/30 text-[10px]">MOD</Badge>}
               <span className="text-xs text-muted-foreground ml-auto">Posted {formatDistanceToNow(new Date(account.createdAt))} ago</span>
             </div>
 
@@ -284,7 +302,10 @@ export default function AccountDetail() {
             ) : (
               <>
                 <h1 className="text-2xl md:text-4xl font-black leading-tight">{account.title}</h1>
-                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{account.description}</p>
+                <p
+                  className="text-muted-foreground leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: renderAccountDescription(account.description) }}
+                />
               </>
             )}
           </div>
@@ -517,6 +538,12 @@ export default function AccountDetail() {
                             <Heart className={`h-3 w-3 ${comment.userHasLiked ? "fill-primary text-primary" : ""}`} />
                             {comment.likesCount}
                           </Button>
+                          {user && user.id !== comment.userId && (
+                            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs flex gap-1 text-muted-foreground hover:text-red-500"
+                              onClick={() => { setCommentReportId(comment.id); setCommentReportReason(""); setCommentReportDetails(""); }}>
+                              <Flag className="h-3 w-3" /> Report
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -625,6 +652,32 @@ export default function AccountDetail() {
             )}
           </div>
         </div>
+
+        {/* Comment report dialog */}
+        <Dialog open={commentReportId !== null} onOpenChange={(open) => { if (!open) setCommentReportId(null); }}>
+          <DialogContent className="bg-card border-border max-w-sm">
+            <DialogHeader><DialogTitle>Report Comment</DialogTitle></DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Reason</label>
+                <select className="w-full border border-border rounded-lg px-3 py-2 bg-background text-sm" value={commentReportReason} onChange={(e) => setCommentReportReason(e.target.value)}>
+                  <option value="">Select a reason...</option>
+                  <option value="spam">Spam or off-topic</option>
+                  <option value="harassment">Harassment or abuse</option>
+                  <option value="inappropriate">Inappropriate content</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Details (optional)</label>
+                <Textarea placeholder="Add more details..." value={commentReportDetails} onChange={(e) => setCommentReportDetails(e.target.value)} className="resize-none" rows={3} />
+              </div>
+              <Button className="w-full" onClick={() => commentReportMutation.mutate()} disabled={!commentReportReason || commentReportMutation.isPending}>
+                {commentReportMutation.isPending ? "Submitting..." : "Submit Report"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Report dialog */}
         <Dialog open={reportOpen} onOpenChange={setReportOpen}>

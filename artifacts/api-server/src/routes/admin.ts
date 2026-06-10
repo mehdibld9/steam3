@@ -210,6 +210,7 @@ router.get("/reports", requireModOrAdmin, async (req, res) => {
       reason: reportsTable.reason,
       details: reportsTable.details,
       isDismissed: reportsTable.isDismissed,
+      isActioned: reportsTable.isActioned,
       createdAt: reportsTable.createdAt,
       reporterUsername: usersTable.username,
     })
