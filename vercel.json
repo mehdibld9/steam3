@@ -1,17 +1,17 @@
 {
   "version": 2,
   "framework": null,
-  "buildCommand": "pnpm install && pnpm run typecheck:libs && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/steamshare run build && mkdir -p dist && cp -r artifacts/steamshare/dist/. dist/",
+  "buildCommand": "pnpm install && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/steamshare run build && mkdir -p dist && cp -r artifacts/steamshare/dist/. dist/",
   "outputDirectory": "dist",
   "functions": {
-    "api/index.ts": {
+    "api/index.js": {
       "maxDuration": 30
     }
   },
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "/api/index.ts"
+      "destination": "/api/index.js"
     },
     {
       "source": "/((?!api).*)",
