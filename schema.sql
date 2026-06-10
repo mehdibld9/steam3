@@ -1,5 +1,6 @@
 -- SteamShare — full database schema
--- All statements use IF NOT EXISTS / IF EXISTS so it is safe to re-run.
+-- All statements use IF NOT EXISTS so it is safe to re-run.
+-- Generated from Drizzle ORM schema (lib/db/src/schema).
 
 -- Session store (connect-pg-simple)
 CREATE TABLE IF NOT EXISTS "session" (
