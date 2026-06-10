@@ -1,3 +1,2 @@
-// @ts-ignore — import pre-built bundle to prevent Vercel from tracing workspace sources during serverless compilation
-import app from "../artifacts/api-server/dist/app.mjs";
+import app from "../artifacts/api-server/src/app";
 export default app;
