@@ -8,7 +8,7 @@ import {
   Shield, Plus, LogOut, Coins, Trophy, Gift,
   MessageSquare, Menu, X, ChevronRight, Bell, Home,
   LayoutGrid, User, Settings, ShoppingBag, Sun, Moon, ArrowLeft,
-  Megaphone, ExternalLink,
+  Megaphone, ExternalLink, Mail,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "@/lib/theme";
