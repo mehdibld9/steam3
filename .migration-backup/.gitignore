@@ -47,8 +47,3 @@ Thumbs.db
 # Replit
 .cache/
 .local/
-.env
-
-# Database schema (generated locally, do not push)
-schema.sql
-*.sql

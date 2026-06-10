@@ -22,6 +22,8 @@ export interface Account {
   likesCount: number;
   claimsCount: number;
   viewCount?: number;
+  workingVotes?: number;
+  notWorkingVotes?: number;
   unlockMethod?: AccountUnlockMethod;
   userHasLiked?: boolean;
   userHasCommented?: boolean;

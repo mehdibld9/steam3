@@ -19,7 +19,7 @@ run = "pnpm --filter @workspace/steamshare run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/steamshare", "run", "build" ]
-publicDir = "artifacts/steamshare/dist/public"
+publicDir = "artifacts/steamshare/dist"
 serve = "static"
 
 [[services.production.rewrites]]

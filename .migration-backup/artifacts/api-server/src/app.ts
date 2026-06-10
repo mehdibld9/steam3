@@ -76,7 +76,7 @@ const serveStatic = !process.env.VERCEL;
 if (serveStatic) {
   const staticDir = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
-    "../../steamshare/dist/public",
+    "../../steamshare/dist",
   );
 
   app.use(express.static(staticDir));

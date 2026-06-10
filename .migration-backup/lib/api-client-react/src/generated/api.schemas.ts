@@ -46,6 +46,10 @@ export interface User {
   badgeName?: string | null;
   isAdmin: boolean;
   isBanned: boolean;
+  /** @nullable */
+  banReason?: string | null;
+  /** @nullable */
+  banExpiresAt?: string | null;
   createdAt: string;
 }
 
@@ -103,6 +107,8 @@ export interface Account {
   likesCount: number;
   claimsCount: number;
   viewCount?: number;
+  workingVotes?: number;
+  notWorkingVotes?: number;
   unlockMethod?: AccountUnlockMethod;
   userHasLiked?: boolean;
   userHasCommented?: boolean;

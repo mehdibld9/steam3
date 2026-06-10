@@ -117,7 +117,7 @@ export default function Submit() {
         if (hasGames) {
           const currentGames = form.getValues("gamesList");
           if (!currentGames || currentGames.trim() === "") {
-            form.setValue("gamesList", result.games.join(", "), { shouldValidate: true });
+            form.setValue("gamesList", result.games!.join(", "), { shouldValidate: true });
           }
         }
       } else {
