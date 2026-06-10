@@ -52,6 +52,8 @@ export const LoginResponse = zod.object({
   "badgeName": zod.string().nullish(),
   "isAdmin": zod.boolean(),
   "isBanned": zod.boolean(),
+  "banReason": zod.string().nullish(),
+  "banExpiresAt": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date()
 })
 
@@ -78,6 +80,8 @@ export const GetMeResponse = zod.object({
   "badgeName": zod.string().nullish(),
   "isAdmin": zod.boolean(),
   "isBanned": zod.boolean(),
+  "banReason": zod.string().nullish(),
+  "banExpiresAt": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date()
 })
 
@@ -111,6 +115,8 @@ export const ListAccountsResponse = zod.object({
   "likesCount": zod.number(),
   "claimsCount": zod.number(),
   "viewCount": zod.number().optional(),
+  "workingVotes": zod.number().optional(),
+  "notWorkingVotes": zod.number().optional(),
   "unlockMethod": zod.enum(['login', 'like', 'comment']).optional(),
   "userHasLiked": zod.boolean().optional(),
   "userHasCommented": zod.boolean().optional(),
@@ -177,6 +183,8 @@ export const GetAccountResponse = zod.object({
   "likesCount": zod.number(),
   "claimsCount": zod.number(),
   "viewCount": zod.number().optional(),
+  "workingVotes": zod.number().optional(),
+  "notWorkingVotes": zod.number().optional(),
   "unlockMethod": zod.enum(['login', 'like', 'comment']).optional(),
   "userHasLiked": zod.boolean().optional(),
   "userHasCommented": zod.boolean().optional(),
@@ -376,6 +384,8 @@ export const GetUserAccountsResponseItem = zod.object({
   "likesCount": zod.number(),
   "claimsCount": zod.number(),
   "viewCount": zod.number().optional(),
+  "workingVotes": zod.number().optional(),
+  "notWorkingVotes": zod.number().optional(),
   "unlockMethod": zod.enum(['login', 'like', 'comment']).optional(),
   "userHasLiked": zod.boolean().optional(),
   "userHasCommented": zod.boolean().optional(),

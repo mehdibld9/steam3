@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useGetMe, getGetMeQueryKey, useLogout, useListGiveaways } from "@workspace/api-client-react";
+import { useGetMe, getGetMeQueryKey, useLogout, useListGiveaways, getListGiveawaysQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -67,7 +67,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   // Giveaway notifications — track unseen active giveaways
   const { data: giveaways = [] } = useListGiveaways({
-    query: { refetchInterval: 60_000 },
+    query: { queryKey: getListGiveawaysQueryKey(), refetchInterval: 60_000 },
   });
   const activeGiveaways = giveaways.filter((g) => g.isActive);
   const [seenIds, setSeenIds] = useState<number[]>(getSeenIds);
