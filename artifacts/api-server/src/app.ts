@@ -70,15 +70,20 @@ app.use(
 
 app.use("/api", router);
 
-const staticDir = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../../steamshare/dist/public",
-);
+// Vercel serves the Vite build from outputDirectory; express.static is ignored there.
+const serveStatic = !process.env.VERCEL;
 
-app.use(express.static(staticDir));
+if (serveStatic) {
+  const staticDir = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../steamshare/dist/public",
+  );
 
-app.get(/^(?!\/api).*/, (_req, res) => {
-  res.sendFile(path.join(staticDir, "index.html"));
-});
+  app.use(express.static(staticDir));
+
+  app.get(/^(?!\/api).*/, (_req, res) => {
+    res.sendFile(path.join(staticDir, "index.html"));
+  });
+}
 
 export default app;

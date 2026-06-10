@@ -103,23 +103,43 @@ The web service serves both the React frontend and the Express API from one orig
 
 ---
 
-## Deploy frontend to Vercel
+## Deploy to Vercel (frontend + API)
 
-Vercel only hosts the **frontend** unless you refactor the Express API. Use these settings:
+The repo includes a root `server.ts` so Vercel runs the Express API as a serverless function alongside the Vite frontend.
 
 | Setting | Value |
 |---------|--------|
 | **Root Directory** | *(leave empty — repo root)* |
 | **Framework Preset** | Other |
-| **Install Command** | *(leave empty — uses `vercel.json`)* |
-| **Build Command** | *(leave empty — uses `vercel.json`)* |
-| **Output Directory** | `artifacts/steamshare/dist/public` if root is repo root, or `dist/public` if root is `artifacts/steamshare` |
+| **Install / Build / Output** | *(leave empty — `vercel.json` sets these)* |
 
-**Do not use `public`** — Vite outputs to `dist/public`.
+**Do not use `public`** — Vite outputs to `artifacts/steamshare/dist/public`.
 
-Do **not** use `cd ../.. && pnpm install` — Vercel installs from the repo root automatically.
+### Vercel environment variables (required)
 
-If you set Root Directory to `artifacts/steamshare` instead, clear the Install Command and enable **Include source files outside of the Root Directory** in project settings.
+Add these in **Project → Settings → Environment Variables** for Production (and Preview if you test there):
+
+| Variable | Required | Value |
+|----------|----------|-------|
+| `DATABASE_URL` | **Yes** | Supabase → Database → Connection string (URI). Use **Session pooler** or **Direct** (port 5432). Do **not** use Transaction pooler (6543). |
+| `SESSION_SECRET` | **Yes** | Long random string (e.g. `openssl rand -hex 32`) |
+| `NODE_ENV` | Yes | `production` |
+
+Without `DATABASE_URL`, every `/api/*` request returns **500** (`FUNCTION_INVOCATION_FAILED`) because the server cannot connect to Postgres.
+
+After the first deploy with `DATABASE_URL` set, run the schema push once locally:
+
+```bash
+pnpm --filter @workspace/db run push
+```
+
+The `session` table is created automatically on the first API request.
+
+### If API still returns 500
+
+1. Open **Vercel → Project → Logs** and check the function error (often `DATABASE_URL must be set` or a Postgres SSL/connection error).
+2. Confirm `DATABASE_URL` is set for the environment you are viewing (Production vs Preview).
+3. Redeploy after adding env vars — existing deployments do not pick up new variables until redeployed.
 
 ---
 
