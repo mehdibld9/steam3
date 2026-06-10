@@ -50,7 +50,7 @@ export default function Register() {
       {/* Left panel — game collage */}
       <div className="hidden lg:block lg:w-1/2 relative overflow-hidden">
         <img
-          src="/games-collage.png"
+          src="/games-collage-new.png"
           alt=""
           className="absolute inset-0 w-full h-full"
           style={{ objectFit: "cover", objectPosition: "center" }}
