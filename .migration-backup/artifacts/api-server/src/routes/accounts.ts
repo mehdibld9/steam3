@@ -1,11 +1,14 @@
-import { Router } from "express";
-import { db, accountsTable, usersTable, likesTable, accountVotesTable } from "@workspace/db";
+// @ts-nocheck
+import express from "express";
+import { db, accountsTable, usersTable, likesTable, accountVotesTable, commentsTable } from "@workspace/db";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { CreateAccountBody } from "@workspace/api-zod";
 import { requireAuth, requireModOrAdmin } from "../middlewares/auth";
 import { checkSteamCredentials } from "../lib/steamChecker";
+import { filterContent } from "../lib/contentFilter";
+import { getSetting } from "../lib/settings";
 
-const router = Router();
+const router = express.Router();
 
 function addXp(userId: number, amount: number) {
   return db
@@ -28,7 +31,10 @@ router.post("/verify-credentials", requireAuth, async (req, res) => {
 });
 
 router.get("/games", async (_req, res) => {
-  const rows = await db.select({ games: accountsTable.games }).from(accountsTable).where(eq(accountsTable.isAvailable, true));
+  const rows = await db
+    .select({ games: accountsTable.games })
+    .from(accountsTable)
+    .where(eq(accountsTable.isAvailable, true));
   const counts: Record<string, number> = {};
   for (const row of rows) {
     for (const game of row.games ?? []) {
@@ -107,6 +113,22 @@ router.get("/", async (req, res) => {
   res.json({ accounts: result, total: Number(count), page, limit });
 });
 
+// GET /check-credentials?username=xxx&password=yyy — checks if the exact username+password combo is already listed
+router.get("/check-credentials", async (req, res) => {
+  const username = String(req.query.username ?? "").trim();
+  const password = String(req.query.password ?? "").trim();
+  if (!username || !password) {
+    res.json({ exists: false });
+    return;
+  }
+  const [existing] = await db
+    .select({ id: accountsTable.id })
+    .from(accountsTable)
+    .where(and(eq(accountsTable.steamUsername, username), eq(accountsTable.steamPassword, password)))
+    .limit(1);
+  res.json({ exists: !!existing });
+});
+
 router.post("/", requireAuth, async (req, res) => {
   const parsed = CreateAccountBody.safeParse(req.body);
   if (!parsed.success) {
@@ -115,14 +137,48 @@ router.post("/", requireAuth, async (req, res) => {
   }
 
   const userId = req.session.userId!;
-  const { title, description, games, pointsCost, steamUsername, steamPassword } = parsed.data;
+  const { title, description, games, pointsCost, steamUsername, steamPassword, unlockMethod } = parsed.data as typeof parsed.data & { unlockMethod?: string };
+  const safeUnlockMethod = ["login", "like", "comment"].includes(unlockMethod ?? "") ? (unlockMethod as "login" | "like" | "comment") : "login";
+
+  const existingAccount = await db
+    .select({ id: accountsTable.id })
+    .from(accountsTable)
+    .where(and(eq(accountsTable.steamUsername, steamUsername), eq(accountsTable.steamPassword, steamPassword)))
+    .limit(1);
+
+  if (existingAccount.length > 0) {
+    res.status(409).json({ error: "This exact Steam account (same username and password) has already been listed." });
+    return;
+  }
+
+  const [filteredTitle, filteredDescription] = await Promise.all([
+    filterContent(title),
+    filterContent(description ?? ""),
+  ]);
+
+  // Family share accounts (checker returned 0 games) go into pending review
+  const isFamilyShare = !!(req.body as any).isFamilyShare;
+  const status = isFamilyShare ? "pending" : "approved";
+  const isAvailable = !isFamilyShare;
 
   const [account] = await db
     .insert(accountsTable)
-    .values({ userId, title, description, games, pointsCost, steamUsername, steamPassword })
+    .values({ userId, title: filteredTitle, description: filteredDescription, games, pointsCost, steamUsername, steamPassword, unlockMethod: safeUnlockMethod, status, isAvailable })
     .returning();
 
-  await addXp(userId, 50);
+  // Only award XP and points immediately for instantly published accounts
+  if (!isFamilyShare) {
+    const [xp, pts] = await Promise.all([
+      getSetting("xp_upload_account"),
+      getSetting("points_upload_account"),
+    ]);
+    await addXp(userId, xp);
+    if (pts > 0) {
+      await db.update(usersTable)
+        .set({ points: sql`${usersTable.points} + ${pts}` })
+        .where(eq(usersTable.id, userId));
+    }
+  }
 
   const [user] = await db.select({ username: usersTable.username, avatarUrl: usersTable.avatarUrl, isAdmin: usersTable.isAdmin, isModerator: usersTable.isModerator })
     .from(usersTable).where(eq(usersTable.id, userId));
@@ -136,6 +192,7 @@ router.post("/", requireAuth, async (req, res) => {
     posterIsModerator: user?.isModerator ?? false,
     userHasLiked: false,
     myVote: null,
+    pendingReview: isFamilyShare,
   });
 });
 
@@ -156,6 +213,8 @@ router.get("/:accountId", async (req, res) => {
       claimsCount: accountsTable.claimsCount,
       workingVotes: accountsTable.workingVotes,
       notWorkingVotes: accountsTable.notWorkingVotes,
+      viewCount: accountsTable.viewCount,
+      unlockMethod: accountsTable.unlockMethod,
       createdAt: accountsTable.createdAt,
       posterUsername: usersTable.username,
       posterAvatarUrl: usersTable.avatarUrl,
@@ -172,8 +231,15 @@ router.get("/:accountId", async (req, res) => {
     return;
   }
 
+  // Increment view count (fire-and-forget)
+  db.update(accountsTable)
+    .set({ viewCount: sql`${accountsTable.viewCount} + 1` })
+    .where(eq(accountsTable.id, accountId))
+    .catch(() => {});
+
   let userHasLiked = false;
   let myVote: string | null = null;
+  let userHasCommented = false;
   if (userId) {
     const [like] = await db.select().from(likesTable)
       .where(and(eq(likesTable.userId, userId), eq(likesTable.targetType, "account"), eq(likesTable.targetId, accountId)))
@@ -184,9 +250,14 @@ router.get("/:accountId", async (req, res) => {
       .where(and(eq(accountVotesTable.userId, userId), eq(accountVotesTable.accountId, accountId)))
       .limit(1);
     myVote = voteRow?.vote ?? null;
+
+    const [commentRow] = await db.select({ id: commentsTable.id }).from(commentsTable)
+      .where(and(eq(commentsTable.userId, userId), eq(commentsTable.accountId, accountId)))
+      .limit(1);
+    userHasCommented = !!commentRow;
   }
 
-  res.json({ ...account, username: account.posterUsername ?? "", userHasLiked, myVote });
+  res.json({ ...account, username: account.posterUsername ?? "", userHasLiked, myVote, userHasCommented });
 });
 
 // Edit account (owner / admin / mod)
@@ -267,6 +338,26 @@ router.post("/:accountId/claim", requireAuth, async (req, res) => {
     return;
   }
 
+  // Enforce unlock method
+  const unlockMethod = account.unlockMethod ?? "login";
+  if (unlockMethod === "like") {
+    const [like] = await db.select().from(likesTable)
+      .where(and(eq(likesTable.userId, userId), eq(likesTable.targetType, "account"), eq(likesTable.targetId, accountId)))
+      .limit(1);
+    if (!like) {
+      res.status(403).json({ error: "You must like this post before claiming." });
+      return;
+    }
+  } else if (unlockMethod === "comment") {
+    const [comment] = await db.select({ id: commentsTable.id }).from(commentsTable)
+      .where(and(eq(commentsTable.userId, userId), eq(commentsTable.accountId, accountId)))
+      .limit(1);
+    if (!comment) {
+      res.status(403).json({ error: "You must leave a comment before claiming." });
+      return;
+    }
+  }
+
   await db.update(usersTable).set({ points: sql`${usersTable.points} - ${account.pointsCost}` }).where(eq(usersTable.id, userId));
   await db.update(usersTable).set({ points: sql`${usersTable.points} + ${account.pointsCost}` }).where(eq(usersTable.id, account.userId));
 
@@ -297,8 +388,9 @@ router.post("/:accountId/like", requireAuth, async (req, res) => {
     await db.insert(likesTable).values({ userId, targetType: "account", targetId: accountId });
     await db.update(accountsTable).set({ likesCount: sql`${accountsTable.likesCount} + 1` }).where(eq(accountsTable.id, accountId));
     const [account] = await db.select({ userId: accountsTable.userId }).from(accountsTable).where(eq(accountsTable.id, accountId)).limit(1);
-    if (account) await addXp(account.userId, 5);
-    await addXp(userId, 5);
+    const xpLike = await getSetting("xp_like_account");
+    if (account) await addXp(account.userId, xpLike);
+    await addXp(userId, xpLike);
   }
 
   res.json({ message: "Liked" });

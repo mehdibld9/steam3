@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Gift, Trophy, Users, Clock, CheckCircle2, Plus, Trash2, Zap, Link2 } from "lucide-react";
+import { Gift, Trophy, Users, Clock, CheckCircle2, Plus, Trash2, Zap, Link2, ArrowLeft } from "lucide-react";
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -104,6 +104,9 @@ export default function Giveaways() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-12 max-w-5xl">
+        <button onClick={() => window.history.back()} className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
         <div className="flex items-start justify-between mb-10">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 border border-primary/20">

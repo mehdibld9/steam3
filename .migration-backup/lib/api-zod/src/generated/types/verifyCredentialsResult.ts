@@ -10,4 +10,7 @@ import type { VerifyCredentialsResultStatus } from './verifyCredentialsResultSta
 export interface VerifyCredentialsResult {
   status: VerifyCredentialsResultStatus;
   message: string;
+  games?: string[];
+  steamid?: string;
+  isFamilyShare?: boolean;
 }

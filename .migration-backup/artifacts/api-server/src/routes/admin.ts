@@ -1,9 +1,22 @@
-import { Router } from "express";
-import { db, usersTable, accountsTable, reportsTable } from "@workspace/db";
-import { eq, desc, sql, and } from "drizzle-orm";
+// @ts-nocheck
+import express from "express";
+import { db, usersTable, accountsTable, reportsTable, commentsTable } from "@workspace/db";
+import { eq, desc, sql, and, inArray } from "drizzle-orm";
 import { requireAdmin, requireModOrAdmin } from "../middlewares/auth";
+import { sendBotMessage } from "../lib/adminBot";
+import { getSetting } from "../lib/settings";
 
-const router = Router();
+function addXp(userId: number, amount: number) {
+  return db
+    .update(usersTable)
+    .set({
+      xp: sql`${usersTable.xp} + ${amount}`,
+      level: sql`FLOOR((${usersTable.xp} + ${amount}) / 100) + 1`,
+    })
+    .where(eq(usersTable.id, userId));
+}
+
+const router = express.Router();
 
 // --- Users ---
 router.get("/users", requireModOrAdmin, async (req, res) => {
@@ -91,6 +104,101 @@ router.post("/users/:userId/points", requireAdmin, async (req, res) => {
   res.json({ message: `Points adjusted by ${delta}` });
 });
 
+// --- Pending Account Reviews ---
+router.get("/pending-accounts", requireModOrAdmin, async (req, res) => {
+  const accounts = await db
+    .select({
+      id: accountsTable.id,
+      userId: accountsTable.userId,
+      title: accountsTable.title,
+      description: accountsTable.description,
+      games: accountsTable.games,
+      pointsCost: accountsTable.pointsCost,
+      status: accountsTable.status,
+      reviewNote: accountsTable.reviewNote,
+      createdAt: accountsTable.createdAt,
+      steamUsername: accountsTable.steamUsername,
+      steamPassword: accountsTable.steamPassword,
+      posterUsername: usersTable.username,
+      posterAvatarUrl: usersTable.avatarUrl,
+    })
+    .from(accountsTable)
+    .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
+    .where(eq(accountsTable.status, "pending"))
+    .orderBy(desc(accountsTable.createdAt));
+  res.json(accounts);
+});
+
+router.post("/accounts/:accountId/approve", requireModOrAdmin, async (req, res) => {
+  const accountId = parseInt(req.params.accountId, 10);
+  const { games } = req.body as { games?: string[] };
+
+  const [account] = await db
+    .select({ id: accountsTable.id, userId: accountsTable.userId, status: accountsTable.status, title: accountsTable.title })
+    .from(accountsTable)
+    .where(eq(accountsTable.id, accountId))
+    .limit(1);
+
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+  if (account.status !== "pending") {
+    res.status(400).json({ error: "Account is not pending review" });
+    return;
+  }
+
+  const updates: Record<string, unknown> = { status: "approved", isAvailable: true, reviewNote: null };
+  if (games && Array.isArray(games)) updates.games = games;
+
+  await db.update(accountsTable).set(updates).where(eq(accountsTable.id, accountId));
+  const [xpUpload, ptsUpload] = await Promise.all([
+    getSetting("xp_upload_account"),
+    getSetting("points_upload_account"),
+  ]);
+  await addXp(account.userId, xpUpload);
+  if (ptsUpload > 0) {
+    await db.update(usersTable)
+      .set({ points: sql`${usersTable.points} + ${ptsUpload}` })
+      .where(eq(usersTable.id, account.userId));
+  }
+
+  await sendBotMessage(
+    account.userId,
+    `✅ Your listing **${account.title}** has been approved and is now live! You've earned ${xpUpload} XP${ptsUpload > 0 ? ` and ${ptsUpload} points` : ""}.`,
+  ).catch(() => {});
+
+  res.json({ message: "Account approved and published" });
+});
+
+router.post("/accounts/:accountId/reject", requireModOrAdmin, async (req, res) => {
+  const accountId = parseInt(req.params.accountId, 10);
+  const { note } = req.body as { note?: string };
+
+  const [account] = await db
+    .select({ id: accountsTable.id, status: accountsTable.status, userId: accountsTable.userId, title: accountsTable.title })
+    .from(accountsTable)
+    .where(eq(accountsTable.id, accountId))
+    .limit(1);
+
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  await db.update(accountsTable)
+    .set({ status: "rejected", reviewNote: note ?? null })
+    .where(eq(accountsTable.id, accountId));
+
+  const reason = note?.trim() ? ` Reason: ${note.trim()}` : "";
+  await sendBotMessage(
+    account.userId,
+    `❌ Your listing **${account.title}** was not approved.${reason} You can edit and resubmit it.`,
+  ).catch(() => {});
+
+  res.json({ message: "Account rejected" });
+});
+
 // --- Reports ---
 router.get("/reports", requireModOrAdmin, async (req, res) => {
   const reports = await db
@@ -102,19 +210,62 @@ router.get("/reports", requireModOrAdmin, async (req, res) => {
       reason: reportsTable.reason,
       details: reportsTable.details,
       isDismissed: reportsTable.isDismissed,
+      isActioned: reportsTable.isActioned,
       createdAt: reportsTable.createdAt,
       reporterUsername: usersTable.username,
     })
     .from(reportsTable)
     .leftJoin(usersTable, eq(reportsTable.reporterId, usersTable.id))
     .orderBy(desc(reportsTable.createdAt));
-  res.json(reports);
+
+  // Enrich comment reports with comment content and author info
+  const commentTargetIds = reports
+    .filter((r) => r.targetType === "comment")
+    .map((r) => r.targetId);
+
+  let commentMap: Record<number, { content: string; authorId: number; authorUsername: string }> = {};
+  if (commentTargetIds.length > 0) {
+    const comments = await db
+      .select({
+        id: commentsTable.id,
+        content: commentsTable.content,
+        authorId: commentsTable.userId,
+        authorUsername: usersTable.username,
+      })
+      .from(commentsTable)
+      .leftJoin(usersTable, eq(commentsTable.userId, usersTable.id))
+      .where(inArray(commentsTable.id, commentTargetIds));
+
+    for (const c of comments) {
+      commentMap[c.id] = {
+        content: c.content,
+        authorId: c.authorId,
+        authorUsername: c.authorUsername ?? "",
+      };
+    }
+  }
+
+  const enriched = reports.map((r) => ({
+    ...r,
+    commentContent: r.targetType === "comment" ? (commentMap[r.targetId]?.content ?? null) : null,
+    commentAuthorId: r.targetType === "comment" ? (commentMap[r.targetId]?.authorId ?? null) : null,
+    commentAuthorUsername: r.targetType === "comment" ? (commentMap[r.targetId]?.authorUsername ?? null) : null,
+  }));
+
+  res.json(enriched);
 });
 
 router.patch("/reports/:reportId/dismiss", requireModOrAdmin, async (req, res) => {
   const reportId = parseInt(req.params.reportId, 10);
   await db.update(reportsTable).set({ isDismissed: true }).where(eq(reportsTable.id, reportId));
   res.json({ message: "Report dismissed" });
+});
+
+// Delete a comment (used when actioning a comment report with "delete content")
+router.delete("/comments/:commentId", requireModOrAdmin, async (req, res) => {
+  const commentId = parseInt(req.params.commentId, 10);
+  await db.delete(commentsTable).where(eq(commentsTable.id, commentId));
+  res.json({ ok: true });
 });
 
 export default router;

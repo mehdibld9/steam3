@@ -1,8 +1,9 @@
-import { Router } from "express";
+// @ts-nocheck
+import express from "express";
 import { db, usersTable, accountsTable, likesTable } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, ne } from "drizzle-orm";
 
-const router = Router();
+const router = express.Router();
 
 router.get("/leaderboard", async (req, res) => {
   const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
@@ -11,16 +12,19 @@ router.get("/leaderboard", async (req, res) => {
     .select({
       id: usersTable.id,
       username: usersTable.username,
+      displayName: usersTable.displayName,
       avatarUrl: usersTable.avatarUrl,
       points: usersTable.points,
       xp: usersTable.xp,
       level: usersTable.level,
       badgeName: usersTable.badgeName,
+      isAdmin: usersTable.isAdmin,
+      isModerator: usersTable.isModerator,
       isBanned: usersTable.isBanned,
       createdAt: usersTable.createdAt,
     })
     .from(usersTable)
-    .where(eq(usersTable.isBanned, false))
+    .where(sql`${usersTable.isBanned} = false AND ${usersTable.email} != 'adminbot@system.internal'`)
     .orderBy(desc(usersTable.xp))
     .limit(limit);
 

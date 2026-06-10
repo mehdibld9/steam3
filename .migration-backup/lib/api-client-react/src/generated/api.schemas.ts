@@ -79,6 +79,15 @@ export interface UserProfile {
   createdAt: string;
 }
 
+export type AccountUnlockMethod = typeof AccountUnlockMethod[keyof typeof AccountUnlockMethod];
+
+
+export const AccountUnlockMethod = {
+  login: 'login',
+  like: 'like',
+  comment: 'comment',
+} as const;
+
 export interface Account {
   id: number;
   userId: number;
@@ -93,7 +102,10 @@ export interface Account {
   isAvailable: boolean;
   likesCount: number;
   claimsCount: number;
+  viewCount?: number;
+  unlockMethod?: AccountUnlockMethod;
   userHasLiked?: boolean;
+  userHasCommented?: boolean;
   createdAt: string;
 }
 
@@ -103,6 +115,15 @@ export interface AccountListResponse {
   page: number;
   limit: number;
 }
+
+export type AccountInputUnlockMethod = typeof AccountInputUnlockMethod[keyof typeof AccountInputUnlockMethod];
+
+
+export const AccountInputUnlockMethod = {
+  login: 'login',
+  like: 'like',
+  comment: 'comment',
+} as const;
 
 export interface AccountInput {
   /**
@@ -118,6 +139,7 @@ export interface AccountInput {
   pointsCost: number;
   steamUsername: string;
   steamPassword: string;
+  unlockMethod?: AccountInputUnlockMethod;
 }
 
 export interface ClaimResult {
@@ -229,6 +251,9 @@ export const VerifyCredentialsResultStatus = {
 export interface VerifyCredentialsResult {
   status: VerifyCredentialsResultStatus;
   message: string;
+  games?: string[];
+  steamid?: string;
+  isFamilyShare?: boolean;
 }
 
 export interface Giveaway {

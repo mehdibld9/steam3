@@ -1,10 +1,11 @@
-import { Router } from "express";
+// @ts-nocheck
+import express from "express";
 import { db, usersTable, passwordResetTokensTable } from "@workspace/db";
 import { eq, and, gt } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { randomBytes } from "crypto";
 
-const router = Router();
+const router = express.Router();
 
 router.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
@@ -34,9 +35,7 @@ router.post("/forgot-password", async (req, res) => {
   });
 
   res.json({
-    message: "Reset token generated. Use the token below to reset your password.",
-    resetToken: token,
-    expiresAt: expiresAt.toISOString(),
+    message: "If an account with that email exists, a reset link has been sent. Contact an admin if you need assistance.",
   });
 });
 

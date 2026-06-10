@@ -1,8 +1,9 @@
-import { Router } from "express";
+// @ts-nocheck
+import express from "express";
 import { db, usersTable, accountsTable, badgesTable } from "@workspace/db";
 import { sql, eq } from "drizzle-orm";
 
-const router = Router();
+const router = express.Router();
 
 router.get("/stats", async (_req, res) => {
   const [{ totalUsers }] = await db

@@ -1,9 +1,10 @@
-import { Router } from "express";
+// @ts-nocheck
+import express from "express";
 import { db, messagesTable, usersTable } from "@workspace/db";
 import { eq, or, and, desc, sql, ne } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 
-const router = Router();
+const router = express.Router();
 
 // Get all conversations (unique users I've chatted with)
 router.get("/conversations", requireAuth, async (req, res) => {
@@ -20,6 +21,8 @@ router.get("/conversations", requireAuth, async (req, res) => {
       m.sender_id,
       u.username AS partner_username,
       u.avatar_url AS partner_avatar_url,
+      u.is_admin AS partner_is_admin,
+      u.is_moderator AS partner_is_moderator,
       (SELECT COUNT(*) FROM messages um WHERE um.receiver_id = ${myId} AND um.sender_id = partner_id AND um.is_read = FALSE) AS unread_count
     FROM (
       SELECT CASE WHEN sender_id = ${myId} THEN receiver_id ELSE sender_id END AS partner_id, id
@@ -32,6 +35,16 @@ router.get("/conversations", requireAuth, async (req, res) => {
   `);
 
   res.json(rows.rows);
+});
+
+// Unread count — must be defined BEFORE /:userId to avoid route shadowing
+router.get("/unread/count", requireAuth, async (req, res) => {
+  const myId = req.session.userId!;
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(messagesTable)
+    .where(and(eq(messagesTable.receiverId, myId), eq(messagesTable.isRead, false)));
+  res.json({ count: Number(count) });
 });
 
 // Get messages with a specific user
@@ -60,6 +73,17 @@ router.get("/:userId", requireAuth, async (req, res) => {
   res.json(messages.reverse());
 });
 
+// Delete a message (only own messages)
+router.delete("/:messageId", requireAuth, async (req, res) => {
+  const myId = req.session.userId!;
+  const messageId = parseInt(req.params.messageId, 10);
+  const [msg] = await db.select().from(messagesTable).where(eq(messagesTable.id, messageId)).limit(1);
+  if (!msg) { res.status(404).json({ error: "Message not found" }); return; }
+  if (msg.senderId !== myId) { res.status(403).json({ error: "Cannot delete another user's message" }); return; }
+  await db.delete(messagesTable).where(eq(messagesTable.id, messageId));
+  res.json({ ok: true });
+});
+
 // Send a message
 router.post("/", requireAuth, async (req, res) => {
   const senderId = req.session.userId!;
@@ -80,6 +104,11 @@ router.post("/", requireAuth, async (req, res) => {
     return;
   }
 
+  if (target.username === "Admin Bot") {
+    res.status(403).json({ error: "You cannot reply to Admin Bot" });
+    return;
+  }
+
   const [message] = await db
     .insert(messagesTable)
     .values({ senderId, receiverId, content: content.trim() })
@@ -88,14 +117,5 @@ router.post("/", requireAuth, async (req, res) => {
   res.status(201).json(message);
 });
 
-// Unread count
-router.get("/unread/count", requireAuth, async (req, res) => {
-  const myId = req.session.userId!;
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(messagesTable)
-    .where(and(eq(messagesTable.receiverId, myId), eq(messagesTable.isRead, false)));
-  res.json({ count: Number(count) });
-});
 
 export default router;

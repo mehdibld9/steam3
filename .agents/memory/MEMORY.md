@@ -1,1 +1,0 @@
-- [SteamShare dev setup](steamshare-dev-setup.md) — two-workflow setup: API server on 8080, Vite frontend on 5000 proxying /api to 8080.

@@ -10,6 +10,7 @@ export const reportsTable = pgTable("reports", {
   reason: text("reason").notNull(),
   details: text("details"),
   isDismissed: boolean("is_dismissed").notNull().default(false),
+  isActioned: boolean("is_actioned").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

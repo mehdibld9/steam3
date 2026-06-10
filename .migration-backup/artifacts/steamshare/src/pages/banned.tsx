@@ -2,6 +2,7 @@ import { useGetMe } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { Ban, Clock, MessageCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
 
 function timeRemaining(expiresAt: string | null | undefined): string {
   if (!expiresAt) return "Permanent ban";
@@ -15,8 +16,21 @@ function timeRemaining(expiresAt: string | null | undefined): string {
   return `${mins}m remaining`;
 }
 
+function useSiteSettings() {
+  return useQuery({
+    queryKey: ["site-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/site-settings", { credentials: "include" });
+      if (!res.ok) return { contact: {} };
+      return res.json() as Promise<{ contact: Record<string, string> }>;
+    },
+  });
+}
+
 export default function Banned() {
   const { data: user } = useGetMe();
+  const { data: settings } = useSiteSettings();
+  const supportEmail = settings?.contact?.contact_email || "support@steamfamily.gg";
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
@@ -63,7 +77,7 @@ export default function Banned() {
             If you believe this is a mistake, please contact our support team.
           </p>
           <Button asChild className="w-full gap-2">
-            <a href="mailto:support@steamfamily.gg">
+            <a href={`mailto:${supportEmail}`}>
               <MessageCircle className="h-4 w-4" />
               Contact Support
             </a>

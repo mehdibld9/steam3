@@ -1,8 +1,21 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npx --yes pnpm@11.5.2 install --filter @workspace/steamshare...",
-  "buildCommand": "PORT=3000 BASE_PATH=/ npx --yes pnpm@11.5.2 --filter @workspace/steamshare run build",
-  "outputDirectory": "artifacts/steamshare/dist/public",
+  "version": 2,
   "framework": null,
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "buildCommand": "pnpm install && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/steamshare run build && mkdir -p dist && cp -r artifacts/steamshare/dist/. dist/",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index.ts"
+    },
+    {
+      "source": "/((?!api).*)",
+      "destination": "/index.html"
+    }
+  ]
 }

@@ -1041,7 +1041,14 @@ components:
           type: integer
         claimsCount:
           type: integer
+        viewCount:
+          type: integer
+        unlockMethod:
+          type: string
+          enum: [login, like, comment]
         userHasLiked:
+          type: boolean
+        userHasCommented:
           type: boolean
         createdAt:
           type: string
@@ -1085,6 +1092,9 @@ components:
           type: string
         steamPassword:
           type: string
+        unlockMethod:
+          type: string
+          enum: [login, like, comment]
 
     ClaimResult:
       type: object
@@ -1264,6 +1274,14 @@ components:
           enum: [valid, invalid, rate_limited, error]
         message:
           type: string
+        games:
+          type: array
+          items:
+            type: string
+        steamid:
+          type: string
+        isFamilyShare:
+          type: boolean
 
     Giveaway:
       type: object
