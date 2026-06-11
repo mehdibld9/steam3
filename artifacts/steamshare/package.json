@@ -11,7 +11,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@marsidev/react-turnstile": "^1.5.3",
     "lucide-react": "catalog:",
     "react": "catalog:"
   },

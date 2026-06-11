@@ -8,10 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Eye, EyeOff, Zap, X } from "lucide-react";
-import { useState, useRef } from "react";
-import { Turnstile } from "@marsidev/react-turnstile";
-
-const TURNSTILE_SITE_KEY = import.meta.env.VITE_CLOUDFLARE_TURNSTILE_SITE_KEY as string | undefined;
+import { useState } from "react";
 
 const formSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -25,8 +22,6 @@ export default function Login() {
   const [submitError, setSubmitError] = useState("");
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const turnstileRef = useRef<any>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -35,19 +30,13 @@ export default function Login() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setSubmitError("");
-    if (TURNSTILE_SITE_KEY && !turnstileToken) {
-      setSubmitError("Please complete the bot check before signing in.");
-      return;
-    }
     try {
-      await login.mutateAsync({ data: { ...values, ...(turnstileToken ? { turnstileToken } : {}) } } as any);
+      await login.mutateAsync({ data: values });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       setSuccess(true);
       setTimeout(() => setLocation("/"), 600);
     } catch (e: any) {
       setSubmitError(e.message || "Invalid username or password. Please try again.");
-      turnstileRef.current?.reset();
-      setTurnstileToken(null);
     }
   }
 
@@ -157,23 +146,10 @@ export default function Login() {
                   )}
                 />
 
-                {TURNSTILE_SITE_KEY && (
-                  <div className="flex justify-center">
-                    <Turnstile
-                      ref={turnstileRef}
-                      siteKey={TURNSTILE_SITE_KEY}
-                      onSuccess={(token) => setTurnstileToken(token)}
-                      onExpire={() => setTurnstileToken(null)}
-                      onError={() => setTurnstileToken(null)}
-                      options={{ theme: "dark" }}
-                    />
-                  </div>
-                )}
-
                 <Button
                   type="submit"
                   className="w-full h-12 font-bold rounded-xl text-base mt-2"
-                  disabled={login.isPending || (!!TURNSTILE_SITE_KEY && !turnstileToken)}
+                  disabled={login.isPending}
                   data-testid="button-login-submit"
                 >
                   {login.isPending ? "Signing in…" : "Sign in"}
