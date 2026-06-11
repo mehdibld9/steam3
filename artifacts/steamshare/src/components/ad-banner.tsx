@@ -26,7 +26,7 @@ export function AdBanner({ placement }: AdBannerProps) {
   if (ads.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-2 w-full">
+    <div className="flex flex-col gap-3 w-full my-4">
       {ads.map((ad) => (
         <a
           key={ad.id}
