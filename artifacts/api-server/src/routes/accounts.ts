@@ -47,7 +47,7 @@ router.get("/games", async (_req, res) => {
 
 router.get("/", async (req, res) => {
   const page = parseInt(String(req.query.page ?? "1"), 10);
-  const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 50);
+  const limit = Math.min(parseInt(String(req.query.limit ?? "50"), 10), 100);
   const offset = (page - 1) * limit;
   const game = req.query.game as string | undefined;
   const sort = (req.query.sort as string) ?? "recent";
