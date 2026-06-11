@@ -22,6 +22,7 @@ router.post("/register", async (req, res) => {
     return;
   }
   const { username, email, password } = parsed.data;
+  const ip = (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
   if (existing.length > 0) {

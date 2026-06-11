@@ -28,7 +28,7 @@ export default function Browse() {
     game: selectedGame !== "all" ? selectedGame : undefined,
     sort,
     page,
-    limit: 20,
+    limit: 50,
   });
   const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
 
