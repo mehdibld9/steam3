@@ -9,7 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Eye, EyeOff, Zap, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { Turnstile } from "@marsidev/react-turnstile";
+
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_CLOUDFLARE_TURNSTILE_SITE_KEY as string | undefined;
 
 const formSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters").max(30),
@@ -27,6 +30,8 @@ export default function Register() {
   const [submitError, setSubmitError] = useState("");
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<any>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -35,13 +40,19 @@ export default function Register() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setSubmitError("");
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setSubmitError("Please complete the bot check before creating your account.");
+      return;
+    }
     try {
-      await registerUser.mutateAsync({ data: { username: values.username, email: values.email, password: values.password } });
+      await registerUser.mutateAsync({ data: { username: values.username, email: values.email, password: values.password, ...(turnstileToken ? { turnstileToken } : {}) } } as any);
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       setSuccess(true);
       setTimeout(() => setLocation("/"), 700);
     } catch (e: any) {
       setSubmitError(e.message || "Failed to create account. Username or email may already be taken.");
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
     }
   }
 
@@ -195,10 +206,23 @@ export default function Register() {
                   )}
                 />
 
+                {TURNSTILE_SITE_KEY && (
+                  <div className="flex justify-center">
+                    <Turnstile
+                      ref={turnstileRef}
+                      siteKey={TURNSTILE_SITE_KEY}
+                      onSuccess={(token) => setTurnstileToken(token)}
+                      onExpire={() => setTurnstileToken(null)}
+                      onError={() => setTurnstileToken(null)}
+                      options={{ theme: "dark" }}
+                    />
+                  </div>
+                )}
+
                 <Button
                   type="submit"
                   className="w-full h-12 font-bold rounded-xl text-base"
-                  disabled={registerUser.isPending}
+                  disabled={registerUser.isPending || (!!TURNSTILE_SITE_KEY && !turnstileToken)}
                   data-testid="button-register-submit"
                 >
                   {registerUser.isPending ? "Creating account…" : "Create Account"}

@@ -6,6 +6,7 @@ import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
+import { verifyTurnstile } from "../lib/turnstile";
 
 const router = express.Router();
 
@@ -23,6 +24,13 @@ router.post("/register", async (req, res) => {
   }
   const { username, email, password } = parsed.data;
   const ip = (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
+
+  const turnstileToken = req.body.turnstileToken as string | undefined;
+  const turnstileOk = await verifyTurnstile(turnstileToken ?? "", ip);
+  if (!turnstileOk) {
+    res.status(400).json({ error: "Bot check failed. Please try again." });
+    return;
+  }
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
   if (existing.length > 0) {
@@ -64,6 +72,14 @@ router.post("/login", async (req, res) => {
     return;
   }
   const { username, password } = parsed.data;
+  const ip = (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
+
+  const turnstileToken = req.body.turnstileToken as string | undefined;
+  const turnstileOk = await verifyTurnstile(turnstileToken ?? "", ip);
+  if (!turnstileOk) {
+    res.status(400).json({ error: "Bot check failed. Please try again." });
+    return;
+  }
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
   if (!user) {
