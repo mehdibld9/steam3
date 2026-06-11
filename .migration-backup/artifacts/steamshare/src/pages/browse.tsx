@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
-import { Search, Filter, ArrowLeft } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Filter, ArrowLeft, ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Megaphone, Pin } from "lucide-react";
 
@@ -20,15 +20,40 @@ export default function Browse() {
   const [search, setSearch] = useState("");
   const [selectedGame, setSelectedGame] = useState<string>("all");
   const [sort, setSort] = useState<"recent"|"popular"|"free"|"points">("recent");
-  
+  const [page, setPage] = useState(1);
+  const [allAccounts, setAllAccounts] = useState<any[]>([]);
+
   const { data: gamesData, isLoading: gamesLoading } = useListGames();
-  const { data: accountsData, isLoading: accountsLoading } = useListAccounts({ 
+  const { data: accountsData, isLoading: accountsLoading } = useListAccounts({
     game: selectedGame !== "all" ? selectedGame : undefined,
-    sort
+    sort,
+    page,
+    limit: 50,
   });
   const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
 
-  const filteredAccounts = accountsData?.accounts?.filter(a => {
+  // Reset pagination when filters change
+  useEffect(() => {
+    setPage(1);
+    setAllAccounts([]);
+  }, [selectedGame, sort]);
+
+  // Accumulate accounts as pages load
+  useEffect(() => {
+    if (accountsData?.accounts) {
+      if (page === 1) {
+        setAllAccounts(accountsData.accounts);
+      } else {
+        setAllAccounts((prev) => {
+          const seen = new Set(prev.map((a) => a.id));
+          const newOnes = accountsData.accounts.filter((a: any) => !seen.has(a.id));
+          return [...prev, ...newOnes];
+        });
+      }
+    }
+  }, [accountsData, page]);
+
+  const filteredAccounts = allAccounts.filter((a) => {
     const q = search.toLowerCase();
     return (
       a.title.toLowerCase().includes(q) ||
@@ -36,6 +61,8 @@ export default function Browse() {
       (a.games && a.games.some((g: string) => g.toLowerCase().includes(q)))
     );
   });
+
+  const hasMore = accountsData ? accountsData.total > allAccounts.length : false;
 
   return (
     <Layout>
@@ -167,6 +194,19 @@ export default function Browse() {
               {filteredAccounts.map((account) => (
                 <AccountCard key={account.id} account={account} />
               ))}
+              {hasMore && !search && (
+                <div className="flex justify-center pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={accountsLoading}
+                    className="gap-2"
+                  >
+                    {accountsLoading ? "Loading..." : "Load More"}
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="py-20 text-center flex flex-col items-center bg-card rounded-xl border border-dashed border-border">
