@@ -1,7 +1,7 @@
 // @ts-nocheck
 import express from "express";
-import { db, siteSettingsTable, footerLinksTable } from "@workspace/db";
-import { eq, asc } from "drizzle-orm";
+import { db, siteSettingsTable, footerLinksTable, adsTable } from "@workspace/db";
+import { eq, asc, and } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/auth";
 import { invalidateWordCache } from "../lib/contentFilter";
 import { XP_DEFAULTS, XpSettingKey, getAllXpSettings } from "../lib/settings";
@@ -166,6 +166,76 @@ router.put("/ticker", requireAdmin, async (req, res) => {
       .onConflictDoUpdate({ target: siteSettingsTable.key, set: { value, updatedAt: new Date() } });
   }
   res.json({ message: "Ticker updated" });
+});
+
+// GET /site-settings/ads — public, returns active ads by placement
+router.get("/ads", async (req, res) => {
+  const { placement } = req.query as { placement?: string };
+  const conditions = [eq(adsTable.active, true)];
+  if (placement) conditions.push(eq(adsTable.placement, placement));
+  const ads = await db
+    .select()
+    .from(adsTable)
+    .where(and(...conditions))
+    .orderBy(asc(adsTable.sortOrder), asc(adsTable.createdAt));
+  res.json(ads);
+});
+
+// GET /site-settings/ads/all — admin only, returns all ads
+router.get("/ads/all", requireAdmin, async (_req, res) => {
+  const ads = await db
+    .select()
+    .from(adsTable)
+    .orderBy(asc(adsTable.placement), asc(adsTable.sortOrder), asc(adsTable.createdAt));
+  res.json(ads);
+});
+
+// POST /site-settings/ads — admin only, create ad
+router.post("/ads", requireAdmin, async (req, res) => {
+  const { placement, imageUrl, linkUrl, sortOrder } = req.body as {
+    placement: string; imageUrl: string; linkUrl: string; sortOrder?: number;
+  };
+  if (!placement || !imageUrl?.trim() || !linkUrl?.trim()) {
+    res.status(400).json({ error: "placement, imageUrl, and linkUrl are required" });
+    return;
+  }
+  if (!["home", "browse"].includes(placement)) {
+    res.status(400).json({ error: "placement must be 'home' or 'browse'" });
+    return;
+  }
+  const [ad] = await db
+    .insert(adsTable)
+    .values({ placement, imageUrl: imageUrl.trim(), linkUrl: linkUrl.trim(), sortOrder: sortOrder ?? 0 })
+    .returning();
+  res.json(ad);
+});
+
+// PUT /site-settings/ads/:id — admin only, update ad
+router.put("/ads/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { imageUrl, linkUrl, active, sortOrder, placement } = req.body as {
+    imageUrl?: string; linkUrl?: string; active?: boolean; sortOrder?: number; placement?: string;
+  };
+  const updates: Partial<typeof adsTable.$inferInsert> = {};
+  if (imageUrl !== undefined) updates.imageUrl = imageUrl.trim();
+  if (linkUrl !== undefined) updates.linkUrl = linkUrl.trim();
+  if (active !== undefined) updates.active = active;
+  if (sortOrder !== undefined) updates.sortOrder = sortOrder;
+  if (placement !== undefined) updates.placement = placement;
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+  const [ad] = await db.update(adsTable).set(updates).where(eq(adsTable.id, id)).returning();
+  if (!ad) { res.status(404).json({ error: "Ad not found" }); return; }
+  res.json(ad);
+});
+
+// DELETE /site-settings/ads/:id — admin only
+router.delete("/ads/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  await db.delete(adsTable).where(eq(adsTable.id, id));
+  res.json({ message: "Ad deleted" });
 });
 
 export default router;

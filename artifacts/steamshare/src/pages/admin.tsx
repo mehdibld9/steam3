@@ -1701,6 +1701,188 @@ function SiteSettingsTab() {
           </Button>
         </div>
       </div>
+
+      {/* Ads Management */}
+      <AdsManagerSection />
+    </div>
+  );
+}
+
+function AdsManagerSection() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [newPlacement, setNewPlacement] = useState<"home" | "browse">("home");
+
+  const { data: ads = [], isLoading: adsLoading } = useQuery({
+    queryKey: ["admin-ads"],
+    queryFn: async () => {
+      const res = await fetch("/api/site-settings/ads/all", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json() as Promise<any[]>;
+    },
+  });
+
+  const addAdMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/site-settings/ads", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ placement: newPlacement, imageUrl: newImageUrl, linkUrl: newLinkUrl }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      setNewImageUrl("");
+      setNewLinkUrl("");
+      queryClient.invalidateQueries({ queryKey: ["admin-ads"] });
+      queryClient.invalidateQueries({ queryKey: ["ads"] });
+      toast({ title: "Ad added" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const toggleAdMutation = useMutation({
+    mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
+      const res = await fetch(`/api/site-settings/ads/${id}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-ads"] });
+      queryClient.invalidateQueries({ queryKey: ["ads"] });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteAdMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/site-settings/ads/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-ads"] });
+      queryClient.invalidateQueries({ queryKey: ["ads"] });
+      toast({ title: "Ad deleted" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const homeAds = ads.filter((a: any) => a.placement === "home");
+  const browseAds = ads.filter((a: any) => a.placement === "browse");
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-6">
+      <div className="flex items-center gap-2 mb-2">
+        <ShoppingBag className="h-5 w-5 text-primary" />
+        <h3 className="font-bold text-foreground text-lg">Ad Placements</h3>
+      </div>
+      <p className="text-sm text-muted-foreground mb-5">
+        Add image ads (PNG, JPG, or GIF) to the Homepage or Browse page. Each ad links to a URL when clicked.
+      </p>
+
+      {/* Add new ad */}
+      <div className="space-y-3 mb-6 bg-muted/30 rounded-lg p-4 border border-border">
+        <p className="text-sm font-semibold text-foreground">Add New Ad</p>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Image URL (PNG / JPG / GIF)</label>
+            <Input
+              placeholder="https://example.com/ad.gif"
+              value={newImageUrl}
+              onChange={(e) => setNewImageUrl(e.target.value)}
+            />
+          </div>
+          <div className="w-32 shrink-0">
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Page</label>
+            <select
+              value={newPlacement}
+              onChange={(e) => setNewPlacement(e.target.value as "home" | "browse")}
+              className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="home">Homepage</option>
+              <option value="browse">Browse</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Destination URL</label>
+          <Input
+            placeholder="https://advertiser.com"
+            value={newLinkUrl}
+            onChange={(e) => setNewLinkUrl(e.target.value)}
+          />
+        </div>
+        {newImageUrl && (
+          <div className="rounded-lg overflow-hidden border border-border max-h-32">
+            <img src={newImageUrl} alt="Preview" className="w-full h-full object-cover" />
+          </div>
+        )}
+        <Button
+          className="w-full"
+          onClick={() => addAdMutation.mutate()}
+          disabled={addAdMutation.isPending || !newImageUrl.trim() || !newLinkUrl.trim()}
+        >
+          {addAdMutation.isPending ? "Adding..." : "Add Ad"}
+        </Button>
+      </div>
+
+      {/* Existing ads grouped by placement */}
+      {adsLoading ? (
+        <div className="text-sm text-muted-foreground py-4 text-center">Loading ads...</div>
+      ) : ads.length === 0 ? (
+        <div className="text-sm text-muted-foreground py-4 text-center border border-dashed border-border rounded-lg">
+          No ads yet. Add one above.
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {[{ label: "Homepage", key: "home", list: homeAds }, { label: "Browse Page", key: "browse", list: browseAds }].map(({ label, list }) => (
+            list.length > 0 && (
+              <div key={label}>
+                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-3">{label}</p>
+                <div className="space-y-3">
+                  {list.map((ad: any) => (
+                    <div key={ad.id} className="flex items-center gap-3 bg-muted/20 border border-border rounded-lg p-3">
+                      <a href={ad.linkUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                        <img src={ad.imageUrl} alt="Ad" className="h-14 w-24 object-cover rounded-md border border-border" />
+                      </a>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground truncate">{ad.imageUrl}</p>
+                        <a href={ad.linkUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate block">
+                          {ad.linkUrl}
+                        </a>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => toggleAdMutation.mutate({ id: ad.id, active: !ad.active })}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${ad.active ? "bg-primary" : "bg-muted border border-border"}`}
+                        >
+                          <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${ad.active ? "translate-x-5" : "translate-x-1"}`} />
+                        </button>
+                        <button
+                          onClick={() => deleteAdMutation.mutate(ad.id)}
+                          className="text-destructive hover:text-destructive/80 transition-colors p-1"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useListAccounts, useGetMe } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { AccountCard } from "@/components/account-card";
+import { AdBanner } from "@/components/ad-banner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
@@ -144,6 +145,8 @@ export default function Home() {
               </Button>
             </Link>
           </div>
+
+          <AdBanner placement="home" />
 
           {accountsLoading ? (
             <div className="flex flex-col gap-3">
