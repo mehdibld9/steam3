@@ -6,8 +6,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Megaphone, Pin, ChevronRight, Plus } from "lucide-react";
+import { Megaphone, Pin, ChevronRight, Plus, Users, Package } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+
+async function fetchStats() {
+  const res = await fetch("/api/stats", { credentials: "include" });
+  if (!res.ok) return null;
+  return res.json() as Promise<{ totalUsers: number; totalAccounts: number }>;
+}
 
 async function fetchAnnouncements() {
   const res = await fetch("/api/announcements", { credentials: "include" });
@@ -25,6 +31,7 @@ export default function Home() {
   const { data: accountsData, isLoading: accountsLoading } = useListAccounts({ sort: "recent", limit: 12 });
   const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
   const { data: ticker } = useQuery({ queryKey: ["ticker"], queryFn: fetchTicker });
+  const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: fetchStats });
   const { data: me } = useGetMe();
 
   return (
@@ -87,6 +94,35 @@ export default function Home() {
               </Link>
             )}
           </div>
+
+          {/* Stats */}
+          {stats && (
+            <div className="flex items-center gap-6 mt-8">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 border border-primary/20">
+                  <Users className="h-4 w-4 text-primary" />
+                </div>
+                <div className="text-left">
+                  <p className="text-lg font-black text-foreground leading-none">
+                    {stats.totalUsers.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Members</p>
+                </div>
+              </div>
+              <div className="w-px h-8 bg-border" />
+              <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 border border-primary/20">
+                  <Package className="h-4 w-4 text-primary" />
+                </div>
+                <div className="text-left">
+                  <p className="text-lg font-black text-foreground leading-none">
+                    {stats.totalAccounts.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Accounts Shared</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
