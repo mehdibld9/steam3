@@ -97,28 +97,35 @@ export default function Home() {
 
           {/* Stats */}
           {stats && (
-            <div className="flex items-center gap-6 mt-8">
-              <div className="flex items-center gap-2">
-                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 border border-primary/20">
-                  <Users className="h-4 w-4 text-primary" />
+            <div className="mt-8 bg-card/60 border border-border rounded-2xl px-6 py-4 backdrop-blur-sm">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 text-center">Statistics</p>
+              <div className="flex items-center gap-8">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 border border-primary/20 shrink-0">
+                    <Users className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xl font-black text-foreground leading-none">
+                      {stats.totalUsers >= 100_000
+                        ? `${Math.floor(stats.totalUsers / 1000)}k`
+                        : stats.totalUsers.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Members</p>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <p className="text-lg font-black text-foreground leading-none">
-                    {stats.totalUsers.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Members</p>
-                </div>
-              </div>
-              <div className="w-px h-8 bg-border" />
-              <div className="flex items-center gap-2">
-                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 border border-primary/20">
-                  <Package className="h-4 w-4 text-primary" />
-                </div>
-                <div className="text-left">
-                  <p className="text-lg font-black text-foreground leading-none">
-                    {stats.totalAccounts.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Accounts Shared</p>
+                <div className="w-px h-10 bg-border" />
+                <div className="flex items-center gap-2.5">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 border border-primary/20 shrink-0">
+                    <Package className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xl font-black text-foreground leading-none">
+                      {stats.totalAccounts >= 100_000
+                        ? `${Math.floor(stats.totalAccounts / 1000)}k`
+                        : stats.totalAccounts.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Accounts Shared</p>
+                  </div>
                 </div>
               </div>
             </div>
