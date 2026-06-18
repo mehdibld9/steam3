@@ -6,8 +6,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Megaphone, Pin, ChevronRight, Plus } from "lucide-react";
+import { Megaphone, Pin, ChevronRight, Plus, Users } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+
+async function fetchStats() {
+  const res = await fetch("/api/stats", { credentials: "include" });
+  if (!res.ok) return null;
+  return res.json() as Promise<{ totalUsers: number; totalAccounts: number }>;
+}
 
 async function fetchAnnouncements() {
   const res = await fetch("/api/announcements", { credentials: "include" });
@@ -26,6 +32,7 @@ export default function Home() {
   const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
   const { data: ticker } = useQuery({ queryKey: ["ticker"], queryFn: fetchTicker });
   const { data: me } = useGetMe();
+  const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: fetchStats });
 
   return (
     <Layout>
@@ -62,9 +69,16 @@ export default function Home() {
             </div>
           )}
 
-          <p className="text-base md:text-lg text-muted-foreground max-w-xl mb-10">
+          <p className="text-base md:text-lg text-muted-foreground max-w-xl mb-6">
             Share unused Steam libraries, claim games you want, and rise through the ranks in the most active gaming exchange.
           </p>
+
+          {stats && (
+            <div className="flex items-center gap-2 mb-8 text-sm text-muted-foreground">
+              <Users className="h-4 w-4 text-primary" />
+              <span>Join <span className="font-black text-primary">{stats.totalUsers >= 100_000 ? `${Math.floor(stats.totalUsers / 1000)}k` : stats.totalUsers.toLocaleString()}</span> members already in the community</span>
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-3 justify-center">
             <Link href="/browse">

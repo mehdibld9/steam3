@@ -16,6 +16,7 @@ export const giveawaysTable = pgTable("giveaways", {
   entriesCount: integer("entries_count").notNull().default(0),
   endDate: timestamp("end_date", { withTimezone: true }).notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  autoApprove: boolean("auto_approve").notNull().default(false),
   winnerUserId: integer("winner_user_id"),
   winnerUsername: text("winner_username"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -27,6 +28,8 @@ export const giveawayEntriesTable = pgTable("giveaway_entries", {
   userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   taskProof: text("task_proof"),
   ipAddress: text("ip_address"),
+  isApproved: boolean("is_approved").notNull().default(false),
+  isRejected: boolean("is_rejected").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

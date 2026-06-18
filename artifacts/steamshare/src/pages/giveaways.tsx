@@ -16,8 +16,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { Gift, Trophy, Users, Clock, CheckCircle2, Plus, Trash2, Zap, Link2, ArrowLeft } from "lucide-react";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
+import { Gift, Trophy, Users, Clock, CheckCircle2, Plus, Trash2, Zap, Link2, ArrowLeft, Eye, Check, X, ToggleLeft, ToggleRight } from "lucide-react";
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -33,6 +33,155 @@ function timeUntil(d: string): string {
   return `${hours}h ${mins}m left`;
 }
 
+async function fetchEntries(giveawayId: number) {
+  const res = await fetch(`/api/giveaways/${giveawayId}/entries`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to load entries");
+  return res.json() as Promise<{
+    id: number; userId: number; username: string; taskProof: string | null;
+    isApproved: boolean; isRejected: boolean; createdAt: string; ipAddress: string | null;
+  }[]>;
+}
+
+async function approveEntry(giveawayId: number, entryId: number) {
+  const res = await fetch(`/api/giveaways/${giveawayId}/entries/${entryId}/approve`, { method: "PATCH", credentials: "include" });
+  if (!res.ok) throw new Error("Failed");
+  return res.json();
+}
+
+async function rejectEntry(giveawayId: number, entryId: number) {
+  const res = await fetch(`/api/giveaways/${giveawayId}/entries/${entryId}/reject`, { method: "PATCH", credentials: "include" });
+  if (!res.ok) throw new Error("Failed");
+  return res.json();
+}
+
+function EntriesDialog({ giveawayId, autoApprove }: { giveawayId: number; autoApprove: boolean }) {
+  const [open, setOpen] = useState(false);
+  const { data: entries, refetch, isLoading } = useQuery({
+    queryKey: ["giveaway-entries", giveawayId],
+    queryFn: () => fetchEntries(giveawayId),
+    enabled: open,
+  });
+
+  const approve = useMutation({ mutationFn: (entryId: number) => approveEntry(giveawayId, entryId), onSuccess: () => refetch() });
+  const reject = useMutation({ mutationFn: (entryId: number) => rejectEntry(giveawayId, entryId), onSuccess: () => refetch() });
+
+  const pending = entries?.filter((e) => !e.isApproved && !e.isRejected) ?? [];
+  const approved = entries?.filter((e) => e.isApproved) ?? [];
+  const rejected = entries?.filter((e) => e.isRejected) ?? [];
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1">
+          <Eye className="h-4 w-4" /> Entries
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="bg-card border-border max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            Entries
+            {autoApprove && <Badge className="bg-green-500/20 text-green-500 border-green-500/30 text-xs">Auto-Approve On</Badge>}
+          </DialogTitle>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">Loading entries...</div>
+        ) : !entries || entries.length === 0 ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">No entries yet.</div>
+        ) : (
+          <div className="space-y-6">
+            {!autoApprove && pending.length > 0 && (
+              <section>
+                <h3 className="text-sm font-bold uppercase text-muted-foreground mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" /> Pending ({pending.length})
+                </h3>
+                <div className="space-y-2">
+                  {pending.map((entry) => (
+                    <EntryRow key={entry.id} entry={entry} onApprove={() => approve.mutate(entry.id)} onReject={() => reject.mutate(entry.id)} loading={approve.isPending || reject.isPending} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {approved.length > 0 && (
+              <section>
+                <h3 className="text-sm font-bold uppercase text-muted-foreground mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> Approved ({approved.length})
+                </h3>
+                <div className="space-y-2">
+                  {approved.map((entry) => (
+                    <EntryRow key={entry.id} entry={entry} onApprove={() => approve.mutate(entry.id)} onReject={() => reject.mutate(entry.id)} loading={approve.isPending || reject.isPending} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {rejected.length > 0 && (
+              <section>
+                <h3 className="text-sm font-bold uppercase text-muted-foreground mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Rejected ({rejected.length})
+                </h3>
+                <div className="space-y-2">
+                  {rejected.map((entry) => (
+                    <EntryRow key={entry.id} entry={entry} onApprove={() => approve.mutate(entry.id)} onReject={() => reject.mutate(entry.id)} loading={approve.isPending || reject.isPending} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EntryRow({ entry, onApprove, onReject, loading }: {
+  entry: { id: number; username: string; taskProof: string | null; isApproved: boolean; isRejected: boolean; createdAt: string };
+  onApprove: () => void; onReject: () => void; loading: boolean;
+}) {
+  const isImage = entry.taskProof && (entry.taskProof.startsWith("http") && /\.(png|jpg|jpeg|gif|webp)/i.test(entry.taskProof));
+
+  return (
+    <div className={`border rounded-xl p-3 space-y-2 ${entry.isApproved ? "border-green-500/30 bg-green-500/5" : entry.isRejected ? "border-red-500/30 bg-red-500/5" : "border-border bg-muted/20"}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-sm">{entry.username}</span>
+          {entry.isApproved && <Badge className="bg-green-500/20 text-green-500 border-green-500/30 text-xs py-0">Approved</Badge>}
+          {entry.isRejected && <Badge className="bg-red-500/20 text-red-500 border-red-500/30 text-xs py-0">Rejected</Badge>}
+          {!entry.isApproved && !entry.isRejected && <Badge variant="outline" className="text-yellow-500 border-yellow-500/30 text-xs py-0">Pending</Badge>}
+        </div>
+        <div className="flex gap-1.5 shrink-0">
+          {!entry.isApproved && (
+            <Button size="sm" className="h-7 px-2 bg-green-600 hover:bg-green-500 text-white gap-1" onClick={onApprove} disabled={loading}>
+              <Check className="h-3 w-3" /> Approve
+            </Button>
+          )}
+          {!entry.isRejected && (
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:bg-red-500/10 gap-1" onClick={onReject} disabled={loading}>
+              <X className="h-3 w-3" /> Reject
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {entry.taskProof && (
+        <div className="text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground/70">Proof: </span>
+          {isImage ? (
+            <a href={entry.taskProof} target="_blank" rel="noopener noreferrer">
+              <img src={entry.taskProof} alt="Proof" className="mt-1.5 max-h-40 rounded-lg border border-border object-contain" />
+            </a>
+          ) : (
+            <a href={entry.taskProof.startsWith("http") ? entry.taskProof : undefined} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">
+              {entry.taskProof}
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Giveaways() {
   const { data: giveaways, isLoading } = useListGiveaways();
   const { data: user } = useGetMe();
@@ -45,11 +194,10 @@ export default function Giveaways() {
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({
     title: "", description: "", prize: "", taskDescription: "",
-    taskLink: "", taskCode: "", maxEntries: "100", endDate: "",
+    taskLink: "", taskCode: "", maxEntries: "100", endDate: "", autoApprove: false,
   });
   const [formError, setFormError] = useState("");
 
-  // Per-giveaway entry state: proof + code
   const [enterProofs, setEnterProofs] = useState<Record<number, string>>({});
   const [enterCodes, setEnterCodes] = useState<Record<number, string>>({});
   const [enterErrors, setEnterErrors] = useState<Record<number, string>>({});
@@ -74,10 +222,11 @@ export default function Giveaways() {
           taskCode: form.taskCode || undefined,
           maxEntries: parseInt(form.maxEntries) || 100,
           endDate: new Date(form.endDate).toISOString(),
+          autoApprove: form.autoApprove,
         } as any,
       });
       setCreateOpen(false);
-      setForm({ title: "", description: "", prize: "", taskDescription: "", taskLink: "", taskCode: "", maxEntries: "100", endDate: "" });
+      setForm({ title: "", description: "", prize: "", taskDescription: "", taskLink: "", taskCode: "", maxEntries: "100", endDate: "", autoApprove: false });
       refresh();
     } catch (e: any) {
       setFormError(e.message || "Failed to create giveaway");
@@ -146,12 +295,12 @@ export default function Giveaways() {
                   <div className="space-y-1">
                     <label className="text-sm font-medium flex items-center gap-1"><Link2 className="h-3.5 w-3.5" /> Task Link (optional)</label>
                     <Input placeholder="https://..." value={form.taskLink} onChange={(e) => setForm((f) => ({ ...f, taskLink: e.target.value }))} />
-                    <p className="text-xs text-muted-foreground">A link users must visit to complete the task (e.g. YouTube video, Twitter profile).</p>
+                    <p className="text-xs text-muted-foreground">A link users must visit to complete the task.</p>
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium">Secret Code (optional)</label>
-                    <Input placeholder="e.g. STEAM2024 — users must enter this to verify they completed the task" value={form.taskCode} onChange={(e) => setForm((f) => ({ ...f, taskCode: e.target.value }))} />
-                    <p className="text-xs text-muted-foreground">If set, users must enter this exact code to prove task completion.</p>
+                    <Input placeholder="e.g. STEAM2024" value={form.taskCode} onChange={(e) => setForm((f) => ({ ...f, taskCode: e.target.value }))} />
+                    <p className="text-xs text-muted-foreground">Users must enter this exact code. Entries with correct code are auto-approved.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
@@ -163,6 +312,23 @@ export default function Giveaways() {
                       <Input type="datetime-local" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} />
                     </div>
                   </div>
+
+                  {/* Auto-approve toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, autoApprove: !f.autoApprove }))}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${form.autoApprove ? "bg-green-500/10 border-green-500/30" : "bg-muted/30 border-border"}`}
+                  >
+                    <div className="text-left">
+                      <p className="text-sm font-semibold">Auto-Approve Entries</p>
+                      <p className="text-xs text-muted-foreground">All entries are approved instantly without manual review</p>
+                    </div>
+                    {form.autoApprove
+                      ? <ToggleRight className="h-6 w-6 text-green-500 shrink-0" />
+                      : <ToggleLeft className="h-6 w-6 text-muted-foreground shrink-0" />
+                    }
+                  </button>
+
                   <Button className="w-full" onClick={handleCreate} disabled={createGiveaway.isPending}>
                     {createGiveaway.isPending ? "Creating..." : "Create Giveaway"}
                   </Button>
@@ -188,6 +354,7 @@ export default function Giveaways() {
               const ended = !giveaway.isActive || new Date(giveaway.endDate) < new Date();
               const hasWinner = !!giveaway.winnerUsername;
               const hasCode = !!(giveaway as any).taskCode;
+              const autoApprove = !!(giveaway as any).autoApprove;
 
               return (
                 <Card key={giveaway.id} className={`bg-card border-border overflow-hidden ${!ended ? "shadow-[0_0_25px_rgba(var(--primary),0.08)]" : ""}`}>
@@ -201,11 +368,15 @@ export default function Giveaways() {
                               ? <Badge variant="outline" className="text-muted-foreground">Ended</Badge>
                               : <Badge className="bg-green-500/20 text-green-500 border-green-500/30">Live</Badge>
                             }
+                            {autoApprove && (
+                              <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">Auto-Approve</Badge>
+                            )}
                           </div>
                           <p className="text-muted-foreground text-sm">{giveaway.description}</p>
                         </div>
                         {user?.isAdmin && (
-                          <div className="flex gap-2 flex-shrink-0">
+                          <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+                            <EntriesDialog giveawayId={giveaway.id} autoApprove={autoApprove} />
                             {!ended && (
                               <Button variant="outline" size="sm" onClick={async () => { await drawGiveaway.mutateAsync({ giveawayId: giveaway.id }); refresh(); }} disabled={drawGiveaway.isPending}>
                                 <Trophy className="h-4 w-4 mr-1" /> Draw
@@ -221,7 +392,6 @@ export default function Giveaways() {
 
                     <div className="p-6 grid md:grid-cols-3 gap-6">
                       <div className="md:col-span-2 space-y-4">
-
                         {/* Task info */}
                         <div className="bg-muted/20 border border-border rounded-lg p-4 space-y-2">
                           <div className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-1">
@@ -252,7 +422,7 @@ export default function Giveaways() {
                             {giveaway.userHasEntered || enterSuccess[giveaway.id] ? (
                               <div className="flex items-center gap-2 text-green-500 bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-3 text-sm">
                                 <CheckCircle2 className="h-4 w-4" />
-                                <span>You're entered! Good luck.</span>
+                                <span>You're entered! {autoApprove ? "You've been auto-approved. Good luck!" : "Waiting for approval."}</span>
                               </div>
                             ) : user ? (
                               <div className="space-y-2">
