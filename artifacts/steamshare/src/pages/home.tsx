@@ -6,14 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Megaphone, Pin, ChevronRight, Plus, Users, Package } from "lucide-react";
+import { Megaphone, Pin, ChevronRight, Plus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-
-async function fetchStats() {
-  const res = await fetch("/api/stats", { credentials: "include" });
-  if (!res.ok) return null;
-  return res.json() as Promise<{ totalUsers: number; totalAccounts: number }>;
-}
 
 async function fetchAnnouncements() {
   const res = await fetch("/api/announcements", { credentials: "include" });
@@ -31,7 +25,6 @@ export default function Home() {
   const { data: accountsData, isLoading: accountsLoading } = useListAccounts({ sort: "recent", limit: 12 });
   const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
   const { data: ticker } = useQuery({ queryKey: ["ticker"], queryFn: fetchTicker });
-  const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: fetchStats });
   const { data: me } = useGetMe();
 
   return (
@@ -95,33 +88,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Stats */}
-          {stats && (
-            <div className="mt-8 flex gap-4">
-              <div className="flex-1 bg-card border border-border rounded-2xl px-6 py-5 flex flex-col items-center text-center">
-                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 mb-3">
-                  <Users className="h-6 w-6 text-primary" />
-                </div>
-                <p className="text-2xl font-black text-foreground leading-none mb-1">
-                  {stats.totalUsers >= 100_000
-                    ? `${Math.floor(stats.totalUsers / 1000)}k`
-                    : stats.totalUsers.toLocaleString()}
-                </p>
-                <p className="text-sm text-muted-foreground">Community Members</p>
-              </div>
-              <div className="flex-1 bg-card border border-border rounded-2xl px-6 py-5 flex flex-col items-center text-center">
-                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 mb-3">
-                  <Package className="h-6 w-6 text-primary" />
-                </div>
-                <p className="text-2xl font-black text-foreground leading-none mb-1">
-                  {stats.totalAccounts >= 100_000
-                    ? `${Math.floor(stats.totalAccounts / 1000)}k`
-                    : stats.totalAccounts.toLocaleString()}
-                </p>
-                <p className="text-sm text-muted-foreground">Accounts Shared</p>
-              </div>
-            </div>
-          )}
         </div>
       </section>
 

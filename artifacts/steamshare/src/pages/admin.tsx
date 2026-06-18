@@ -18,10 +18,94 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
-import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap, ArrowLeft } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap, ArrowLeft, Users, LayoutDashboard } from "lucide-react";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { Link } from "wouter";
+
+// --- Dashboard ---
+async function fetchDashboard() {
+  const res = await fetch("/api/admin/dashboard", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed");
+  return res.json() as Promise<{
+    users: { total: number; new24h: number; new7d: number; new30d: number; banned: number };
+    accounts: { total: number; new24h: number; new7d: number; removed: number; pending: number };
+    reports: { total: number; open: number };
+    activity: { totalClaims: number; pointsCirculating: number };
+  }>;
+}
+
+function DashboardTab() {
+  const { data, isLoading } = useQuery({ queryKey: ["admin-dashboard"], queryFn: fetchDashboard, refetchInterval: 30000 });
+  const [period, setPeriod] = useState<"24h" | "7d" | "30d">("7d");
+
+  if (isLoading) return <div className="text-muted-foreground text-sm py-8 text-center">Loading dashboard...</div>;
+  if (!data) return <div className="text-muted-foreground text-sm py-8 text-center">No data</div>;
+
+  const newUsers = period === "24h" ? data.users.new24h : period === "7d" ? data.users.new7d : data.users.new30d;
+  const newAccounts = period === "24h" ? data.accounts.new24h : period === "7d" ? data.accounts.new7d : undefined;
+
+  const StatCard = ({ icon, label, value, sub, color = "text-primary" }: { icon: ReactNode; label: string; value: number | string; sub?: string; color?: string }) => (
+    <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-2">
+      <div className={`flex items-center justify-center w-10 h-10 rounded-xl bg-card border border-border mb-1 ${color}`}>
+        {icon}
+      </div>
+      <p className="text-2xl font-black text-foreground leading-none">{typeof value === "number" ? value.toLocaleString() : value}</p>
+      <p className="text-sm font-semibold text-foreground">{label}</p>
+      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+    </div>
+  );
+
+  return (
+    <div className="space-y-8">
+      {/* Period selector */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground font-medium mr-2">Period:</span>
+        {(["24h", "7d", "30d"] as const).map((p) => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={`px-4 py-1.5 rounded-full text-sm font-bold border transition-colors ${period === p ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}
+          >
+            Last {p}
+          </button>
+        ))}
+      </div>
+
+      {/* Users */}
+      <section>
+        <h3 className="text-base font-bold mb-4 flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Users</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard icon={<Users className="h-5 w-5" />} label="Total Members" value={data.users.total} sub="All registered users" />
+          <StatCard icon={<Plus className="h-5 w-5" />} label={`New (${period})`} value={newUsers} sub={`Joined in last ${period}`} color="text-emerald-500" />
+          <StatCard icon={<Ban className="h-5 w-5" />} label="Banned Users" value={data.users.banned} sub="Currently banned" color="text-red-500" />
+          <StatCard icon={<Coins className="h-5 w-5" />} label="Points Circulating" value={data.activity.pointsCirculating} sub="Across all users" color="text-yellow-500" />
+        </div>
+      </section>
+
+      {/* Accounts */}
+      <section>
+        <h3 className="text-base font-bold mb-4 flex items-center gap-2"><Package className="h-4 w-4 text-primary" /> Accounts</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard icon={<Package className="h-5 w-5" />} label="Total Accounts" value={data.accounts.total} sub="All submissions" />
+          {period !== "30d" && <StatCard icon={<Plus className="h-5 w-5" />} label={`New (${period})`} value={newAccounts ?? 0} sub={`Submitted in last ${period}`} color="text-emerald-500" />}
+          <StatCard icon={<Hourglass className="h-5 w-5" />} label="Pending Review" value={data.accounts.pending} sub="Awaiting approval" color="text-yellow-500" />
+          <StatCard icon={<Trash className="h-5 w-5" />} label="Removed/Dead" value={data.accounts.removed} sub="Marked unavailable" color="text-red-500" />
+          <StatCard icon={<Zap className="h-5 w-5" />} label="Total Claims" value={data.activity.totalClaims} sub="All-time claims" color="text-blue-500" />
+        </div>
+      </section>
+
+      {/* Reports */}
+      <section>
+        <h3 className="text-base font-bold mb-4 flex items-center gap-2"><Flag className="h-4 w-4 text-primary" /> Reports</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard icon={<Flag className="h-5 w-5" />} label="Total Reports" value={data.reports.total} sub="All-time submitted" />
+          <StatCard icon={<Flag className="h-5 w-5" />} label="Open Reports" value={data.reports.open} sub="Needs attention" color={data.reports.open > 0 ? "text-red-500" : "text-emerald-500"} />
+        </div>
+      </section>
+    </div>
+  );
+}
 
 // --- API helpers ---
 async function fetchAdminUsers() {
@@ -110,6 +194,7 @@ export default function Admin() {
   }
 
   const tabs = [
+    ...(user?.isAdmin ? [{ value: "dashboard", label: "Dashboard" }] : []),
     { value: "pending", label: "Pending Reviews" },
     { value: "users", label: "Users" },
     { value: "accounts", label: "Accounts" },
@@ -134,13 +219,14 @@ export default function Admin() {
           </div>
         </div>
 
-        <Tabs defaultValue="pending" className="w-full">
+        <Tabs defaultValue={user?.isAdmin ? "dashboard" : "pending"} className="w-full">
           <TabsList className="flex flex-wrap w-full mb-8 bg-card border border-border h-auto min-h-12 sm:flex-nowrap sm:overflow-x-auto sm:h-12">
             {tabs.map((t) => (
               <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
             ))}
           </TabsList>
 
+          {user?.isAdmin && <TabsContent value="dashboard"><DashboardTab /></TabsContent>}
           <TabsContent value="pending"><PendingReviewTab /></TabsContent>
           <TabsContent value="users"><UsersTab isAdmin={!!user?.isAdmin} /></TabsContent>
           <TabsContent value="accounts"><AccountsTab /></TabsContent>
