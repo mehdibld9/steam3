@@ -455,7 +455,7 @@ export default function Messages() {
                                 : "bg-muted text-foreground rounded-bl-sm"
                           }`}
                         >
-                          {isBotMsg ? (
+                          {isBotMsg || msg.content.includes('**') || msg.content.includes('\n') ? (
                             <p
                               className="whitespace-pre-wrap"
                               dangerouslySetInnerHTML={{ __html: renderBotMarkdown(msg.content) }}

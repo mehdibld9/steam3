@@ -6,7 +6,7 @@ import { useLocation, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { ShoppingBag, Star, ArrowLeft, MessageSquare, Package, PackageOpen, AlertCircle, CheckCircle, Coins, CreditCard } from "lucide-react";
+import { ShoppingBag, Star, ArrowLeft, MessageSquare, Package, AlertCircle, CheckCircle, Coins, CreditCard } from "lucide-react";
 
 // ── API helpers ──
 async function fetchProduct(id: number) {
@@ -287,27 +287,6 @@ export default function ProductDetail() {
             )}
           </div>
         </div>
-
-        {/* Delivered items (if user bought) */}
-        {user && product.deliveredUnits?.length > 0 && (
-          <div className="space-y-3 mb-8">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <PackageOpen className="h-5 w-5 text-green-600" />
-              Your Delivered Items
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {product.deliveredUnits.map((u: any, i: number) => (
-                <div key={u.id} className="bg-green-500/5 border border-green-500/20 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs font-bold bg-green-500/10 text-green-600 rounded px-2 py-0.5">Item {i + 1}</span>
-                    <span className="text-xs text-muted-foreground">{new Date(u.createdAt).toLocaleDateString()}</span>
-                  </div>
-                  <p className="text-sm font-mono break-all text-foreground">{u.content}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Reviews */}
         <div className="space-y-4">
