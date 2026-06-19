@@ -198,18 +198,20 @@ router.post("/:giveawayId/draw", requireAdmin, async (req, res) => {
   // Fetch giveaway to check autoApprove
   const [giveaway] = await db.select().from(giveawaysTable).where(eq(giveawaysTable.id, giveawayId)).limit(1);
 
-  // Draw only from approved entries; if autoApprove all entries are eligible
-  let query = db
+  // Draw only from approved, non-banned entries
+  const baseCondition = and(
+    eq(giveawayEntriesTable.giveawayId, giveawayId),
+    eq(usersTable.isBanned, false),
+  );
+  const entries = await db
     .select({ userId: giveawayEntriesTable.userId, username: usersTable.username })
     .from(giveawayEntriesTable)
-    .leftJoin(usersTable, eq(giveawayEntriesTable.userId, usersTable.id))
+    .innerJoin(usersTable, eq(giveawayEntriesTable.userId, usersTable.id))
     .where(
       giveaway?.autoApprove
-        ? eq(giveawayEntriesTable.giveawayId, giveawayId)
-        : and(eq(giveawayEntriesTable.giveawayId, giveawayId), eq(giveawayEntriesTable.isApproved, true))
+        ? baseCondition
+        : and(baseCondition, eq(giveawayEntriesTable.isApproved, true))
     );
-
-  const entries = await query;
 
   if (entries.length === 0) {
     res.status(400).json({ error: "No approved entries to draw from" });
