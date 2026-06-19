@@ -151,8 +151,8 @@ export default function ProductDetail() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Image */}
           <div className="aspect-square md:aspect-[4/3] bg-muted rounded-xl overflow-hidden flex items-center justify-center border border-border">
-            {product.imageUrl ? (
-              <img src={product.imageUrl} alt={product.title} className="w-full h-full object-cover" />
+            {(product.imageDetailUrl || product.imageUrl) ? (
+              <img src={product.imageDetailUrl || product.imageUrl} alt={product.title} className="w-full h-full object-cover" />
             ) : (
               <Package className="h-16 w-16 text-muted-foreground/30" />
             )}
@@ -180,8 +180,8 @@ export default function ProductDetail() {
 
             <p className="text-sm text-muted-foreground leading-relaxed">{product.description}</p>
 
-            {/* Payment mode toggle */}
-            {(product.priceUsd) && (
+            {/* Payment mode toggle — only shown when both modes are allowed */}
+            {product.priceUsd && (product.paymentMode === "both" || !product.paymentMode) && (
               <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border w-fit">
                 <button
                   onClick={() => setPayMode("points")}
@@ -212,7 +212,7 @@ export default function ProductDetail() {
                       Get Your Items (Go to Messages)
                     </Button>
                   </div>
-                ) : payMode === "money" && product.priceUsd ? (
+                ) : (payMode === "money" || product.paymentMode === "usd") && product.priceUsd ? (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-green-600">
                       <CreditCard className="h-5 w-5" />

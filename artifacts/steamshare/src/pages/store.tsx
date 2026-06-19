@@ -105,14 +105,14 @@ export default function Store() {
                     <img
                       src={p.imageUrl}
                       alt={p.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className={`w-full h-full object-cover transition-all duration-500 ${p.stock <= 0 ? "grayscale opacity-60" : "group-hover:scale-105"}`}
                     />
                   ) : (
                     <Package className="h-10 w-10 text-muted-foreground/30" />
                   )}
                   {p.stock <= 0 && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                      <span className="text-xs font-bold text-white/80 uppercase tracking-widest">Out of Stock</span>
+                    <div className="absolute bottom-0 inset-x-0 bg-black/50 py-1 text-center">
+                      <span className="text-[10px] font-bold text-white/80 uppercase tracking-widest">Out of Stock</span>
                     </div>
                   )}
                 </div>
@@ -120,10 +120,15 @@ export default function Store() {
                   <h3 className="font-semibold text-sm line-clamp-2 leading-snug">{p.title}</h3>
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-primary font-bold text-sm font-mono">{p.price} pts</span>
-                      {p.priceUsd && (
+                      {(p.paymentMode === "both" || p.paymentMode === "points" || !p.paymentMode) && (
+                        <span className="text-primary font-bold text-sm font-mono">{p.price} pts</span>
+                      )}
+                      {p.priceUsd && (p.paymentMode === "both" || p.paymentMode === "usd") && (
                         <span className="text-xs font-semibold text-green-600 bg-green-500/10 border border-green-500/20 rounded px-1.5 py-0.5">${p.priceUsd}</span>
                       )}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {p.stock > 0 ? `${p.stock} in stock` : <span className="text-red-400">Out of stock</span>}
                     </div>
                     <div className="flex items-center gap-1">
                       <StarRating rating={p.avgRating} size={11} />

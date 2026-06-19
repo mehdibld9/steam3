@@ -850,11 +850,11 @@ async function fetchAdminPurchases() {
   return res.json() as Promise<any[]>;
 }
 
-async function createProduct(title: string, description: string, imageUrl: string, price: number, priceUsd: string, buyUrl: string, stock: number, deliveryContents: string[]) {
+async function createProduct(title: string, description: string, imageUrl: string, imageDetailUrl: string, price: number, priceUsd: string, buyUrl: string, stock: number, paymentMode: string, deliveryContents: string[]) {
   const res = await fetch("/api/store/products", {
     method: "POST", credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, description, imageUrl, price, priceUsd: priceUsd || null, buyUrl: buyUrl || null, stock, deliveryContents }),
+    body: JSON.stringify({ title, description, imageUrl, imageDetailUrl: imageDetailUrl || null, price, priceUsd: priceUsd || null, buyUrl: buyUrl || null, stock, paymentMode, deliveryContents }),
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
   return res.json();
@@ -892,7 +892,7 @@ async function deleteProduct(id: number) {
   return res.json();
 }
 
-async function updateProduct(id: number, data: { title: string; description: string; imageUrl: string; price: number; priceUsd: string; buyUrl: string }) {
+async function updateProduct(id: number, data: { title: string; description: string; imageUrl: string; imageDetailUrl: string; price: number; priceUsd: string; buyUrl: string; paymentMode: string }) {
   const res = await fetch(`/api/store/products/${id}`, {
     method: "PATCH", credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -912,10 +912,12 @@ function StoreTab() {
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [imgUrl, setImgUrl] = useState("");
+  const [imgDetailUrl, setImgDetailUrl] = useState("");
   const [price, setPrice] = useState(100);
   const [priceUsd, setPriceUsd] = useState("");
   const [buyUrl, setBuyUrl] = useState("");
   const [stock, setStock] = useState(10);
+  const [paymentMode, setPaymentMode] = useState("both");
   const [deliveryContents, setDeliveryContents] = useState("");
   const [unitsTarget, setUnitsTarget] = useState<any>(null);
   const [unitsText, setUnitsText] = useState("");
@@ -924,9 +926,11 @@ function StoreTab() {
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [editImgUrl, setEditImgUrl] = useState("");
+  const [editImgDetailUrl, setEditImgDetailUrl] = useState("");
   const [editPrice, setEditPrice] = useState(100);
   const [editPriceUsd, setEditPriceUsd] = useState("");
   const [editBuyUrl, setEditBuyUrl] = useState("");
+  const [editPaymentMode, setEditPaymentMode] = useState("both");
 
   const { data: products = [], isLoading: productsLoading } = useQuery({ queryKey: ["admin-products"], queryFn: fetchAdminProducts });
   const { data: purchases = [], isLoading: purchasesLoading } = useQuery({ queryKey: ["admin-purchases"], queryFn: fetchAdminPurchases });
@@ -934,10 +938,10 @@ function StoreTab() {
   const createMutation = useMutation({
     mutationFn: () => {
       const contents = deliveryContents.split("\n").map(s => s.trim()).filter(Boolean);
-      return createProduct(title, desc, imgUrl, price, priceUsd, buyUrl, stock, contents);
+      return createProduct(title, desc, imgUrl, imgDetailUrl, price, priceUsd, buyUrl, stock, paymentMode, contents);
     },
     onSuccess: () => {
-      setTitle(""); setDesc(""); setImgUrl(""); setPrice(100); setPriceUsd(""); setBuyUrl(""); setStock(10); setDeliveryContents("");
+      setTitle(""); setDesc(""); setImgUrl(""); setImgDetailUrl(""); setPrice(100); setPriceUsd(""); setBuyUrl(""); setStock(10); setPaymentMode("both"); setDeliveryContents("");
       setCreateOpen(false);
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       toast({ title: "Product created" });
@@ -981,8 +985,8 @@ function StoreTab() {
 
   const editMutation = useMutation({
     mutationFn: () => updateProduct(editTarget.id, {
-      title: editTitle, description: editDesc, imageUrl: editImgUrl,
-      price: editPrice, priceUsd: editPriceUsd, buyUrl: editBuyUrl,
+      title: editTitle, description: editDesc, imageUrl: editImgUrl, imageDetailUrl: editImgDetailUrl,
+      price: editPrice, priceUsd: editPriceUsd, buyUrl: editBuyUrl, paymentMode: editPaymentMode,
     }),
     onSuccess: () => {
       setEditTarget(null);
@@ -1016,9 +1020,15 @@ function StoreTab() {
                   <label className="text-sm font-medium block mb-1">Description</label>
                   <textarea className="w-full min-h-[80px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" placeholder="Describe the product..." value={desc} onChange={(e) => setDesc(e.target.value)} />
                 </div>
-                <div>
-                  <label className="text-sm font-medium block mb-1">Image URL (optional)</label>
-                  <Input value={imgUrl} onChange={(e) => setImgUrl(e.target.value)} placeholder="https://..." />
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="text-sm font-medium block mb-1">Cover Image URL <span className="text-muted-foreground font-normal">(store grid)</span></label>
+                    <Input value={imgUrl} onChange={(e) => setImgUrl(e.target.value)} placeholder="https://... (portrait cover shown in grid)" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium block mb-1">Detail Image URL <span className="text-muted-foreground font-normal">(product page)</span></label>
+                    <Input value={imgDetailUrl} onChange={(e) => setImgDetailUrl(e.target.value)} placeholder="https://... (larger image on product page)" />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -1039,6 +1049,18 @@ function StoreTab() {
                     <label className="text-sm font-medium block mb-1">Buy URL (for $ button)</label>
                     <Input placeholder="https://..." value={buyUrl} onChange={(e) => setBuyUrl(e.target.value)} />
                   </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-2">Payment Methods</label>
+                  <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg p-1 border border-border w-fit">
+                    {(["both", "points", "usd"] as const).map((m) => (
+                      <button key={m} onClick={() => setPaymentMode(m)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${paymentMode === m ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                        {m === "both" ? "Both" : m === "points" ? "Points Only" : "USD Only"}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Controls which payment options buyers see.</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium block mb-1">Delivery Contents (one per line)</label>
@@ -1097,9 +1119,11 @@ function StoreTab() {
                           setEditTitle(p.title);
                           setEditDesc(p.description || "");
                           setEditImgUrl(p.imageUrl || "");
+                          setEditImgDetailUrl(p.imageDetailUrl || "");
                           setEditPrice(p.price);
                           setEditPriceUsd(p.priceUsd || "");
                           setEditBuyUrl(p.buyUrl || "");
+                          setEditPaymentMode(p.paymentMode || "both");
                         }}
                       >
                         <Pencil className="h-3 w-3" /> Edit
@@ -1200,9 +1224,15 @@ function StoreTab() {
               <label className="text-sm font-medium block mb-1">Description</label>
               <textarea className="w-full min-h-[80px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Describe the product..." />
             </div>
-            <div>
-              <label className="text-sm font-medium block mb-1">Image URL</label>
-              <Input value={editImgUrl} onChange={(e) => setEditImgUrl(e.target.value)} placeholder="https://..." />
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label className="text-sm font-medium block mb-1">Cover Image URL <span className="text-muted-foreground font-normal">(store grid)</span></label>
+                <Input value={editImgUrl} onChange={(e) => setEditImgUrl(e.target.value)} placeholder="https://..." />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">Detail Image URL <span className="text-muted-foreground font-normal">(product page)</span></label>
+                <Input value={editImgDetailUrl} onChange={(e) => setEditImgDetailUrl(e.target.value)} placeholder="https://..." />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -1217,6 +1247,17 @@ function StoreTab() {
             <div>
               <label className="text-sm font-medium block mb-1">Buy URL (for $ button)</label>
               <Input placeholder="https://..." value={editBuyUrl} onChange={(e) => setEditBuyUrl(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-2">Payment Methods</label>
+              <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg p-1 border border-border w-fit">
+                {(["both", "points", "usd"] as const).map((m) => (
+                  <button key={m} onClick={() => setEditPaymentMode(m)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${editPaymentMode === m ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                    {m === "both" ? "Both" : m === "points" ? "Points Only" : "USD Only"}
+                  </button>
+                ))}
+              </div>
             </div>
             <Button
               className="w-full"
