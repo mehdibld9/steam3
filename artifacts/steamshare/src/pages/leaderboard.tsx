@@ -29,7 +29,7 @@ export default function Leaderboard() {
     "text-amber-600 bg-amber-600/10 border-amber-600/20",
   ];
 
-  const meInTop10 = me && users?.some((u) => u.id === me.id);
+  const meInTop10 = me && users?.some((u) => Number(u.id) === Number((me as any).id));
   const showMyRow = me && myRank && !meInTop10;
 
   function UserRow({ user, index, highlight = false }: { user: any; index: number; highlight?: boolean }) {
