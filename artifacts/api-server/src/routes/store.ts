@@ -383,26 +383,18 @@ router.post("/products/:id/buy", requireAuth, async (req, res) => {
 
   const now = new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
 
-  const deliveredItems = availableUnits.map((u, i) => `▸ Item ${i + 1}
-  ${u.content}`).join("\n\n");
+  const deliveredItems = availableUnits.map((u, i) => `▸ Item ${i + 1}: \`${u.content}\``).join("\n");
 
-  const msgContent = `━━━━━━━━━━━━━━━━━━━━━━━━━━
-🛒  ORDER CONFIRMED
-━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const msgContent = `🛒 **Order Confirmed**
 
-📦  ${product.title}
-🔢  Quantity: ${qty}
-💰  Cost: ${totalPrice} pts
-🕒  ${now}
+📦 **${product.title}**
+🔢 Qty: ${qty}  ·  💰 ${totalPrice} pts
+🕒 ${now}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-YOUR ITEMS
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-
+**Your Items:**
 ${deliveredItems}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-Keep this message safe. If you have any issues please contact support.`;
+_Keep this message safe. Contact support if you have any issues._`;
 
   await db
     .insert(messagesTable)
