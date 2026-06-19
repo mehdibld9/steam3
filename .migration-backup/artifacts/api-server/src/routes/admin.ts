@@ -268,4 +268,69 @@ router.delete("/comments/:commentId", requireModOrAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Admin Dashboard stats
+router.get("/dashboard", requireAdmin, async (_req, res) => {
+  const now = new Date();
+  const ago24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const ago7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const ago30d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const [
+    [{ total: totalUsers }],
+    [{ total: newUsers24h }],
+    [{ total: newUsers7d }],
+    [{ total: newUsers30d }],
+    [{ total: bannedUsers }],
+    [{ total: totalAccounts }],
+    [{ total: newAccounts24h }],
+    [{ total: newAccounts7d }],
+    [{ total: removedAccounts }],
+    [{ total: pendingAccounts }],
+    [{ total: totalReports }],
+    [{ total: openReports }],
+    [{ total: totalClaims }],
+    [{ total: totalPoints }],
+  ] = await Promise.all([
+    db.select({ total: sql<number>`count(*)` }).from(usersTable),
+    db.select({ total: sql<number>`count(*)` }).from(usersTable).where(sql`${usersTable.createdAt} >= ${ago24h}`),
+    db.select({ total: sql<number>`count(*)` }).from(usersTable).where(sql`${usersTable.createdAt} >= ${ago7d}`),
+    db.select({ total: sql<number>`count(*)` }).from(usersTable).where(sql`${usersTable.createdAt} >= ${ago30d}`),
+    db.select({ total: sql<number>`count(*)` }).from(usersTable).where(eq(usersTable.isBanned, true)),
+    db.select({ total: sql<number>`count(*)` }).from(accountsTable),
+    db.select({ total: sql<number>`count(*)` }).from(accountsTable).where(sql`${accountsTable.createdAt} >= ${ago24h}`),
+    db.select({ total: sql<number>`count(*)` }).from(accountsTable).where(sql`${accountsTable.createdAt} >= ${ago7d}`),
+    db.select({ total: sql<number>`count(*)` }).from(accountsTable).where(eq(accountsTable.isAvailable, false)),
+    db.select({ total: sql<number>`count(*)` }).from(accountsTable).where(eq(accountsTable.status, "pending")),
+    db.select({ total: sql<number>`count(*)` }).from(reportsTable),
+    db.select({ total: sql<number>`count(*)` }).from(reportsTable).where(eq(reportsTable.isDismissed, false)),
+    db.select({ total: sql<number>`coalesce(sum(${accountsTable.claimsCount}), 0)` }).from(accountsTable),
+    db.select({ total: sql<number>`coalesce(sum(${usersTable.points}), 0)` }).from(usersTable),
+  ]);
+
+  res.json({
+    users: {
+      total: Number(totalUsers),
+      new24h: Number(newUsers24h),
+      new7d: Number(newUsers7d),
+      new30d: Number(newUsers30d),
+      banned: Number(bannedUsers),
+    },
+    accounts: {
+      total: Number(totalAccounts),
+      new24h: Number(newAccounts24h),
+      new7d: Number(newAccounts7d),
+      removed: Number(removedAccounts),
+      pending: Number(pendingAccounts),
+    },
+    reports: {
+      total: Number(totalReports),
+      open: Number(openReports),
+    },
+    activity: {
+      totalClaims: Number(totalClaims),
+      pointsCirculating: Number(totalPoints),
+    },
+  });
+});
+
 export default router;

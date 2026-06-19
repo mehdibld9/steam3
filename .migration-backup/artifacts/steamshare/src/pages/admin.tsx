@@ -18,10 +18,94 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
-import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap, ArrowLeft } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap, ArrowLeft, Users, LayoutDashboard } from "lucide-react";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { Link } from "wouter";
+
+// --- Dashboard ---
+async function fetchDashboard() {
+  const res = await fetch("/api/admin/dashboard", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed");
+  return res.json() as Promise<{
+    users: { total: number; new24h: number; new7d: number; new30d: number; banned: number };
+    accounts: { total: number; new24h: number; new7d: number; removed: number; pending: number };
+    reports: { total: number; open: number };
+    activity: { totalClaims: number; pointsCirculating: number };
+  }>;
+}
+
+function DashboardTab() {
+  const { data, isLoading } = useQuery({ queryKey: ["admin-dashboard"], queryFn: fetchDashboard, refetchInterval: 30000 });
+  const [period, setPeriod] = useState<"24h" | "7d" | "30d">("7d");
+
+  if (isLoading) return <div className="text-muted-foreground text-sm py-8 text-center">Loading dashboard...</div>;
+  if (!data) return <div className="text-muted-foreground text-sm py-8 text-center">No data</div>;
+
+  const newUsers = period === "24h" ? data.users.new24h : period === "7d" ? data.users.new7d : data.users.new30d;
+  const newAccounts = period === "24h" ? data.accounts.new24h : period === "7d" ? data.accounts.new7d : undefined;
+
+  const StatCard = ({ icon, label, value, sub, color = "text-primary" }: { icon: ReactNode; label: string; value: number | string; sub?: string; color?: string }) => (
+    <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-2">
+      <div className={`flex items-center justify-center w-10 h-10 rounded-xl bg-card border border-border mb-1 ${color}`}>
+        {icon}
+      </div>
+      <p className="text-2xl font-black text-foreground leading-none">{typeof value === "number" ? value.toLocaleString() : value}</p>
+      <p className="text-sm font-semibold text-foreground">{label}</p>
+      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+    </div>
+  );
+
+  return (
+    <div className="space-y-8">
+      {/* Period selector */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground font-medium mr-2">Period:</span>
+        {(["24h", "7d", "30d"] as const).map((p) => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={`px-4 py-1.5 rounded-full text-sm font-bold border transition-colors ${period === p ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}
+          >
+            Last {p}
+          </button>
+        ))}
+      </div>
+
+      {/* Users */}
+      <section>
+        <h3 className="text-base font-bold mb-4 flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Users</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard icon={<Users className="h-5 w-5" />} label="Total Members" value={data.users.total} sub="All registered users" />
+          <StatCard icon={<Plus className="h-5 w-5" />} label={`New (${period})`} value={newUsers} sub={`Joined in last ${period}`} color="text-emerald-500" />
+          <StatCard icon={<Ban className="h-5 w-5" />} label="Banned Users" value={data.users.banned} sub="Currently banned" color="text-red-500" />
+          <StatCard icon={<Coins className="h-5 w-5" />} label="Points Circulating" value={data.activity.pointsCirculating} sub="Across all users" color="text-yellow-500" />
+        </div>
+      </section>
+
+      {/* Accounts */}
+      <section>
+        <h3 className="text-base font-bold mb-4 flex items-center gap-2"><Package className="h-4 w-4 text-primary" /> Accounts</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard icon={<Package className="h-5 w-5" />} label="Total Accounts" value={data.accounts.total} sub="All submissions" />
+          {period !== "30d" && <StatCard icon={<Plus className="h-5 w-5" />} label={`New (${period})`} value={newAccounts ?? 0} sub={`Submitted in last ${period}`} color="text-emerald-500" />}
+          <StatCard icon={<Hourglass className="h-5 w-5" />} label="Pending Review" value={data.accounts.pending} sub="Awaiting approval" color="text-yellow-500" />
+          <StatCard icon={<Trash className="h-5 w-5" />} label="Removed/Dead" value={data.accounts.removed} sub="Marked unavailable" color="text-red-500" />
+          <StatCard icon={<Zap className="h-5 w-5" />} label="Total Claims" value={data.activity.totalClaims} sub="All-time claims" color="text-blue-500" />
+        </div>
+      </section>
+
+      {/* Reports */}
+      <section>
+        <h3 className="text-base font-bold mb-4 flex items-center gap-2"><Flag className="h-4 w-4 text-primary" /> Reports</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard icon={<Flag className="h-5 w-5" />} label="Total Reports" value={data.reports.total} sub="All-time submitted" />
+          <StatCard icon={<Flag className="h-5 w-5" />} label="Open Reports" value={data.reports.open} sub="Needs attention" color={data.reports.open > 0 ? "text-red-500" : "text-emerald-500"} />
+        </div>
+      </section>
+    </div>
+  );
+}
 
 // --- API helpers ---
 async function fetchAdminUsers() {
@@ -110,6 +194,7 @@ export default function Admin() {
   }
 
   const tabs = [
+    ...(user?.isAdmin ? [{ value: "dashboard", label: "Dashboard" }] : []),
     { value: "pending", label: "Pending Reviews" },
     { value: "users", label: "Users" },
     { value: "accounts", label: "Accounts" },
@@ -134,13 +219,14 @@ export default function Admin() {
           </div>
         </div>
 
-        <Tabs defaultValue="pending" className="w-full">
+        <Tabs defaultValue={user?.isAdmin ? "dashboard" : "pending"} className="w-full">
           <TabsList className="flex flex-wrap w-full mb-8 bg-card border border-border h-auto min-h-12 sm:flex-nowrap sm:overflow-x-auto sm:h-12">
             {tabs.map((t) => (
               <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
             ))}
           </TabsList>
 
+          {user?.isAdmin && <TabsContent value="dashboard"><DashboardTab /></TabsContent>}
           <TabsContent value="pending"><PendingReviewTab /></TabsContent>
           <TabsContent value="users"><UsersTab isAdmin={!!user?.isAdmin} /></TabsContent>
           <TabsContent value="accounts"><AccountsTab /></TabsContent>
@@ -1701,6 +1787,188 @@ function SiteSettingsTab() {
           </Button>
         </div>
       </div>
+
+      {/* Ads Management */}
+      <AdsManagerSection />
+    </div>
+  );
+}
+
+function AdsManagerSection() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [newPlacement, setNewPlacement] = useState<"home" | "browse">("home");
+
+  const { data: ads = [], isLoading: adsLoading } = useQuery({
+    queryKey: ["admin-ads"],
+    queryFn: async () => {
+      const res = await fetch("/api/site-settings/ads/all", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json() as Promise<any[]>;
+    },
+  });
+
+  const addAdMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/site-settings/ads", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ placement: newPlacement, imageUrl: newImageUrl, linkUrl: newLinkUrl }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      setNewImageUrl("");
+      setNewLinkUrl("");
+      queryClient.invalidateQueries({ queryKey: ["admin-ads"] });
+      queryClient.invalidateQueries({ queryKey: ["ads"] });
+      toast({ title: "Ad added" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const toggleAdMutation = useMutation({
+    mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
+      const res = await fetch(`/api/site-settings/ads/${id}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-ads"] });
+      queryClient.invalidateQueries({ queryKey: ["ads"] });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteAdMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/site-settings/ads/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-ads"] });
+      queryClient.invalidateQueries({ queryKey: ["ads"] });
+      toast({ title: "Ad deleted" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const homeAds = ads.filter((a: any) => a.placement === "home");
+  const browseAds = ads.filter((a: any) => a.placement === "browse");
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-6">
+      <div className="flex items-center gap-2 mb-2">
+        <ShoppingBag className="h-5 w-5 text-primary" />
+        <h3 className="font-bold text-foreground text-lg">Ad Placements</h3>
+      </div>
+      <p className="text-sm text-muted-foreground mb-5">
+        Add image ads (PNG, JPG, or GIF) to the Homepage or Browse page. Each ad links to a URL when clicked.
+      </p>
+
+      {/* Add new ad */}
+      <div className="space-y-3 mb-6 bg-muted/30 rounded-lg p-4 border border-border">
+        <p className="text-sm font-semibold text-foreground">Add New Ad</p>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Image URL (PNG / JPG / GIF)</label>
+            <Input
+              placeholder="https://example.com/ad.gif"
+              value={newImageUrl}
+              onChange={(e) => setNewImageUrl(e.target.value)}
+            />
+          </div>
+          <div className="w-32 shrink-0">
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Page</label>
+            <select
+              value={newPlacement}
+              onChange={(e) => setNewPlacement(e.target.value as "home" | "browse")}
+              className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="home">Homepage</option>
+              <option value="browse">Browse</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Destination URL</label>
+          <Input
+            placeholder="https://advertiser.com"
+            value={newLinkUrl}
+            onChange={(e) => setNewLinkUrl(e.target.value)}
+          />
+        </div>
+        {newImageUrl && (
+          <div className="rounded-lg overflow-hidden border border-border max-h-32">
+            <img src={newImageUrl} alt="Preview" className="w-full h-full object-cover" />
+          </div>
+        )}
+        <Button
+          className="w-full"
+          onClick={() => addAdMutation.mutate()}
+          disabled={addAdMutation.isPending || !newImageUrl.trim() || !newLinkUrl.trim()}
+        >
+          {addAdMutation.isPending ? "Adding..." : "Add Ad"}
+        </Button>
+      </div>
+
+      {/* Existing ads grouped by placement */}
+      {adsLoading ? (
+        <div className="text-sm text-muted-foreground py-4 text-center">Loading ads...</div>
+      ) : ads.length === 0 ? (
+        <div className="text-sm text-muted-foreground py-4 text-center border border-dashed border-border rounded-lg">
+          No ads yet. Add one above.
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {[{ label: "Homepage", key: "home", list: homeAds }, { label: "Browse Page", key: "browse", list: browseAds }].map(({ label, list }) => (
+            list.length > 0 && (
+              <div key={label}>
+                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-3">{label}</p>
+                <div className="space-y-3">
+                  {list.map((ad: any) => (
+                    <div key={ad.id} className="flex items-center gap-3 bg-muted/20 border border-border rounded-lg p-3">
+                      <a href={ad.linkUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                        <img src={ad.imageUrl} alt="Ad" className="h-14 w-24 object-cover rounded-md border border-border" />
+                      </a>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground truncate">{ad.imageUrl}</p>
+                        <a href={ad.linkUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate block">
+                          {ad.linkUrl}
+                        </a>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => toggleAdMutation.mutate({ id: ad.id, active: !ad.active })}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${ad.active ? "bg-primary" : "bg-muted border border-border"}`}
+                        >
+                          <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${ad.active ? "translate-x-5" : "translate-x-1"}`} />
+                        </button>
+                        <button
+                          onClick={() => deleteAdMutation.mutate(ad.id)}
+                          className="text-destructive hover:text-destructive/80 transition-colors p-1"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          ))}
+        </div>
+      )}
     </div>
   );
 }

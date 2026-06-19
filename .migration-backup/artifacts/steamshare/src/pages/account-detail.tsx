@@ -29,7 +29,7 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import {
   Heart, Coins, MessageSquare, Trash, Lock,
   Copy, CheckCheck, ChevronDown, ChevronUp,
-  ThumbsUp, ThumbsDown, Flag, Edit2, Check, X, MessageCircle, Eye, ArrowLeft,
+  Flag, Edit2, Check, X, MessageCircle, Eye, ArrowLeft, Star,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -81,16 +81,6 @@ function renderAccountDescription(text: string): string {
     .replace(/`(.+?)`/g, '<code class="bg-muted rounded px-0.5 font-mono text-xs">$1</code>')
     .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="underline text-primary">$1</a>')
     .replace(/\n/g, "<br/>");
-}
-
-async function submitVote(accountId: number, vote: "working" | "not_working") {
-  const res = await fetch(`/api/accounts/${accountId}/vote`, {
-    method: "POST", credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ vote }),
-  });
-  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed to vote"); }
-  return res.json();
 }
 
 async function submitReport(targetType: string, targetId: number, reason: string, details: string) {
@@ -150,12 +140,6 @@ export default function AccountDetail() {
   const unlikeComment = useUnlikeComment();
   const deleteComment = useDeleteComment();
   const deleteAccount = useDeleteAccount();
-
-  const voteMutation = useMutation({
-    mutationFn: ({ vote }: { vote: "working" | "not_working" }) => submitVote(id, vote),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(id) }),
-    onError: (e: any) => toast({ title: "Vote failed", description: e.message, variant: "destructive" }),
-  });
 
   const reportMutation = useMutation({
     mutationFn: () => submitReport("account", id, reportReason, reportDetails),
@@ -221,11 +205,13 @@ export default function AccountDetail() {
   const canManage = user && account && (user.id === account.userId || user.isAdmin || (user as any).isModerator);
   const { data: poster } = useGetUser(account?.userId ?? 0);
 
+  const viewCount = (account as any)?.viewCount ?? 0;
+
   if (accountLoading) return (
     <Layout>
-      <div className="container mx-auto px-4 py-8 max-w-5xl space-y-6">
-        <Skeleton className="h-48 w-full rounded-xl" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="container mx-auto px-4 py-8 max-w-5xl space-y-4">
+        <Skeleton className="h-40 w-full rounded-xl" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <Skeleton className="h-96 col-span-2 rounded-xl" />
           <Skeleton className="h-96 col-span-1 rounded-xl" />
         </div>
@@ -243,52 +229,30 @@ export default function AccountDetail() {
     </Layout>
   );
 
-  const totalVotes = (account.workingVotes ?? 0) + (account.notWorkingVotes ?? 0);
-  const workingPct = totalVotes > 0 ? Math.round(((account.workingVotes ?? 0) / totalVotes) * 100) : 0;
-  const viewCount = (account as any).viewCount ?? 0;
-
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl space-y-5">
+      <div className="container mx-auto px-4 py-4 md:py-8 max-w-5xl space-y-4">
 
-        {/* ── TOP BLOCK: Title + Description ── */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-56 h-56 bg-primary/10 rounded-full blur-3xl -mr-8 -mt-8 pointer-events-none" />
-          <div className="relative z-10 p-6 md:p-8 space-y-4">
+        {/* ── FORUM-STYLE HEADER ── */}
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-4 sm:px-6 pt-4 pb-3 space-y-3">
 
-            {/* Back button */}
+            {/* Back */}
             <button
               onClick={() => {
                 const prevPath = window.location.pathname;
                 window.history.back();
-                // If history.back() didn't change the URL (e.g. iframe), fallback to navigate
-                setTimeout(() => {
-                  if (window.location.pathname === prevPath) navigate("/browse");
-                }, 80);
+                setTimeout(() => { if (window.location.pathname === prevPath) navigate("/browse"); }, 80);
               }}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors group w-fit"
+              className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors group w-fit"
             >
-              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
-              Back
+              <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" /> Back
             </button>
 
-            {/* Badges row */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {account.pointsCost === 0
-                ? <Badge className="bg-green-600/20 text-green-600 border-green-600/30">Free</Badge>
-                : <Badge variant="outline" className="border-primary/50 text-primary bg-primary/10 flex items-center gap-1"><Coins className="h-3 w-3" /> {account.pointsCost} Points</Badge>
-              }
-              <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${account.isAvailable ? "bg-green-500/10 text-green-600 border-green-500/30" : "bg-muted/40 text-muted-foreground border-border"}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${account.isAvailable ? "bg-green-500" : "bg-muted-foreground"}`} />
-                {account.isAvailable ? "Available" : "Claimed"}
-              </div>
-              <span className="text-xs text-muted-foreground ml-auto">Posted {formatDistanceToNow(new Date(account.createdAt))} ago</span>
-            </div>
-
-            {/* Title + Description — or edit form */}
+            {/* Title */}
             {editing ? (
               <div className="space-y-3">
-                <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title" className="text-xl font-black" />
+                <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title" className="text-base font-black" />
                 <Textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Description" className="resize-none" rows={3} />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input value={editGames} onChange={(e) => setEditGames(e.target.value)} placeholder="Games (comma-separated)" />
@@ -300,43 +264,103 @@ export default function AccountDetail() {
                 </div>
               </div>
             ) : (
-              <>
-                <h1 className="text-2xl md:text-4xl font-black leading-tight">{account.title}</h1>
-                <p
-                  className="text-muted-foreground leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: renderAccountDescription(account.description) }}
-                />
-              </>
+              <h1 className="text-base sm:text-2xl md:text-3xl font-black leading-snug">{account.title}</h1>
+            )}
+
+            {/* Inline meta row — badge + views + comments + status */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap text-xs sm:text-sm text-muted-foreground">
+              {account.pointsCost === 0
+                ? <Badge className="bg-green-600/20 text-green-600 border-green-600/30 text-[10px] sm:text-xs">Free</Badge>
+                : <Badge variant="outline" className="border-primary/50 text-primary bg-primary/10 flex items-center gap-1 text-[10px] sm:text-xs"><Coins className="h-2.5 w-2.5" />{account.pointsCost} pts</Badge>
+              }
+              <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium border ${account.isAvailable ? "bg-green-500/10 text-green-600 border-green-500/30" : "bg-muted/40 text-muted-foreground border-border"}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${account.isAvailable ? "bg-green-500" : "bg-muted-foreground"}`} />
+                {account.isAvailable ? "Available" : "Claimed"}
+              </div>
+              <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{viewCount.toLocaleString()}</span>
+              <span className="flex items-center gap-1"><MessageSquare className="h-3.5 w-3.5" />{comments?.length ?? 0}</span>
+              <span className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{account.likesCount}</span>
+              <span className="ml-auto text-[10px] sm:text-xs">{formatDistanceToNow(new Date(account.createdAt))} ago</span>
+            </div>
+          </div>
+
+          {/* Poster info bar — forum style */}
+          <div className="border-t border-border px-4 sm:px-6 py-3 flex items-center gap-3">
+            <Link href={`/profile/${account.userId}`}>
+              <Avatar className="h-9 w-9 sm:h-10 sm:w-10 border border-border hover:border-primary transition-colors shrink-0">
+                <AvatarImage src={poster?.avatarUrl || undefined} />
+                <AvatarFallback className="text-xs">{(account.posterUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
+              </Avatar>
+            </Link>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Link href={`/profile/${account.userId}`} className="font-bold text-sm sm:text-base hover:text-primary transition-colors truncate">
+                  {account.posterUsername}
+                </Link>
+                {poster?.badgeName && (
+                  <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] px-1.5 py-0 flex items-center gap-0.5 shrink-0">
+                    <Star className="h-2.5 w-2.5" />{poster.badgeName}
+                  </Badge>
+                )}
+                {poster && (
+                  <span className="text-xs text-muted-foreground">
+                    Lv.{poster.level}
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                Member for {formatDistanceToNow(new Date(poster?.createdAt ?? account.createdAt))}
+              </p>
+            </div>
+
+            {/* Message button */}
+            {user && user.id !== account.userId && (
+              <Link href={`/messages?user=${account.userId}&username=${encodeURIComponent(account.posterUsername ?? "")}`}>
+                <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5 text-xs shrink-0">
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Message</span>
+                </Button>
+              </Link>
             )}
           </div>
+
+          {/* Description */}
+          {!editing && account.description && (
+            <div className="border-t border-border px-4 sm:px-6 py-3">
+              <p
+                className="text-xs sm:text-sm text-muted-foreground leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: renderAccountDescription(account.description) }}
+              />
+            </div>
+          )}
         </div>
 
-        {/* ── TWO-COLUMN: Main content + Sidebar ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* ── TWO-COLUMN: Main + Sidebar ── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
 
-          {/* ── LEFT: Credentials + Rating + Comments ── */}
-          <div className="col-span-1 md:col-span-2 space-y-5">
+          {/* ── LEFT: Credentials + Comments ── */}
+          <div className="col-span-1 md:col-span-2 space-y-4 sm:space-y-5">
 
             {/* Credentials panel */}
             <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <div className="flex items-center gap-2 px-5 py-3 border-b border-border bg-muted/20">
-                <Lock className="h-4 w-4 text-muted-foreground" />
-                <span className="font-bold text-sm">STEAM Account Information</span>
+              <div className="flex items-center gap-2 px-4 sm:px-5 py-3 border-b border-border bg-muted/20">
+                <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="font-bold text-xs sm:text-sm">STEAM Account Information</span>
               </div>
-              <div className="p-5">
+              <div className="p-4 sm:p-5">
                 {claimResult ? (
                   <div className="space-y-3">
                     <CopyField label="Account" value={claimResult.username} />
                     <CopyField label="Password" value={claimResult.password} />
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center gap-4 py-6 text-center">
-                    <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20">
-                      <Lock className="h-7 w-7 text-primary" />
+                  <div className="flex flex-col items-center gap-3 py-5 text-center">
+                    <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20">
+                      <Lock className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                      <p className="font-bold text-base mb-1">View account credentials</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="font-bold text-sm sm:text-base mb-1">View account credentials</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         {account.pointsCost === 0 ? "Claim this account for free to reveal the Steam login." : `Spend ${account.pointsCost} points to reveal the Steam login.`}
                       </p>
                     </div>
@@ -349,7 +373,7 @@ export default function AccountDetail() {
                       );
                       if (gateBlocked) {
                         return (
-                          <Button disabled variant="outline" className="gap-2 font-bold w-full">
+                          <Button disabled variant="outline" className="gap-2 font-bold w-full text-xs sm:text-sm">
                             <Lock className="h-4 w-4" />
                             {method === "like" ? "Like to Unlock" : "Comment to Unlock"}
                           </Button>
@@ -358,38 +382,32 @@ export default function AccountDetail() {
                       if (account.isAvailable) {
                         return (
                           <>
-                            <Button className="gap-2 font-bold" onClick={handleClaim} disabled={claimAccount.isPending}>
+                            <Button className="gap-2 font-bold text-xs sm:text-sm" onClick={handleClaim} disabled={claimAccount.isPending}>
                               {claimAccount.isPending ? "Claiming..." : account.pointsCost === 0 ? "Claim for Free" : `Claim for ${account.pointsCost} pts`}
                             </Button>
                             {claimError && <p className="text-sm text-red-500 mt-1">{claimError}</p>}
                           </>
                         );
                       }
-                      return <Button disabled>Currently Unavailable</Button>;
+                      return <Button disabled className="text-xs sm:text-sm">Currently Unavailable</Button>;
                     })()}
                   </div>
                 )}
 
-                <div className="mt-4 space-y-2">
-                  <CollapsibleSection title="Games List" items={account.games} />
-                </div>
-
-                {/* Unlock gate hint */}
+                {/* Unlock gate hints */}
                 {(() => {
                   const method = (account as any).unlockMethod ?? "login";
-                  const hasLiked = account.userHasLiked;
-                  const hasCommented = (account as any).userHasCommented;
-                  if (method === "like" && !hasLiked && user && user.id !== account.userId) {
+                  if (method === "like" && !account.userHasLiked && user && user.id !== account.userId) {
                     return (
-                      <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-center space-y-1">
+                      <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs sm:text-sm text-center space-y-1">
                         <p className="font-medium text-primary">Like this post to unlock credentials</p>
                         <p className="text-xs text-muted-foreground">The author requires a like before you can claim.</p>
                       </div>
                     );
                   }
-                  if (method === "comment" && !hasCommented && user && user.id !== account.userId) {
+                  if (method === "comment" && !(account as any).userHasCommented && user && user.id !== account.userId) {
                     return (
-                      <div className="mt-3 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 text-sm text-center space-y-1">
+                      <div className="mt-3 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 text-xs sm:text-sm text-center space-y-1">
                         <p className="font-medium text-amber-600">Leave a comment to unlock credentials</p>
                         <p className="text-xs text-muted-foreground">The author requires a comment before you can claim.</p>
                       </div>
@@ -398,93 +416,59 @@ export default function AccountDetail() {
                   return null;
                 })()}
 
-                {/* Community Rating */}
-                <div className="mt-4 border-t border-border pt-4 space-y-3">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Community Rating</p>
-                  <div className="flex gap-3">
-                    <Button
-                      size="sm"
-                      variant={(account as any).myVote === "working" ? "default" : "outline"}
-                      onClick={() => user ? voteMutation.mutate({ vote: "working" }) : null}
-                      disabled={!user || voteMutation.isPending}
-                      className={`flex-1 gap-2 ${(account as any).myVote === "working" ? "bg-green-600 hover:bg-green-700 border-green-600" : "border-green-600/30 text-green-600 hover:bg-green-600/10"}`}
-                    >
-                      <ThumbsUp className="h-4 w-4" /> Working
-                      <span className="ml-auto text-xs font-mono">{account.workingVotes ?? 0}</span>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={(account as any).myVote === "not_working" ? "default" : "outline"}
-                      onClick={() => user ? voteMutation.mutate({ vote: "not_working" }) : null}
-                      disabled={!user || voteMutation.isPending}
-                      className={`flex-1 gap-2 ${(account as any).myVote === "not_working" ? "bg-red-600 hover:bg-red-700 border-red-600" : "border-red-500/30 text-red-500 hover:bg-red-500/10"}`}
-                    >
-                      <ThumbsDown className="h-4 w-4" /> Not Working
-                      <span className="ml-auto text-xs font-mono">{account.notWorkingVotes ?? 0}</span>
-                    </Button>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <Button
-                      size="sm"
-                      variant={account.userHasLiked ? "default" : "outline"}
-                      onClick={() => { if (!user) { setLikeError("Log in to like."); return; } handleLike(); }}
-                      disabled={likeAccount.isPending || unlikeAccount.isPending}
-                      className={`flex-1 gap-2 ${account.userHasLiked ? "bg-primary hover:bg-primary/90 border-primary" : "border-primary/30 text-primary hover:bg-primary/10"}`}
-                    >
-                      <Heart className={`h-4 w-4 ${account.userHasLiked ? "fill-white" : ""}`} />
-                      {account.userHasLiked ? "Liked" : "Like"}
-                      <span className="ml-auto text-xs font-mono">{account.likesCount}</span>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => { if (!user) return; setReportOpen(true); }}
-                      disabled={!user}
-                      className="flex-1 gap-2 border-red-500/30 text-red-500 hover:bg-red-500/10"
-                    >
-                      <Flag className="h-4 w-4" /> Report
-                    </Button>
-                  </div>
-
-                  {totalVotes > 0 && (
-                    <div className="space-y-1">
-                      <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full bg-green-500 transition-all" style={{ width: `${workingPct}%` }} />
-                      </div>
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{workingPct}% working</span>
-                        <span>{totalVotes} votes</span>
-                      </div>
-                    </div>
-                  )}
-                  {likeError && <p className="text-xs text-red-500">{likeError}</p>}
-                  {!user && <p className="text-xs text-muted-foreground">Log in to vote, like, or report.</p>}
+                <div className="mt-4 space-y-2">
+                  <CollapsibleSection title="Games List" items={account.games} />
                 </div>
+
+                {/* Like + Report */}
+                <div className="mt-4 border-t border-border pt-4 flex gap-3">
+                  <Button
+                    size="sm"
+                    variant={account.userHasLiked ? "default" : "outline"}
+                    onClick={() => { if (!user) { setLikeError("Log in to like."); return; } handleLike(); }}
+                    disabled={likeAccount.isPending || unlikeAccount.isPending}
+                    className={`flex-1 gap-2 text-xs sm:text-sm ${account.userHasLiked ? "bg-primary hover:bg-primary/90 border-primary" : "border-primary/30 text-primary hover:bg-primary/10"}`}
+                  >
+                    <Heart className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${account.userHasLiked ? "fill-white" : ""}`} />
+                    {account.userHasLiked ? "Liked" : "Like"}
+                    <span className="ml-auto font-mono">{account.likesCount}</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { if (!user) return; setReportOpen(true); }}
+                    disabled={!user}
+                    className="flex-1 gap-2 border-red-500/30 text-red-500 hover:bg-red-500/10 text-xs sm:text-sm"
+                  >
+                    <Flag className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Report
+                  </Button>
+                </div>
+                {likeError && <p className="text-xs text-red-500 mt-1">{likeError}</p>}
+                {!user && <p className="text-xs text-muted-foreground mt-2">Log in to like or report.</p>}
               </div>
             </div>
 
             {/* Comments */}
-            <div className="bg-card border border-border rounded-xl p-6">
-              <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-primary" /> Discussion ({comments?.length || 0})
+            <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
+              <h3 className="text-base sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 text-primary" /> Discussion ({comments?.length || 0})
               </h3>
 
-              <div className="flex gap-4 mb-8">
-                <Avatar className="h-10 w-10 shrink-0">
+              <div className="flex gap-3 sm:gap-4 mb-6 sm:mb-8">
+                <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0">
                   <AvatarImage src={user?.avatarUrl || undefined} />
-                  <AvatarFallback>{user?.username?.substring(0, 2).toUpperCase() || "?"}</AvatarFallback>
+                  <AvatarFallback className="text-xs">{user?.username?.substring(0, 2).toUpperCase() || "?"}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 space-y-2">
                   <Textarea
                     placeholder="Ask a question or leave a comment..."
-                    className="min-h-[80px] resize-none"
+                    className="min-h-[70px] sm:min-h-[80px] resize-none text-xs sm:text-sm"
                     value={commentContent}
                     onChange={(e) => setCommentContent(e.target.value)}
                   />
-                  {commentError && <p className="text-sm text-red-500">{commentError}</p>}
+                  {commentError && <p className="text-xs sm:text-sm text-red-500">{commentError}</p>}
                   <div className="flex justify-end">
-                    <Button onClick={async () => {
+                    <Button size="sm" className="text-xs sm:text-sm" onClick={async () => {
                       if (!user) { setCommentError("You must be logged in."); return; }
                       if (!commentContent.trim()) return;
                       try {
@@ -499,25 +483,25 @@ export default function AccountDetail() {
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-5 sm:space-y-6">
                 {commentsLoading ? (
-                  <div className="space-y-4"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>
+                  <div className="space-y-4"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
                 ) : comments?.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground italic">No comments yet.</div>
+                  <div className="text-center py-6 text-muted-foreground italic text-sm">No comments yet.</div>
                 ) : (
                   comments?.map((comment) => (
-                    <div key={comment.id} className="flex gap-4 group">
+                    <div key={comment.id} className="flex gap-3 sm:gap-4 group">
                       <Link href={`/profile/${comment.userId}`}>
-                        <Avatar className="h-10 w-10 shrink-0 cursor-pointer">
+                        <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 cursor-pointer">
                           <AvatarImage src={comment.avatarUrl || undefined} />
-                          <AvatarFallback>{(comment.username?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
+                          <AvatarFallback className="text-xs">{(comment.username?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                         </Avatar>
                       </Link>
                       <div className="flex-1">
                         <div className="flex justify-between items-start">
                           <div>
-                            <Link href={`/profile/${comment.userId}`} className="font-semibold hover:text-primary transition-colors">{comment.username}</Link>
-                            <span className="text-xs text-muted-foreground ml-2">{formatDistanceToNow(new Date(comment.createdAt))} ago</span>
+                            <Link href={`/profile/${comment.userId}`} className="font-semibold text-xs sm:text-sm hover:text-primary transition-colors">{comment.username}</Link>
+                            <span className="text-[10px] sm:text-xs text-muted-foreground ml-2">{formatDistanceToNow(new Date(comment.createdAt))} ago</span>
                           </div>
                           {(user?.id === comment.userId || user?.isAdmin || (user as any)?.isModerator) && (
                             <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
@@ -526,7 +510,7 @@ export default function AccountDetail() {
                             </Button>
                           )}
                         </div>
-                        <p className="mt-1 text-sm">{comment.content}</p>
+                        <p className="mt-1 text-xs sm:text-sm">{comment.content}</p>
                         <div className="mt-2 flex items-center gap-2">
                           <Button variant="ghost" size="sm" className={`h-6 px-2 text-xs flex gap-1 ${comment.userHasLiked ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
                             onClick={async () => {
@@ -553,99 +537,65 @@ export default function AccountDetail() {
             </div>
           </div>
 
-          {/* ── RIGHT SIDEBAR: Poster info + Stats + Actions ── */}
+          {/* ── RIGHT SIDEBAR ── */}
           <div className="space-y-4">
 
-            {/* Poster card */}
-            <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Posted by</p>
+            {/* Poster stats card — desktop only stats */}
+            <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
+              <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">Posted by</p>
 
               <Link href={`/profile/${account.userId}`} className="flex items-center gap-3 group">
-                <Avatar className="h-12 w-12 border border-border group-hover:border-primary transition-colors">
+                <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border border-border group-hover:border-primary transition-colors">
                   <AvatarImage src={poster?.avatarUrl || undefined} />
-                  <AvatarFallback>{(account.posterUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
+                  <AvatarFallback className="text-xs">{(account.posterUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-bold group-hover:text-primary transition-colors">{account.posterUsername}</p>
+                  <p className="font-bold text-sm sm:text-base group-hover:text-primary transition-colors">{account.posterUsername}</p>
                   {poster?.badgeName && (
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary mt-0.5">{poster.badgeName}</Badge>
                   )}
                 </div>
               </Link>
 
+              {/* Stats — DESKTOP ONLY */}
               {poster && (
-                <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="hidden md:grid grid-cols-3 gap-2 text-center">
                   <div className="bg-muted/30 rounded-lg p-2">
-                    <p className="text-xs text-muted-foreground">Level</p>
+                    <p className="text-[10px] text-muted-foreground">Level</p>
                     <p className="font-bold text-sm">{poster.level}</p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-2">
-                    <p className="text-xs text-muted-foreground">Points</p>
-                    <p className="font-bold text-sm">{poster.points.toLocaleString()}</p>
+                    <p className="text-[10px] text-muted-foreground">Likes</p>
+                    <p className="font-bold text-sm">{(poster as any).totalLikes ?? "—"}</p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-2">
-                    <p className="text-xs text-muted-foreground">XP</p>
-                    <p className="font-bold text-sm">{poster.xp.toLocaleString()}</p>
+                    <p className="text-[10px] text-muted-foreground">Posts</p>
+                    <p className="font-bold text-sm">{(poster as any).totalAccounts ?? "—"}</p>
                   </div>
                 </div>
               )}
 
               {user && user.id !== account.userId && (
                 <Link href={`/messages?user=${account.userId}&username=${encodeURIComponent(account.posterUsername ?? "")}`}>
-                  <Button variant="outline" className="w-full gap-2">
-                    <MessageCircle className="h-4 w-4" /> Message {account.posterUsername}
+                  <Button variant="outline" className="w-full gap-2 text-xs sm:text-sm">
+                    <MessageCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Message {account.posterUsername}
                   </Button>
                 </Link>
               )}
             </div>
 
-            {/* Stats card */}
-            <div className="bg-card border border-border rounded-xl p-5 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Listing Stats</p>
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-muted-foreground"><Eye className="h-4 w-4" /> Views</span>
-                  <span className="font-semibold">{viewCount.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-muted-foreground"><Heart className="h-4 w-4" /> Likes</span>
-                  <span className="font-semibold">{account.likesCount}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-muted-foreground"><MessageSquare className="h-4 w-4" /> Comments</span>
-                  <span className="font-semibold">{comments?.length ?? 0}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-muted-foreground"><Coins className="h-4 w-4" /> Claims</span>
-                  <span className="font-semibold">{account.claimsCount}</span>
-                </div>
-                {totalVotes > 0 && (
-                  <div className="pt-1 space-y-1.5">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><ThumbsUp className="h-3 w-3 text-green-500" /> Working</span>
-                      <span className="font-medium text-green-600">{workingPct}%</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-green-500 transition-all" style={{ width: `${workingPct}%` }} />
-                    </div>
-                    <p className="text-xs text-muted-foreground text-right">{totalVotes} votes total</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
             {/* Owner/Admin actions */}
             {canManage && (
-              <div className="bg-card border border-border rounded-xl p-5 space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Manage Listing</p>
+              <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-3">
+                <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">Manage Listing</p>
                 <div className="flex flex-col gap-2">
                   {user.id === account.userId && (
-                    <Button variant="outline" onClick={startEdit} className="w-full gap-2">
-                      <Edit2 className="h-4 w-4" /> Edit Listing
+                    <Button variant="outline" onClick={startEdit} className="w-full gap-2 text-xs sm:text-sm">
+                      <Edit2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Edit Listing
                     </Button>
                   )}
-                  <Button variant="destructive" onClick={handleDelete} className="w-full gap-2">
-                    <Trash className="h-4 w-4" /> Delete Listing
+                  <Button variant="destructive" onClick={handleDelete} className="w-full gap-2 text-xs sm:text-sm">
+                    <Trash className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Delete Listing
                   </Button>
                 </div>
               </div>

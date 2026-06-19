@@ -5,6 +5,18 @@ import { eq, desc, sql, ne } from "drizzle-orm";
 
 const router = express.Router();
 
+router.get("/leaderboard/rank", async (req, res) => {
+  const userId = req.session?.userId;
+  if (!userId) { res.status(401).json({ error: "Not authenticated" }); return; }
+  const [me] = await db.select({ xp: usersTable.xp }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (!me) { res.status(404).json({ error: "User not found" }); return; }
+  const [{ rank }] = await db
+    .select({ rank: sql<number>`count(*) + 1` })
+    .from(usersTable)
+    .where(sql`${usersTable.xp} > ${me.xp} AND ${usersTable.isBanned} = false AND ${usersTable.email} != 'adminbot@system.internal'`);
+  res.json({ rank: Number(rank), xp: me.xp });
+});
+
 router.get("/leaderboard", async (req, res) => {
   const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
 

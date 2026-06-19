@@ -231,6 +231,9 @@ export default function Submit() {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" autoComplete="off">
+                {/* Hidden dummy fields to prevent browser save-password prompt */}
+                <input type="text" name="fakeusernameremembered" autoComplete="username" style={{ display: "none" }} aria-hidden="true" readOnly />
+                <input type="password" name="fakepasswordremembered" autoComplete="new-password" style={{ display: "none" }} aria-hidden="true" readOnly />
                 {submitError && (
                   <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-500 flex items-center gap-2">
                     <XCircle className="h-4 w-4 flex-shrink-0" />

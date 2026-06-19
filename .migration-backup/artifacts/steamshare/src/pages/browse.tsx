@@ -1,5 +1,6 @@
 import { Layout } from "@/components/layout";
 import { AccountCard } from "@/components/account-card";
+import { AdBanner } from "@/components/ad-banner";
 import { useListAccounts, useListGames } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -182,6 +183,8 @@ export default function Browse() {
               {filteredAccounts?.length || 0} results
             </span>
           </div>
+
+          <AdBanner placement="browse" />
 
           {accountsLoading ? (
             <div className="flex flex-col gap-3">

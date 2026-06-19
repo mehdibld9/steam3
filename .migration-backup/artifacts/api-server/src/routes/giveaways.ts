@@ -23,7 +23,7 @@ router.get("/", async (req, res) => {
 });
 
 router.post("/", requireAdmin, async (req, res) => {
-  const { title, description, prize, taskDescription, taskLink, taskCode, maxEntries, endDate } = req.body;
+  const { title, description, prize, taskDescription, taskLink, taskCode, maxEntries, endDate, autoApprove } = req.body;
   if (!title || !description || !prize || !taskDescription || !endDate) {
     res.status(400).json({ error: "Missing required fields" });
     return;
@@ -41,6 +41,7 @@ router.post("/", requireAdmin, async (req, res) => {
       taskCode: taskCode ?? null,
       maxEntries: maxEntries ?? 100,
       endDate: new Date(endDate),
+      autoApprove: !!autoApprove,
     })
     .returning();
 
@@ -101,8 +102,11 @@ router.post("/:giveawayId/enter", requireAuth, async (req, res) => {
   }
 
   // Code verification
+  const codeProvided = code && code.trim();
+  const codeCorrect = codeProvided && giveaway.taskCode && codeProvided === giveaway.taskCode.trim();
+
   if (giveaway.taskCode) {
-    if (!code || code.trim() !== giveaway.taskCode.trim()) {
+    if (!codeCorrect) {
       res.status(400).json({ error: "Incorrect code. Complete the task and enter the correct code." });
       return;
     }
@@ -116,18 +120,16 @@ router.post("/:giveawayId/enter", requireAuth, async (req, res) => {
     return;
   }
 
-  // IP deduplication: get IP and check if another older account from same IP already entered
+  // IP deduplication
   const ip = (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
 
   if (ip !== "unknown") {
-    // Find all users registered from this IP
     const sameIpUsers = await db
       .select({ id: usersTable.id, createdAt: usersTable.createdAt })
       .from(usersTable)
       .where(eq(usersTable.registrationIp, ip));
 
     if (sameIpUsers.length > 1) {
-      // Keep only the earliest registered user — if current user is not the earliest, reject
       const earliest = sameIpUsers.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0];
       if (earliest.id !== userId) {
         res.status(403).json({ error: "Only one entry per IP address is allowed. Your account is not the first registered from this IP." });
@@ -136,10 +138,20 @@ router.post("/:giveawayId/enter", requireAuth, async (req, res) => {
     }
   }
 
-  await db.insert(giveawayEntriesTable).values({ giveawayId, userId, taskProof: taskProof ?? null, ipAddress: ip });
+  // Auto-approve if: giveaway has autoApprove flag, OR if a code was correctly provided
+  const shouldAutoApprove = giveaway.autoApprove || (!!giveaway.taskCode && codeCorrect);
+
+  await db.insert(giveawayEntriesTable).values({
+    giveawayId,
+    userId,
+    taskProof: taskProof ?? null,
+    ipAddress: ip,
+    isApproved: shouldAutoApprove,
+    isRejected: false,
+  });
   await db.update(giveawaysTable).set({ entriesCount: sql`${giveawaysTable.entriesCount} + 1` }).where(eq(giveawaysTable.id, giveawayId));
 
-  res.json({ message: "Entered successfully" });
+  res.json({ message: "Entered successfully", autoApproved: shouldAutoApprove });
 });
 
 router.get("/:giveawayId/entries", requireAdmin, async (req, res) => {
@@ -151,6 +163,8 @@ router.get("/:giveawayId/entries", requireAdmin, async (req, res) => {
       userId: giveawayEntriesTable.userId,
       taskProof: giveawayEntriesTable.taskProof,
       ipAddress: giveawayEntriesTable.ipAddress,
+      isApproved: giveawayEntriesTable.isApproved,
+      isRejected: giveawayEntriesTable.isRejected,
       createdAt: giveawayEntriesTable.createdAt,
       username: usersTable.username,
     })
@@ -160,16 +174,47 @@ router.get("/:giveawayId/entries", requireAdmin, async (req, res) => {
   res.json(entries);
 });
 
+// Approve an entry
+router.patch("/:giveawayId/entries/:entryId/approve", requireAdmin, async (req, res) => {
+  const entryId = parseInt(req.params.entryId, 10);
+  await db.update(giveawayEntriesTable)
+    .set({ isApproved: true, isRejected: false })
+    .where(eq(giveawayEntriesTable.id, entryId));
+  res.json({ ok: true });
+});
+
+// Reject an entry
+router.patch("/:giveawayId/entries/:entryId/reject", requireAdmin, async (req, res) => {
+  const entryId = parseInt(req.params.entryId, 10);
+  await db.update(giveawayEntriesTable)
+    .set({ isApproved: false, isRejected: true })
+    .where(eq(giveawayEntriesTable.id, entryId));
+  res.json({ ok: true });
+});
+
 router.post("/:giveawayId/draw", requireAdmin, async (req, res) => {
   const giveawayId = parseInt(req.params.giveawayId, 10);
+
+  // Fetch giveaway to check autoApprove
+  const [giveaway] = await db.select().from(giveawaysTable).where(eq(giveawaysTable.id, giveawayId)).limit(1);
+
+  // Draw only from approved, non-banned entries
+  const baseCondition = and(
+    eq(giveawayEntriesTable.giveawayId, giveawayId),
+    eq(usersTable.isBanned, false),
+  );
   const entries = await db
     .select({ userId: giveawayEntriesTable.userId, username: usersTable.username })
     .from(giveawayEntriesTable)
-    .leftJoin(usersTable, eq(giveawayEntriesTable.userId, usersTable.id))
-    .where(eq(giveawayEntriesTable.giveawayId, giveawayId));
+    .innerJoin(usersTable, eq(giveawayEntriesTable.userId, usersTable.id))
+    .where(
+      giveaway?.autoApprove
+        ? baseCondition
+        : and(baseCondition, eq(giveawayEntriesTable.isApproved, true))
+    );
 
   if (entries.length === 0) {
-    res.status(400).json({ error: "No entries to draw from" });
+    res.status(400).json({ error: "No approved entries to draw from" });
     return;
   }
 

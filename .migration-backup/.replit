@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-24", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -21,7 +21,7 @@ timeoutMs = 20000
 
 [[ports]]
 localPort = 8080
-externalPort = 8080
+externalPort = 80
 
 [[ports]]
 localPort = 8081
@@ -29,9 +29,7 @@ externalPort = 8081
 
 [[ports]]
 localPort = 19720
-externalPort = 80
+externalPort = 3000
 
-[userenv]
-
-[userenv.shared]
-VITE_CLOUDFLARE_TURNSTILE_SITE_KEY = "0x4AAAAAADiqTUOPYSKew-Ku"
+[nix]
+channel = "stable-25_05"
