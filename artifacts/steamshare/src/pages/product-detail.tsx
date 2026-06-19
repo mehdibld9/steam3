@@ -148,9 +148,9 @@ export default function ProductDetail() {
         </div>
 
         {/* Product hero */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-6 mb-8">
           {/* Image */}
-          <div className="aspect-square md:aspect-auto md:h-[540px] bg-muted rounded-xl overflow-hidden flex items-center justify-center border border-border">
+          <div className="aspect-square md:aspect-[16/9] bg-muted rounded-xl overflow-hidden flex items-center justify-center border border-border">
             {(product.imageDetailUrl || product.imageUrl) ? (
               <img src={product.imageDetailUrl || product.imageUrl} alt={product.title} className="w-full h-full object-cover" />
             ) : (
@@ -216,7 +216,7 @@ export default function ProductDetail() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-green-600">
                       <CreditCard className="h-5 w-5" />
-                      <span className="font-semibold text-sm">Pay with real money</span>
+                      <span className="font-semibold text-sm">Pay with USD</span>
                     </div>
                     <div className="text-3xl font-bold text-green-600">${product.priceUsd}</div>
                     {product.buyUrl ? (
