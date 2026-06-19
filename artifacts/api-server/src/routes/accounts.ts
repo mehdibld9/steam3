@@ -231,11 +231,15 @@ router.get("/:accountId", async (req, res) => {
     return;
   }
 
-  // Increment view count (fire-and-forget)
-  db.update(accountsTable)
-    .set({ viewCount: sql`${accountsTable.viewCount} + 1` })
-    .where(eq(accountsTable.id, accountId))
-    .catch(() => {});
+  // Increment view count once per session (fire-and-forget)
+  const viewedKey = `viewed_${accountId}`;
+  if (!req.session[viewedKey]) {
+    req.session[viewedKey] = true;
+    db.update(accountsTable)
+      .set({ viewCount: sql`${accountsTable.viewCount} + 1` })
+      .where(eq(accountsTable.id, accountId))
+      .catch(() => {});
+  }
 
   let userHasLiked = false;
   let myVote: string | null = null;

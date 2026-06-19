@@ -108,7 +108,7 @@ export default function AccountDetail() {
   const id = parseInt(params.id || "0");
   const [, navigate] = useLocation();
   const { data: user } = useGetMe();
-  const { data: account, isLoading: accountLoading } = useGetAccount(id);
+  const { data: account, isLoading: accountLoading } = useGetAccount(id, { query: { refetchOnWindowFocus: false } });
   const { data: comments, isLoading: commentsLoading } = useListComments(id);
 
   const queryClient = useQueryClient();
@@ -566,7 +566,7 @@ export default function AccountDetail() {
                   </div>
                   <div className="bg-muted/30 rounded-lg p-2">
                     <p className="text-[10px] text-muted-foreground">Likes</p>
-                    <p className="font-bold text-sm">{(poster as any).totalLikes ?? "—"}</p>
+                    <p className="font-bold text-sm">{(poster as any).totalLikesReceived ?? 0}</p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-2">
                     <p className="text-[10px] text-muted-foreground">Posts</p>
