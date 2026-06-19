@@ -150,7 +150,7 @@ export default function ProductDetail() {
         {/* Product hero */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Image */}
-          <div className="aspect-square md:aspect-[4/3] bg-muted rounded-xl overflow-hidden flex items-center justify-center border border-border">
+          <div className="aspect-square md:aspect-auto md:h-[540px] bg-muted rounded-xl overflow-hidden flex items-center justify-center border border-border">
             {(product.imageDetailUrl || product.imageUrl) ? (
               <img src={product.imageDetailUrl || product.imageUrl} alt={product.title} className="w-full h-full object-cover" />
             ) : (
@@ -193,7 +193,7 @@ export default function ProductDetail() {
                   onClick={() => setPayMode("money")}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${payMode === "money" ? "bg-green-600 text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  <CreditCard className="h-3.5 w-3.5" /> Real Money
+                  <CreditCard className="h-3.5 w-3.5" /> USD
                 </button>
               </div>
             )}
