@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useState, type ReactNode } from "react";
-import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap, ArrowLeft, Users, LayoutDashboard } from "lucide-react";
+import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap, ArrowLeft, Users, LayoutDashboard, Pencil } from "lucide-react";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { Link } from "wouter";
 
@@ -892,6 +892,16 @@ async function deleteProduct(id: number) {
   return res.json();
 }
 
+async function updateProduct(id: number, data: { title: string; description: string; imageUrl: string; price: number; priceUsd: string; buyUrl: string }) {
+  const res = await fetch(`/api/store/products/${id}`, {
+    method: "PATCH", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+  return res.json();
+}
+
 function StoreTab() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -909,6 +919,14 @@ function StoreTab() {
   const [deliveryContents, setDeliveryContents] = useState("");
   const [unitsTarget, setUnitsTarget] = useState<any>(null);
   const [unitsText, setUnitsText] = useState("");
+
+  const [editTarget, setEditTarget] = useState<any>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editImgUrl, setEditImgUrl] = useState("");
+  const [editPrice, setEditPrice] = useState(100);
+  const [editPriceUsd, setEditPriceUsd] = useState("");
+  const [editBuyUrl, setEditBuyUrl] = useState("");
 
   const { data: products = [], isLoading: productsLoading } = useQuery({ queryKey: ["admin-products"], queryFn: fetchAdminProducts });
   const { data: purchases = [], isLoading: purchasesLoading } = useQuery({ queryKey: ["admin-purchases"], queryFn: fetchAdminPurchases });
@@ -957,6 +975,19 @@ function StoreTab() {
       setUnitsText("");
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       toast({ title: "Delivery units added" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const editMutation = useMutation({
+    mutationFn: () => updateProduct(editTarget.id, {
+      title: editTitle, description: editDesc, imageUrl: editImgUrl,
+      price: editPrice, priceUsd: editPriceUsd, buyUrl: editBuyUrl,
+    }),
+    onSuccess: () => {
+      setEditTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      toast({ title: "Product updated" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -1059,6 +1090,20 @@ function StoreTab() {
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setStockTarget(p); setStockAmount(10); }}>
                         + Stock
                       </Button>
+                      <Button
+                        size="sm" variant="outline" className="h-7 text-xs gap-1"
+                        onClick={() => {
+                          setEditTarget(p);
+                          setEditTitle(p.title);
+                          setEditDesc(p.description || "");
+                          setEditImgUrl(p.imageUrl || "");
+                          setEditPrice(p.price);
+                          setEditPriceUsd(p.priceUsd || "");
+                          setEditBuyUrl(p.buyUrl || "");
+                        }}
+                      >
+                        <Pencil className="h-3 w-3" /> Edit
+                      </Button>
                       <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this product?")) deleteMutation.mutate(p.id); }}>
                         <Trash className="h-4 w-4" />
                       </Button>
@@ -1137,6 +1182,48 @@ function StoreTab() {
             </div>
             <Button className="w-full" onClick={() => unitsMutation.mutate()} disabled={!unitsText.trim() || unitsMutation.isPending}>
               {unitsMutation.isPending ? "Adding..." : "Add Units"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Pencil className="h-4 w-4 text-primary" /> Edit Product</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="text-sm font-medium block mb-1">Title</label>
+              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Product title" />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">Description</label>
+              <textarea className="w-full min-h-[80px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Describe the product..." />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">Image URL</label>
+              <Input value={editImgUrl} onChange={(e) => setEditImgUrl(e.target.value)} placeholder="https://..." />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium block mb-1">Price (pts)</label>
+                <Input type="number" value={editPrice} onChange={(e) => setEditPrice(Number(e.target.value))} />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">USD Price (optional)</label>
+                <Input placeholder="e.g. 4.99" value={editPriceUsd} onChange={(e) => setEditPriceUsd(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">Buy URL (for $ button)</label>
+              <Input placeholder="https://..." value={editBuyUrl} onChange={(e) => setEditBuyUrl(e.target.value)} />
+            </div>
+            <Button
+              className="w-full"
+              disabled={!editTitle.trim() || !editDesc.trim() || editPrice <= 0 || editMutation.isPending}
+              onClick={() => editMutation.mutate()}
+            >
+              {editMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </DialogContent>

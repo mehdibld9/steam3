@@ -6,7 +6,7 @@ import { useLocation, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { ShoppingBag, Star, ArrowLeft, MessageSquare, Package, PackageOpen, AlertCircle, CheckCircle } from "lucide-react";
+import { ShoppingBag, Star, ArrowLeft, MessageSquare, Package, PackageOpen, AlertCircle, CheckCircle, Coins, CreditCard } from "lucide-react";
 
 // ── API helpers ──
 async function fetchProduct(id: number) {
@@ -84,6 +84,7 @@ export default function ProductDetail() {
   const [buyQty, setBuyQty] = useState(1);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
+  const [payMode, setPayMode] = useState<"points" | "money">("points");
 
   const buyMutation = useMutation({
     mutationFn: () => buyProduct(productId, buyQty),
@@ -179,6 +180,24 @@ export default function ProductDetail() {
 
             <p className="text-sm text-muted-foreground leading-relaxed">{product.description}</p>
 
+            {/* Payment mode toggle */}
+            {(product.priceUsd) && (
+              <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border w-fit">
+                <button
+                  onClick={() => setPayMode("points")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${payMode === "points" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  <Coins className="h-3.5 w-3.5" /> Points
+                </button>
+                <button
+                  onClick={() => setPayMode("money")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${payMode === "money" ? "bg-green-600 text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  <CreditCard className="h-3.5 w-3.5" /> Real Money
+                </button>
+              </div>
+            )}
+
             {/* Buy section */}
             {user ? (
               <div className="bg-muted/50 rounded-xl p-4 space-y-3 border border-border">
@@ -192,6 +211,26 @@ export default function ProductDetail() {
                       <MessageSquare className="h-4 w-4" />
                       Get Your Items (Go to Messages)
                     </Button>
+                  </div>
+                ) : payMode === "money" && product.priceUsd ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-green-600">
+                      <CreditCard className="h-5 w-5" />
+                      <span className="font-semibold text-sm">Pay with real money</span>
+                    </div>
+                    <div className="text-3xl font-bold text-green-600">${product.priceUsd}</div>
+                    {product.buyUrl ? (
+                      <a href={product.buyUrl} target="_blank" rel="noopener noreferrer" className="block w-full">
+                        <Button className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white">
+                          <CreditCard className="h-4 w-4" />
+                          Buy for ${product.priceUsd} USD
+                        </Button>
+                      </a>
+                    ) : (
+                      <Button className="w-full" disabled>
+                        ${product.priceUsd} USD — payment link coming soon
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -238,19 +277,6 @@ export default function ProductDetail() {
                     >
                       {buyMutation.isPending ? "Processing..." : `Buy for ${product.price * buyQty} pts`}
                     </Button>
-                    {product.priceUsd && (
-                      product.buyUrl ? (
-                        <a href={product.buyUrl} target="_blank" rel="noopener noreferrer" className="block w-full">
-                          <Button variant="outline" className="w-full gap-2 border-green-500/40 text-green-600 hover:bg-green-500/10">
-                            Buy for ${product.priceUsd} USD
-                          </Button>
-                        </a>
-                      ) : (
-                        <Button variant="outline" className="w-full gap-2 border-green-500/40 text-green-600 hover:bg-green-500/10" disabled>
-                          ${product.priceUsd} USD (link coming soon)
-                        </Button>
-                      )
-                    )}
                   </div>
                 )}
               </div>

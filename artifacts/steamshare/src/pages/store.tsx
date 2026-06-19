@@ -93,14 +93,14 @@ export default function Store() {
             <p className="text-muted-foreground">{search ? "No products match your search." : "No products available yet."}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {filtered.map((p) => (
               <div
                 key={p.id}
                 onClick={() => setLocation(`/store/${p.id}`)}
-                className="cursor-pointer bg-card border border-border rounded-xl overflow-hidden hover:border-primary/40 transition-all hover:shadow-sm group"
+                className="cursor-pointer bg-card border border-border rounded-xl overflow-hidden hover:border-primary/40 transition-all hover:shadow-md group flex flex-col"
               >
-                <div className="aspect-[4/3] bg-muted flex items-center justify-center overflow-hidden">
+                <div className="aspect-[3/4] bg-muted flex items-center justify-center overflow-hidden relative">
                   {p.imageUrl ? (
                     <img
                       src={p.imageUrl}
@@ -110,23 +110,27 @@ export default function Store() {
                   ) : (
                     <Package className="h-10 w-10 text-muted-foreground/30" />
                   )}
+                  {p.stock <= 0 && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                      <span className="text-xs font-bold text-white/80 uppercase tracking-widest">Out of Stock</span>
+                    </div>
+                  )}
                 </div>
-                <div className="p-4 space-y-2">
-                  <h3 className="font-semibold line-clamp-1">{p.title}</h3>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-primary font-bold font-mono">{p.price} pts</span>
-                    {p.priceUsd && (
-                      <span className="text-xs font-semibold text-green-600 bg-green-500/10 border border-green-500/20 rounded px-1.5 py-0.5">${p.priceUsd}</span>
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      {p.stock > 0 ? `${p.stock} in stock` : "Out of stock"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <StarRating rating={p.avgRating} size={12} />
-                    <span className="text-xs text-muted-foreground">
-                      {p.reviewsCount > 0 ? `${p.avgRating} (${p.reviewsCount})` : "No reviews"}
-                    </span>
+                <div className="p-3 space-y-1.5 flex-1 flex flex-col justify-between">
+                  <h3 className="font-semibold text-sm line-clamp-2 leading-snug">{p.title}</h3>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-primary font-bold text-sm font-mono">{p.price} pts</span>
+                      {p.priceUsd && (
+                        <span className="text-xs font-semibold text-green-600 bg-green-500/10 border border-green-500/20 rounded px-1.5 py-0.5">${p.priceUsd}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <StarRating rating={p.avgRating} size={11} />
+                      <span className="text-[11px] text-muted-foreground">
+                        {p.reviewsCount > 0 ? `(${p.reviewsCount})` : ""}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -207,6 +207,30 @@ router.get("/products/:id/units", requireAdmin, async (req, res) => {
   res.json(units);
 });
 
+// ── Update product (admin only) ──
+router.patch("/products/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { title, description, imageUrl, price, priceUsd, buyUrl, stock } = req.body;
+
+  const [product] = await db.select().from(productsTable).where(eq(productsTable.id, id)).limit(1);
+  if (!product) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  const updates: Record<string, any> = {};
+  if (title !== undefined) updates.title = title.trim();
+  if (description !== undefined) updates.description = description.trim();
+  if (imageUrl !== undefined) updates.imageUrl = imageUrl?.trim() || null;
+  if (price !== undefined) updates.price = Math.max(1, price);
+  if (priceUsd !== undefined) updates.priceUsd = priceUsd?.trim() || null;
+  if (buyUrl !== undefined) updates.buyUrl = buyUrl?.trim() || null;
+  if (stock !== undefined) updates.stock = Math.max(0, stock);
+
+  const [updated] = await db.update(productsTable).set(updates).where(eq(productsTable.id, id)).returning();
+  res.json(updated);
+});
+
 // ── Delete product (admin only) ──
 router.delete("/products/:id", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
