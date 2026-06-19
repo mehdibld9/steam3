@@ -277,7 +277,7 @@ export default function Submit() {
                       </FormControl>
                       {isVerifiedNotFamilyShare ? (
                         <FormDescription className="text-amber-500">
-                          🔒 Games are auto-filled from Steam and cannot be edited.
+                          Games are auto-filled from Steam and cannot be edited.
                         </FormDescription>
                       ) : isFamilyShare ? (
                         <FormDescription>
