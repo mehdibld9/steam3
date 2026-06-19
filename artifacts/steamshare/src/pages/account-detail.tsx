@@ -108,7 +108,7 @@ export default function AccountDetail() {
   const id = parseInt(params.id || "0");
   const [, navigate] = useLocation();
   const { data: user } = useGetMe();
-  const { data: account, isLoading: accountLoading } = useGetAccount(id, { query: { refetchOnWindowFocus: false } });
+  const { data: account, isLoading: accountLoading } = useGetAccount(id, { query: { queryKey: getGetAccountQueryKey(id), refetchOnWindowFocus: false } });
   const { data: comments, isLoading: commentsLoading } = useListComments(id);
 
   const queryClient = useQueryClient();
