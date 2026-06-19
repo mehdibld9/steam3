@@ -916,7 +916,7 @@ function StoreTab() {
   const [price, setPrice] = useState(100);
   const [priceUsd, setPriceUsd] = useState("");
   const [buyUrl, setBuyUrl] = useState("");
-  const [stock, setStock] = useState(10);
+  const [stock, setStock] = useState(0);
   const [paymentMode, setPaymentMode] = useState("both");
   const [deliveryContents, setDeliveryContents] = useState("");
   const [unitsTarget, setUnitsTarget] = useState<any>(null);
@@ -1064,8 +1064,12 @@ function StoreTab() {
                 </div>
                 <div>
                   <label className="text-sm font-medium block mb-1">Delivery Contents (one per line)</label>
-                  <textarea className="w-full min-h-[100px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" placeholder="e.g.&#10;ABC123-DEF456&#10;GHI789-JKL012" value={deliveryContents} onChange={(e) => setDeliveryContents(e.target.value)} />
-                  <p className="text-xs text-muted-foreground mt-1">Each line = 1 delivery unit. Stock auto-adjusted.</p>
+                  <textarea className="w-full min-h-[100px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" placeholder="e.g.&#10;ABC123-DEF456&#10;GHI789-JKL012" value={deliveryContents} onChange={(e) => {
+                    setDeliveryContents(e.target.value);
+                    const lines = e.target.value.split("\n").filter(l => l.trim()).length;
+                    setStock(lines);
+                  }} />
+                  <p className="text-xs text-muted-foreground mt-1">Each line = 1 delivery unit. Stock set automatically.</p>
                 </div>
                 <Button className="w-full" disabled={!title.trim() || !desc.trim() || price <= 0 || createMutation.isPending} onClick={() => createMutation.mutate()}>
                   {createMutation.isPending ? "Creating..." : "Create Product"}
