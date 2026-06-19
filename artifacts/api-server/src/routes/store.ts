@@ -385,11 +385,11 @@ router.post("/products/:id/buy", requireAuth, async (req, res) => {
 
   const deliveredItems = availableUnits.map((u, i) => `▸ Item ${i + 1}: \`${u.content}\``).join("\n");
 
-  const msgContent = `🛒 **Order Confirmed**
+  const msgContent = `**Order Confirmed**
 
-📦 **${product.title}**
-🔢 Qty: ${qty}  ·  💰 ${totalPrice} pts
-🕒 ${now}
+**${product.title}**
+Qty: ${qty}  ·  ${totalPrice} pts
+${now}
 
 **Your Items:**
 ${deliveredItems}
