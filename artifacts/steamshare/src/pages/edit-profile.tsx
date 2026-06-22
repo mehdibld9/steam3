@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Camera, Lock, Trash2, CheckCircle2, AlertTriangle, User, ArrowLeft, Crown, Palette } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Link } from "wouter";
+import { UserBadge, BADGE_OPTIONS } from "@/components/user-badge";
 
 const BAD_WORDS = [
   "nigger","nigga","faggot","retard","cunt","kike","spic","chink","tranny",
@@ -33,6 +34,7 @@ const BASIC_COLORS = [
   { hex: "#06b6d4", label: "Cyan" },
   { hex: "#ffffff", label: "White" },
   { hex: "#94a3b8", label: "Silver" },
+  { hex: "rainbow", label: "Rainbow (VIP)" },
 ];
 
 export default function EditProfile() {
@@ -345,20 +347,28 @@ export default function EditProfile() {
                 <Palette className="h-4 w-4" /> Name Color
               </label>
               <div className="flex flex-wrap gap-2">
-                {BASIC_COLORS.map((c) => (
-                  <button
-                    key={c.hex}
-                    title={c.label}
-                    onClick={() => handlePremiumPref({ nameColor: c.hex })}
-                    disabled={prefLoading}
-                    className="w-8 h-8 rounded-full border-2 transition-all hover:scale-110"
-                    style={{
-                      backgroundColor: c.hex,
-                      borderColor: premiumStatus?.nameColor === c.hex ? "#fff" : "transparent",
-                      boxShadow: premiumStatus?.nameColor === c.hex ? "0 0 0 2px rgba(255,255,255,0.5)" : undefined,
-                    }}
-                  />
-                ))}
+                {BASIC_COLORS.map((c) => {
+                  const isRainbow = c.hex === "rainbow";
+                  const isSelected = premiumStatus?.nameColor === c.hex;
+                  const isProRequired = isRainbow && !isPro;
+                  return (
+                    <button
+                      key={c.hex}
+                      title={isProRequired ? "Rainbow requires Pro" : c.label}
+                      onClick={() => !isProRequired && handlePremiumPref({ nameColor: c.hex })}
+                      disabled={prefLoading || isProRequired}
+                      className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${isProRequired ? "opacity-40 cursor-not-allowed" : ""} ${isRainbow ? "rainbow-swatch" : ""}`}
+                      style={isRainbow ? {
+                        borderColor: isSelected ? "#fff" : "transparent",
+                        boxShadow: isSelected ? "0 0 0 2px rgba(255,255,255,0.5)" : undefined,
+                      } : {
+                        backgroundColor: c.hex,
+                        borderColor: isSelected ? "#fff" : "transparent",
+                        boxShadow: isSelected ? "0 0 0 2px rgba(255,255,255,0.5)" : undefined,
+                      }}
+                    />
+                  );
+                })}
                 {premiumStatus?.nameColor && (
                   <button
                     onClick={() => handlePremiumPref({ nameColor: null })}
@@ -372,38 +382,48 @@ export default function EditProfile() {
               </div>
               {premiumStatus?.nameColor && (
                 <p className="text-xs text-muted-foreground">
-                  Preview: <span style={{ color: premiumStatus.nameColor }} className="font-semibold">{me.username}</span>
+                  Preview:{" "}
+                  {premiumStatus.nameColor === "rainbow" ? (
+                    <span className="rainbow-text font-semibold">{me.username}</span>
+                  ) : (
+                    <span style={{ color: premiumStatus.nameColor }} className="font-semibold">{me.username}</span>
+                  )}
                 </p>
+              )}
+              {!isPro && (
+                <p className="text-[10px] text-muted-foreground/70">🌈 Rainbow color requires <Link href="/premium" className="text-primary hover:underline">Pro subscription</Link>.</p>
               )}
             </div>
 
             {/* Badge */}
             <div className="space-y-3">
               <label className="text-sm font-medium">Badge</label>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handlePremiumPref({ badgeType: "gold" })}
-                  disabled={prefLoading}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm transition-all ${premiumStatus?.badgeType === "gold" ? "border-yellow-500 bg-yellow-500/10 text-yellow-300" : "border-border hover:border-yellow-500/50"}`}
-                >
-                  <img src="/badge-gold.png" className="w-6 h-6" alt="Gold" />
-                  Gold
-                </button>
-                {isPro && (
-                  <button
-                    onClick={() => handlePremiumPref({ badgeType: "vip" })}
-                    disabled={prefLoading}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm transition-all ${premiumStatus?.badgeType === "vip" ? "border-blue-500 bg-blue-500/10 text-blue-300" : "border-border hover:border-blue-500/50"}`}
-                  >
-                    <img src="/badge-vip.png" className="w-6 h-6" alt="VIP" />
-                    VIP
-                  </button>
-                )}
+              <div className="flex flex-wrap gap-2">
+                {BADGE_OPTIONS.map((opt) => {
+                  const isProRequired = opt.pro && !isPro;
+                  const isSelected = premiumStatus?.badgeType === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      title={isProRequired ? `${opt.label} requires Pro` : opt.label}
+                      onClick={() => !isProRequired && handlePremiumPref({ badgeType: opt.key })}
+                      disabled={prefLoading || isProRequired}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all
+                        ${isSelected ? "border-yellow-500 bg-yellow-500/10 text-yellow-300" : "border-border hover:border-yellow-500/40"}
+                        ${isProRequired ? "opacity-40 cursor-not-allowed" : ""}
+                      `}
+                    >
+                      <UserBadge badgeType={opt.key} size={18} />
+                      <span>{opt.label}</span>
+                      {opt.pro && <span className="text-[9px] text-blue-400 font-bold ml-0.5">PRO</span>}
+                    </button>
+                  );
+                })}
                 {premiumStatus?.badgeType && (
                   <button
                     onClick={() => handlePremiumPref({ badgeType: null })}
                     disabled={prefLoading}
-                    className="px-4 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    className="px-3 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Remove
                   </button>
@@ -411,7 +431,7 @@ export default function EditProfile() {
               </div>
               {!isPro && (
                 <p className="text-xs text-muted-foreground">
-                  VIP badge requires <Link href="/premium" className="text-primary hover:underline">Pro subscription</Link>.
+                  Pro-only badges require a <Link href="/premium" className="text-primary hover:underline">Pro subscription</Link>.
                 </p>
               )}
             </div>

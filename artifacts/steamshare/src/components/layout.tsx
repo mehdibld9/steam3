@@ -8,7 +8,7 @@ import {
   Shield, Plus, LogOut, Coins, Trophy, Gift,
   MessageSquare, Menu, X, ChevronRight, Bell, Home,
   LayoutGrid, User, Settings, ShoppingBag, Sun, Moon, ArrowLeft,
-  Megaphone, ExternalLink, Mail, Phone, MapPin,
+  Megaphone, ExternalLink, Mail, Phone, MapPin, Crown,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "@/lib/theme";
@@ -44,7 +44,7 @@ const NAV_ITEMS = [
   { href: "/giveaways", label: "Giveaways", icon: Gift },
   { href: "/store", label: "Store", icon: ShoppingBag },
   { href: "/earn", label: "Earn Points", icon: Coins },
-  { href: "/premium", label: "Premium ✨", icon: null },
+  { href: "/premium", label: "Premium", icon: Crown },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {

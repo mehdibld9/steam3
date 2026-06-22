@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CalendarDays, Heart, Gamepad2, Award, Ban, Shield, MessageCircle, Coins, Settings, ArrowLeft } from "lucide-react";
+import { UserBadge } from "@/components/user-badge";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
@@ -137,7 +138,14 @@ export default function Profile() {
             {/* Name + meta */}
             <div className="flex-1 text-center sm:text-left min-w-0">
               <h1 className="text-2xl sm:text-xl font-black mb-1.5 flex items-center justify-center sm:justify-start gap-2 flex-wrap">
-                {displayedName}
+                <UserBadge badgeType={(user as any).badgeType} size={20} />
+                {(user as any).nameColor === "rainbow" ? (
+                  <span className="rainbow-text">{displayedName}</span>
+                ) : (
+                  <span style={(user as any).nameColor ? { color: (user as any).nameColor } : undefined}>
+                    {displayedName}
+                  </span>
+                )}
                 {(user as any).displayName && (
                   <span className="text-xs text-muted-foreground font-normal">@{user.username}</span>
                 )}

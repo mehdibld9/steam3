@@ -7,6 +7,7 @@ import { Link } from "wouter";
 import { Trophy, Medal, Crown, Star, Shield, ArrowLeft } from "lucide-react";
 import { getLevelColor } from "@/lib/level-colors";
 import { useQuery } from "@tanstack/react-query";
+import { UserBadge } from "@/components/user-badge";
 
 async function fetchMyRank() {
   const res = await fetch("/api/users/leaderboard/rank", { credentials: "include" });
@@ -63,10 +64,21 @@ export default function Leaderboard() {
             </Avatar>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-            <span className={`font-semibold text-sm sm:text-base truncate max-w-[100px] sm:max-w-none ${highlight ? "text-primary" : "group-hover:text-primary transition-colors"}`}>
-              {user.displayName || user.username}
-              {highlight && <span className="text-xs text-muted-foreground ml-1">(you)</span>}
-            </span>
+            <UserBadge badgeType={user.badgeType} size={14} />
+            {user.nameColor === "rainbow" ? (
+              <span className={`rainbow-text font-semibold text-sm sm:text-base truncate max-w-[100px] sm:max-w-none`}>
+                {user.displayName || user.username}
+                {highlight && <span className="text-xs ml-1">(you)</span>}
+              </span>
+            ) : (
+              <span
+                className={`font-semibold text-sm sm:text-base truncate max-w-[100px] sm:max-w-none ${highlight ? "text-primary" : "group-hover:text-primary transition-colors"}`}
+                style={user.nameColor ? { color: user.nameColor } : undefined}
+              >
+                {user.displayName || user.username}
+                {highlight && <span className="text-xs text-muted-foreground ml-1">(you)</span>}
+              </span>
+            )}
             {isAdmin && (
               <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/40 text-[9px] sm:text-[10px] flex items-center gap-0.5 h-4 px-1">
                 <Shield className="h-2 w-2 sm:h-2.5 sm:w-2.5" />ADMIN

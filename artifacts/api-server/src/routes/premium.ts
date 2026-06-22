@@ -7,7 +7,8 @@ import { getSetting, getAllXpSettings } from "../lib/settings";
 
 const router = express.Router();
 
-const BASIC_COLORS = ["#ef4444","#f97316","#eab308","#22c55e","#3b82f6","#8b5cf6","#ec4899","#06b6d4","#ffffff","#94a3b8"];
+const BASIC_COLORS = ["#ef4444","#f97316","#eab308","#22c55e","#3b82f6","#8b5cf6","#ec4899","#06b6d4","#ffffff","#94a3b8","rainbow"];
+const VALID_BADGE_TYPES = ["gold","star","vip","crown","fire","shield","diamond","bolt"];
 
 function isActivePremium(user: any): boolean {
   if (!user.premiumTier) return false;
@@ -18,13 +19,28 @@ function isActivePremium(user: any): boolean {
 // GET /premium/pricing — public
 router.get("/pricing", async (_req, res) => {
   const settings = await getAllXpSettings();
+  const [urlRow] = await db.select({ value: siteSettingsTable.value }).from(siteSettingsTable).where(eq(siteSettingsTable.key, "pro_contact_url")).limit(1);
   res.json({
     premiumPointsPrice: settings.premium_points_price,
     premiumUsdCents: settings.premium_usd_cents,
     proUsdCents: settings.pro_usd_cents,
     discountPercent: settings.premium_discount_percent,
     basicColors: BASIC_COLORS,
+    proContactUrl: urlRow?.value ?? "/messages",
   });
+});
+
+// PUT /premium/contact-url — admin only
+router.put("/contact-url", requireAdmin, async (req, res) => {
+  const { url } = req.body as { url: string };
+  if (!url) { res.status(400).json({ error: "url required" }); return; }
+  const existing = await db.select().from(siteSettingsTable).where(eq(siteSettingsTable.key, "pro_contact_url")).limit(1);
+  if (existing.length > 0) {
+    await db.update(siteSettingsTable).set({ value: url }).where(eq(siteSettingsTable.key, "pro_contact_url"));
+  } else {
+    await db.insert(siteSettingsTable).values({ key: "pro_contact_url", value: url });
+  }
+  res.json({ message: "Updated" });
 });
 
 // GET /premium/status — auth
@@ -135,14 +151,13 @@ router.patch("/preferences", requireAuth, async (req, res) => {
   if (badgeType !== undefined) {
     if (badgeType === null) {
       updates.badgeType = null;
-    } else if (badgeType === "gold") {
-      updates.badgeType = "gold";
-    } else if (badgeType === "vip") {
-      if (user.premiumTier !== "pro") {
-        res.status(403).json({ error: "VIP badge requires Pro subscription" });
+    } else if (VALID_BADGE_TYPES.includes(badgeType)) {
+      const isProOnly = !["gold", "star"].includes(badgeType);
+      if (isProOnly && user.premiumTier !== "pro") {
+        res.status(403).json({ error: `${badgeType} badge requires Pro subscription` });
         return;
       }
-      updates.badgeType = "vip";
+      updates.badgeType = badgeType;
     } else {
       res.status(400).json({ error: "Invalid badge type" });
       return;

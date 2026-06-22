@@ -14,6 +14,7 @@ interface Pricing {
   proUsdCents: number;
   discountPercent: number;
   basicColors: string[];
+  proContactUrl: string;
 }
 
 function formatUsd(cents: number) {
@@ -238,15 +239,38 @@ export default function Premium() {
               </ul>
             </div>
 
-            {/* CTA - contact admin */}
-            <div className="bg-secondary/40 rounded-xl p-4 text-center space-y-2">
-              <p className="text-sm text-muted-foreground">Pro subscriptions are processed manually.</p>
-              <Link href="/messages">
-                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
-                  Contact Admin to Subscribe
-                </Button>
-              </Link>
-            </div>
+            {/* CTA */}
+            {me ? (
+              tierActive === "pro" ? (
+                <Button disabled className="w-full" variant="outline">Already Active</Button>
+              ) : (
+                <div className="space-y-2">
+                  {pricing?.proContactUrl?.startsWith("http") ? (
+                    <a href={pricing.proContactUrl} target="_blank" rel="noopener noreferrer" className="block w-full">
+                      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                        Buy Pro
+                      </Button>
+                    </a>
+                  ) : (
+                    <Link href={pricing?.proContactUrl ?? "/messages"}>
+                      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                        Buy Pro
+                      </Button>
+                    </Link>
+                  )}
+                  <p className="text-xs text-center text-muted-foreground">Pro subscriptions are processed manually.</p>
+                </div>
+              )
+            ) : (
+              <div className="space-y-2">
+                <Link href="/login">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                    Login to Buy Pro
+                  </Button>
+                </Link>
+                <p className="text-xs text-center text-muted-foreground">Pro subscriptions are processed manually.</p>
+              </div>
+            )}
           </div>
         </div>
 

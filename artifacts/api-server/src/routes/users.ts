@@ -34,13 +34,26 @@ router.get("/leaderboard", async (req, res) => {
       isModerator: usersTable.isModerator,
       isBanned: usersTable.isBanned,
       createdAt: usersTable.createdAt,
+      premiumTier: usersTable.premiumTier,
+      premiumExpiresAt: usersTable.premiumExpiresAt,
+      nameColor: usersTable.nameColor,
+      badgeType: usersTable.badgeType,
     })
     .from(usersTable)
     .where(sql`${usersTable.isBanned} = false AND ${usersTable.email} != 'adminbot@system.internal'`)
     .orderBy(desc(usersTable.xp))
     .limit(limit);
 
-  res.json(users);
+  const now = new Date();
+  res.json(users.map((u) => {
+    const active = u.premiumTier && u.premiumExpiresAt && new Date(u.premiumExpiresAt) > now;
+    return {
+      ...u,
+      nameColor: active ? u.nameColor : null,
+      badgeType: active ? u.badgeType : null,
+      premiumTier: active ? u.premiumTier : null,
+    };
+  }));
 });
 
 router.get("/:userId", async (req, res) => {
@@ -50,13 +63,20 @@ router.get("/:userId", async (req, res) => {
     .select({
       id: usersTable.id,
       username: usersTable.username,
+      displayName: usersTable.displayName,
       avatarUrl: usersTable.avatarUrl,
       points: usersTable.points,
       xp: usersTable.xp,
       level: usersTable.level,
       badgeName: usersTable.badgeName,
       isBanned: usersTable.isBanned,
+      isAdmin: usersTable.isAdmin,
+      isModerator: usersTable.isModerator,
       createdAt: usersTable.createdAt,
+      premiumTier: usersTable.premiumTier,
+      premiumExpiresAt: usersTable.premiumExpiresAt,
+      nameColor: usersTable.nameColor,
+      badgeType: usersTable.badgeType,
     })
     .from(usersTable)
     .where(eq(usersTable.id, userId))
@@ -78,8 +98,14 @@ router.get("/:userId", async (req, res) => {
     .leftJoin(accountsTable, eq(likesTable.targetId, accountsTable.id))
     .where(eq(accountsTable.userId, userId));
 
+  const now = new Date();
+  const premiumActive = user.premiumTier && user.premiumExpiresAt && new Date(user.premiumExpiresAt) > now;
+
   res.json({
     ...user,
+    nameColor: premiumActive ? user.nameColor : null,
+    badgeType: premiumActive ? user.badgeType : null,
+    premiumTier: premiumActive ? user.premiumTier : null,
     totalAccounts: Number(totalAccounts),
     totalLikesReceived: Number(totalLikesReceived),
   });

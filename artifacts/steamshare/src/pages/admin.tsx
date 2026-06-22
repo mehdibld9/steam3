@@ -203,6 +203,7 @@ export default function Admin() {
     ...(user?.isAdmin ? [{ value: "store", label: "Store" }] : []),
     ...(user?.isAdmin ? [{ value: "announcements", label: "News" }] : []),
     ...(user?.isAdmin ? [{ value: "site-settings", label: "Site Settings" }] : []),
+    ...(user?.isAdmin ? [{ value: "premium", label: "✨ Premium" }] : []),
   ];
 
   return (
@@ -235,6 +236,7 @@ export default function Admin() {
           {user?.isAdmin && <TabsContent value="store"><StoreTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="site-settings"><SiteSettingsTab /></TabsContent>}
+          {user?.isAdmin && <TabsContent value="premium"><PremiumAdminTab /></TabsContent>}
         </Tabs>
       </div>
     </Layout>
@@ -2235,6 +2237,239 @@ async function rejectAccount(accountId: number, note: string) {
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
   return res.json();
+}
+
+function PremiumAdminTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [grantTier, setGrantTier] = useState<"premium" | "pro">("premium");
+  const [grantDays, setGrantDays] = useState(30);
+  const [contactUrl, setContactUrl] = useState("/messages");
+  const [contactUrlLoaded, setContactUrlLoaded] = useState(false);
+
+  const { data: allUsers = [] } = useQuery({ queryKey: ["admin-users"], queryFn: fetchAdminUsers });
+
+  const { data: pricing } = useQuery({
+    queryKey: ["premium-pricing-admin"],
+    queryFn: async () => {
+      const res = await fetch("/api/premium/pricing");
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  if (pricing && !contactUrlLoaded) {
+    setContactUrlLoaded(true);
+    setContactUrl(pricing.proContactUrl ?? "/messages");
+  }
+
+  const filtered = search.trim().length > 0
+    ? (allUsers as any[]).filter((u) => u.username.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
+    : [];
+
+  const grantMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/premium/grant", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: selectedUser.id, tier: grantTier, days: grantDays }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast({ title: `✨ ${grantTier === "pro" ? "Pro" : "Premium"} granted to ${selectedUser.username} for ${grantDays} days` });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/premium/revoke", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: selectedUser.id }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast({ title: `Premium revoked from ${selectedUser.username}` });
+      setSelectedUser((u: any) => ({ ...u, premiumTier: null, premiumExpiresAt: null }));
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const saveContactUrlMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/premium/contact-url", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: contactUrl }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["premium-pricing-admin"] });
+      toast({ title: "Pro contact URL saved" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Grant / Revoke */}
+      <div className="bg-card border border-yellow-500/20 rounded-xl p-6 space-y-4">
+        <h3 className="font-bold text-foreground text-base flex items-center gap-2">
+          <Coins className="h-5 w-5 text-yellow-400" /> Grant / Revoke Premium
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Search for a user by username and grant them Premium or Pro access manually (e.g. after they pay via messages).
+        </p>
+
+        <Input
+          placeholder="Search users by username..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setSelectedUser(null); }}
+          className="max-w-sm"
+        />
+
+        {filtered.length > 0 && !selectedUser && (
+          <div className="bg-muted/30 border border-border rounded-lg divide-y divide-border">
+            {filtered.map((u: any) => (
+              <button
+                key={u.id}
+                onClick={() => { setSelectedUser(u); setSearch(u.username); }}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                  {(u.username?.substring(0, 2) ?? "").toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{u.username}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {u.premiumTier ? <span className="text-yellow-400">★ {u.premiumTier}</span> : "No premium"}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {selectedUser && (
+          <div className="bg-muted/30 border border-yellow-500/20 rounded-lg p-4 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center text-sm font-bold text-yellow-400 shrink-0">
+                {(selectedUser.username?.substring(0, 2) ?? "").toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold">{selectedUser.username}</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedUser.premiumTier
+                    ? `Active: ${selectedUser.premiumTier} — expires ${selectedUser.premiumExpiresAt ? new Date(selectedUser.premiumExpiresAt).toLocaleDateString() : "—"}`
+                    : "No premium subscription"}
+                </p>
+              </div>
+              <button onClick={() => { setSelectedUser(null); setSearch(""); }} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-3 items-end">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Tier to grant</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setGrantTier("premium")}
+                    className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${grantTier === "premium" ? "border-yellow-500 bg-yellow-500/10 text-yellow-400" : "border-border text-muted-foreground hover:text-foreground"}`}
+                  >⭐ Premium</button>
+                  <button
+                    onClick={() => setGrantTier("pro")}
+                    className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${grantTier === "pro" ? "border-blue-500 bg-blue-500/10 text-blue-400" : "border-border text-muted-foreground hover:text-foreground"}`}
+                  >💎 Pro</button>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Duration (days)</p>
+                <Input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={grantDays}
+                  onChange={(e) => setGrantDays(Math.max(1, Number(e.target.value)))}
+                  className="w-24 h-9 font-mono text-center"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
+                  onClick={() => grantMutation.mutate()}
+                  disabled={grantMutation.isPending}
+                >
+                  {grantMutation.isPending ? "Granting..." : `Grant ${grantTier === "pro" ? "Pro" : "Premium"}`}
+                </Button>
+                {selectedUser.premiumTier && (
+                  <Button
+                    variant="outline"
+                    className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                    onClick={() => revokeMutation.mutate()}
+                    disabled={revokeMutation.isPending}
+                  >
+                    {revokeMutation.isPending ? "Revoking..." : "Revoke"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Pro Contact URL */}
+      <div className="bg-card border border-blue-500/20 rounded-xl p-6 space-y-4">
+        <h3 className="font-bold text-foreground text-base flex items-center gap-2">
+          <ExternalLink className="h-5 w-5 text-blue-400" /> Pro "Buy" Button Link
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Where users are sent when they click <strong className="text-foreground">Buy Pro</strong> on the Premium page.
+          Use a relative path like <code className="text-xs bg-muted px-1 rounded">/messages</code> or a full external URL.
+        </p>
+        <div className="flex gap-2 max-w-lg">
+          <Input
+            value={contactUrl}
+            onChange={(e) => setContactUrl(e.target.value)}
+            placeholder="/messages"
+            className="flex-1 font-mono text-sm"
+          />
+          <Button onClick={() => saveContactUrlMutation.mutate()} disabled={saveContactUrlMutation.isPending}>
+            {saveContactUrlMutation.isPending ? "Saving..." : "Save"}
+          </Button>
+        </div>
+        {contactUrl && (
+          <p className="text-xs text-muted-foreground">
+            Current link:{" "}
+            <span className="font-mono text-primary">{contactUrl}</span>
+          </p>
+        )}
+      </div>
+
+      {/* Pricing hint */}
+      <div className="bg-muted/30 border border-border rounded-xl px-5 py-4 flex items-center gap-3">
+        <Settings className="h-5 w-5 text-muted-foreground shrink-0" />
+        <p className="text-sm text-muted-foreground">
+          To adjust <strong className="text-foreground">pricing</strong> (points cost, USD prices, discount %), go to the{" "}
+          <strong className="text-foreground">Site Settings</strong> tab → Premium &amp; Pro Pricing section.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function PendingReviewTab() {

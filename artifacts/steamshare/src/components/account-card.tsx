@@ -62,12 +62,18 @@ export function AccountCard({ account }: AccountCardProps) {
                   {(account.posterUsername?.substring(0, 2) ?? "U").toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <span
-                className="text-xs font-medium truncate max-w-[80px]"
-                style={(account as any).posterNameColor ? { color: (account as any).posterNameColor } : undefined}
-              >
-                {account.posterUsername}
-              </span>
+              {(account as any).posterNameColor === "rainbow" ? (
+                <span className="rainbow-text text-xs font-medium truncate max-w-[80px]">
+                  {account.posterUsername}
+                </span>
+              ) : (
+                <span
+                  className="text-xs font-medium truncate max-w-[80px]"
+                  style={(account as any).posterNameColor ? { color: (account as any).posterNameColor } : undefined}
+                >
+                  {account.posterUsername}
+                </span>
+              )}
               <UserBadge badgeType={(account as any).posterBadgeType} size={14} />
               <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                 <Heart className={`h-3 w-3 ${account.userHasLiked ? "text-red-500 fill-red-500" : ""}`} />
