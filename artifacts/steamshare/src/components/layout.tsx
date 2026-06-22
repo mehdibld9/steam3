@@ -44,6 +44,7 @@ const NAV_ITEMS = [
   { href: "/giveaways", label: "Giveaways", icon: Gift },
   { href: "/store", label: "Store", icon: ShoppingBag },
   { href: "/earn", label: "Earn Points", icon: Coins },
+  { href: "/premium", label: "Premium ✨", icon: null },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {

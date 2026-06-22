@@ -20,6 +20,10 @@ export const usersTable = pgTable("users", {
   banExpiresAt: timestamp("ban_expires_at", { withTimezone: true }),
   registrationIp: text("registration_ip"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  premiumTier: text("premium_tier"),
+  premiumExpiresAt: timestamp("premium_expires_at", { withTimezone: true }),
+  nameColor: text("name_color"),
+  badgeType: text("badge_type"),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({
@@ -35,6 +39,10 @@ export const insertUserSchema = createInsertSchema(usersTable).omit({
   banExpiresAt: true,
   registrationIp: true,
   createdAt: true,
+  premiumTier: true,
+  premiumExpiresAt: true,
+  nameColor: true,
+  badgeType: true,
 });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof usersTable.$inferSelect;

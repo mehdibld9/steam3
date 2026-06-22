@@ -500,7 +500,23 @@ export default function AccountDetail() {
                       <div className="flex-1">
                         <div className="flex justify-between items-start">
                           <div>
-                            <Link href={`/profile/${comment.userId}`} className="font-semibold text-xs sm:text-sm hover:text-primary transition-colors">{comment.username}</Link>
+                            <span className="inline-flex items-center gap-1">
+                              <Link
+                                href={`/profile/${comment.userId}`}
+                                className="font-semibold text-xs sm:text-sm hover:text-primary transition-colors"
+                                style={(comment as any).nameColor ? { color: (comment as any).nameColor } : undefined}
+                              >
+                                {comment.username}
+                              </Link>
+                              {(comment as any).badgeType && (
+                                <img
+                                  src={(comment as any).badgeType === "vip" ? "/badge-vip.png" : "/badge-gold.png"}
+                                  alt={(comment as any).badgeType === "vip" ? "Pro VIP" : "Premium"}
+                                  title={(comment as any).badgeType === "vip" ? "Pro VIP Member" : "Premium Member"}
+                                  style={{ width: 14, height: 14, display: "inline-block" }}
+                                />
+                              )}
+                            </span>
                             <span className="text-[10px] sm:text-xs text-muted-foreground ml-2">{formatDistanceToNow(new Date(comment.createdAt))} ago</span>
                           </div>
                           {(user?.id === comment.userId || user?.isAdmin || (user as any)?.isModerator) && (

@@ -1642,6 +1642,53 @@ function SiteSettingsTab() {
     setXpValues(xpData);
   }
 
+  // Premium pricing state
+  const [premiumPointsPrice, setPremiumPointsPrice] = useState<number>(500);
+  const [premiumUsdCents, setPremiumUsdCents] = useState<number>(999);
+  const [proUsdCents, setProUsdCents] = useState<number>(1999);
+  const [premiumDiscountPercent, setPremiumDiscountPercent] = useState<number>(0);
+  const premiumPricingInitialized = useState(false);
+
+  const { data: premiumPricingData } = useQuery({
+    queryKey: ["site-settings-premium"],
+    queryFn: async () => {
+      const res = await fetch("/api/premium/pricing", { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  if (premiumPricingData && !premiumPricingInitialized[0]) {
+    premiumPricingInitialized[1](true);
+    setPremiumPointsPrice(premiumPricingData.premiumPointsPrice ?? 500);
+    setPremiumUsdCents(premiumPricingData.premiumUsdCents ?? 999);
+    setProUsdCents(premiumPricingData.proUsdCents ?? 1999);
+    setPremiumDiscountPercent(premiumPricingData.discountPercent ?? 0);
+  }
+
+  const savePremiumPricingMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/site-settings/xp-points", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          premium_points_price: premiumPointsPrice,
+          premium_usd_cents: premiumUsdCents,
+          pro_usd_cents: proUsdCents,
+          premium_discount_percent: premiumDiscountPercent,
+        }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["site-settings-premium"] });
+      toast({ title: "Premium pricing saved" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const saveXpMutation = useMutation({
     mutationFn: async () => {
       const body: Record<string, number> = {};
@@ -1855,6 +1902,64 @@ function SiteSettingsTab() {
         </div>
         <Button className="w-full mt-5" onClick={() => saveXpMutation.mutate()} disabled={saveXpMutation.isPending}>
           {saveXpMutation.isPending ? "Saving..." : "Save Reward Settings"}
+        </Button>
+      </div>
+
+      {/* Premium Pricing */}
+      <div className="bg-card border border-yellow-500/20 rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-yellow-400 font-bold text-xl">✨</span>
+          <h3 className="font-bold text-foreground text-lg">Premium &amp; Pro Pricing</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          Set subscription prices. Set discount % &gt; 0 to show a red strikethrough on the original price.
+        </p>
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Premium — Points Price</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Cost in points to buy Premium for 30 days</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Input type="number" min={0} value={premiumPointsPrice} onChange={(e) => setPremiumPointsPrice(Number(e.target.value))} className="w-24 h-9 text-center font-mono" />
+              <span className="text-xs font-bold text-primary w-7">pts</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Premium — USD Price</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Cost in cents (e.g. 999 = $9.99/mo)</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Input type="number" min={0} value={premiumUsdCents} onChange={(e) => setPremiumUsdCents(Number(e.target.value))} className="w-24 h-9 text-center font-mono" />
+              <span className="text-xs font-bold text-primary w-7">¢</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Pro — USD Price</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Cost in cents (e.g. 1999 = $19.99/mo)</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Input type="number" min={0} value={proUsdCents} onChange={(e) => setProUsdCents(Number(e.target.value))} className="w-24 h-9 text-center font-mono" />
+              <span className="text-xs font-bold text-primary w-7">¢</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Discount %</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Set &gt; 0 to show <span className="text-red-400 line-through">original</span> price with red strikethrough on Premium page
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Input type="number" min={0} max={99} value={premiumDiscountPercent} onChange={(e) => setPremiumDiscountPercent(Math.min(99, Math.max(0, Number(e.target.value))))} className="w-24 h-9 text-center font-mono" />
+              <span className="text-xs font-bold text-primary w-7">%</span>
+            </div>
+          </div>
+        </div>
+        <Button className="w-full mt-5 bg-yellow-500 hover:bg-yellow-600 text-black font-bold" onClick={() => savePremiumPricingMutation.mutate()} disabled={savePremiumPricingMutation.isPending}>
+          {savePremiumPricingMutation.isPending ? "Saving..." : "Save Premium Pricing"}
         </Button>
       </div>
 
