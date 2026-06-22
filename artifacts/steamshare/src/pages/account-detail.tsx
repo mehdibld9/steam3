@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { UserBadge } from "@/components/user-badge";
 
 function CopyField({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
@@ -288,15 +289,34 @@ export default function AccountDetail() {
           <div className="border-t border-border px-4 sm:px-6 py-3 flex items-center gap-3">
             <Link href={`/profile/${account.userId}`}>
               <Avatar className="h-9 w-9 sm:h-10 sm:w-10 border border-border hover:border-primary transition-colors shrink-0">
-                <AvatarImage src={poster?.avatarUrl || undefined} />
+                <AvatarImage src={poster?.avatarUrl || "/default-avatar.png"} />
                 <AvatarFallback className="text-xs">{(account.posterUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
               </Avatar>
             </Link>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <Link href={`/profile/${account.userId}`} className="font-bold text-sm sm:text-base hover:text-primary transition-colors truncate">
-                  {account.posterUsername}
-                </Link>
+                {(account as any).posterNameColor === "rainbow" ? (
+                  <Link href={`/profile/${account.userId}`} className="rainbow-text font-bold text-sm sm:text-base truncate">{account.posterUsername}</Link>
+                ) : (account as any).posterNameColor === "fire" ? (
+                  <Link href={`/profile/${account.userId}`} className="fire-text font-bold text-sm sm:text-base truncate">{account.posterUsername}</Link>
+                ) : (account as any).posterNameColor === "ocean" ? (
+                  <Link href={`/profile/${account.userId}`} className="ocean-text font-bold text-sm sm:text-base truncate">{account.posterUsername}</Link>
+                ) : (account as any).posterNameColor === "galaxy" ? (
+                  <Link href={`/profile/${account.userId}`} className="galaxy-text font-bold text-sm sm:text-base truncate">{account.posterUsername}</Link>
+                ) : (account as any).posterNameColor === "neon" ? (
+                  <Link href={`/profile/${account.userId}`} className="neon-text font-bold text-sm sm:text-base truncate">{account.posterUsername}</Link>
+                ) : (account as any).posterNameColor === "gold" ? (
+                  <Link href={`/profile/${account.userId}`} className="gold-text font-bold text-sm sm:text-base truncate">{account.posterUsername}</Link>
+                ) : (
+                  <Link
+                    href={`/profile/${account.userId}`}
+                    className="font-bold text-sm sm:text-base hover:text-primary transition-colors truncate"
+                    style={(account as any).posterNameColor ? { color: (account as any).posterNameColor } : undefined}
+                  >
+                    {account.posterUsername}
+                  </Link>
+                )}
+                <UserBadge badgeType={(account as any).posterBadgeType} size={14} />
                 {poster?.badgeName && (
                   <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] px-1.5 py-0 flex items-center gap-0.5 shrink-0">
                     <Star className="h-2.5 w-2.5" />{poster.badgeName}
@@ -456,7 +476,7 @@ export default function AccountDetail() {
 
               <div className="flex gap-3 sm:gap-4 mb-6 sm:mb-8">
                 <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0">
-                  <AvatarImage src={user?.avatarUrl || undefined} />
+                  <AvatarImage src={user?.avatarUrl || "/default-avatar.png"} />
                   <AvatarFallback className="text-xs">{user?.username?.substring(0, 2).toUpperCase() || "?"}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 space-y-2">
@@ -493,7 +513,7 @@ export default function AccountDetail() {
                     <div key={comment.id} className="flex gap-3 sm:gap-4 group">
                       <Link href={`/profile/${comment.userId}`}>
                         <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 cursor-pointer">
-                          <AvatarImage src={comment.avatarUrl || undefined} />
+                          <AvatarImage src={comment.avatarUrl || "/default-avatar.png"} />
                           <AvatarFallback className="text-xs">{(comment.username?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                         </Avatar>
                       </Link>
@@ -562,7 +582,7 @@ export default function AccountDetail() {
 
               <Link href={`/profile/${account.userId}`} className="flex items-center gap-3 group">
                 <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border border-border group-hover:border-primary transition-colors">
-                  <AvatarImage src={poster?.avatarUrl || undefined} />
+                  <AvatarImage src={poster?.avatarUrl || "/default-avatar.png"} />
                   <AvatarFallback className="text-xs">{(account.posterUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>

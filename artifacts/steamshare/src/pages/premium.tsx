@@ -4,8 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Coins, Crown, Star, Zap, Palette, Shield, ThumbsUp, MessageSquare, CheckCircle2 } from "lucide-react";
+import { Coins, Crown, Star, Zap, Palette, Shield, ThumbsUp, MessageSquare, CheckCircle2, Gift } from "lucide-react";
 import { Link } from "wouter";
 
 interface Pricing {
@@ -274,6 +275,9 @@ export default function Premium() {
           </div>
         </div>
 
+        {/* Redeem Code */}
+        <RedeemCodeBox me={me} onSuccess={() => { queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() }); refetchStatus(); }} />
+
         {/* Feature comparison note */}
         <div className="bg-card border border-border rounded-xl p-5 space-y-3">
           <h3 className="font-bold text-sm">How badges & colors work</h3>
@@ -287,6 +291,64 @@ export default function Premium() {
         </div>
       </div>
     </Layout>
+  );
+}
+
+function RedeemCodeBox({ me, onSuccess }: { me: any; onSuccess: () => void }) {
+  const { toast } = useToast();
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleRedeem = async () => {
+    if (!code.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/premium/redeem", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to redeem");
+      toast({ title: "🎉 Code redeemed!", description: data.message });
+      setCode("");
+      onSuccess();
+    } catch (e: any) {
+      toast({ title: "Redeem failed", description: e.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+      <div className="flex items-center gap-3">
+        <Gift className="h-6 w-6 text-primary" />
+        <div>
+          <h2 className="text-lg font-black">Redeem a Code</h2>
+          <p className="text-xs text-muted-foreground">Have a premium code? Enter it below to activate your subscription.</p>
+        </div>
+      </div>
+      {me ? (
+        <div className="flex gap-2">
+          <Input
+            placeholder="Enter code (e.g. XXXX-XXXX-XXXX)"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            className="font-mono tracking-widest flex-1"
+            onKeyDown={(e) => e.key === "Enter" && handleRedeem()}
+          />
+          <Button onClick={handleRedeem} disabled={loading || !code.trim()} className="shrink-0">
+            {loading ? "Redeeming..." : "Redeem"}
+          </Button>
+        </div>
+      ) : (
+        <Link href="/login">
+          <Button variant="outline" className="w-full">Log in to redeem a code</Button>
+        </Link>
+      )}
+    </div>
   );
 }
 
