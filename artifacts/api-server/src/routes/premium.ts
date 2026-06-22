@@ -144,10 +144,7 @@ router.patch("/preferences", requireAuth, async (req, res) => {
         res.status(400).json({ error: "Invalid color" });
         return;
       }
-      if (PRO_ONLY_COLORS.includes(nameColor) && user.premiumTier !== "pro") {
-        res.status(403).json({ error: `${nameColor} color requires Pro subscription` });
-        return;
-      }
+      // Animated colors require any active premium (not just pro)
       updates.nameColor = nameColor;
     }
   }

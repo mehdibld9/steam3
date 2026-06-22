@@ -355,7 +355,7 @@ export default function EditProfile() {
                 {BASIC_COLORS.map((c) => {
                   const isAnimated = c.animated;
                   const isSelected = premiumStatus?.nameColor === c.hex;
-                  const isProRequired = c.animated && !isPro;
+                  const isProRequired = c.animated && !isPremium;
                   const swatchClass = c.hex === "rainbow" ? "rainbow-swatch"
                     : c.hex === "fire" ? "fire-swatch"
                     : c.hex === "ocean" ? "ocean-swatch"
@@ -412,8 +412,8 @@ export default function EditProfile() {
                   )}
                 </p>
               )}
-              {!isPro && (
-                <p className="text-[10px] text-muted-foreground/70">🎨 Animated colors (Rainbow, Fire, Ocean, Galaxy, Neon, Gold) require <Link href="/premium" className="text-primary hover:underline">Pro subscription</Link>.</p>
+              {!isPremium && (
+                <p className="text-[10px] text-muted-foreground/70">🎨 Animated colors require a <Link href="/premium" className="text-primary hover:underline">Premium subscription</Link>.</p>
               )}
             </div>
 
@@ -435,7 +435,7 @@ export default function EditProfile() {
                         ${isProRequired ? "opacity-40 cursor-not-allowed" : ""}
                       `}
                     >
-                      <UserBadge badgeType={opt.key} size={18} />
+                      <UserBadge badgeType={opt.key} size={15} />
                       <span>{opt.label}</span>
                       {opt.pro && <span className="text-[9px] text-blue-400 font-bold ml-0.5">PRO</span>}
                     </button>

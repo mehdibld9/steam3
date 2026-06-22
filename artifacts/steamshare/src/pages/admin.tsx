@@ -2256,6 +2256,8 @@ function PremiumAdminTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       toast({ title: `✨ ${grantTier === "pro" ? "Pro" : "Premium"} granted to ${selectedUser.username} for ${grantDays} days` });
+      const expiresAt = new Date(Date.now() + grantDays * 24 * 60 * 60 * 1000).toISOString();
+      setSelectedUser((u: any) => ({ ...u, premiumTier: grantTier, premiumExpiresAt: expiresAt }));
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
