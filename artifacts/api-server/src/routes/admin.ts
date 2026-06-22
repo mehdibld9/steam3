@@ -39,6 +39,8 @@ router.get("/users", requireModOrAdmin, async (req, res) => {
       banReason: usersTable.banReason,
       banExpiresAt: usersTable.banExpiresAt,
       createdAt: usersTable.createdAt,
+      premiumTier: usersTable.premiumTier,
+      premiumExpiresAt: usersTable.premiumExpiresAt,
     })
     .from(usersTable)
     .orderBy(desc(usersTable.createdAt))
