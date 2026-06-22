@@ -334,6 +334,12 @@ export default function Messages() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6 max-w-5xl">
+        <button
+          onClick={() => { const prev = window.location.pathname; window.history.back(); setTimeout(() => { if (window.location.pathname === prev) navigate("/"); }, 80); }}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4 group w-fit"
+        >
+          <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" /> Back
+        </button>
         <h1 className="text-2xl font-black mb-6 flex items-center gap-2">
           <MessageSquare className="h-6 w-6 text-primary" /> Messages
         </h1>
@@ -449,7 +455,7 @@ export default function Messages() {
                                 : "bg-muted text-foreground rounded-bl-sm"
                           }`}
                         >
-                          {isBotMsg ? (
+                          {isBotMsg || msg.content.includes('**') || msg.content.includes('\n') ? (
                             <p
                               className="whitespace-pre-wrap"
                               dangerouslySetInnerHTML={{ __html: renderBotMarkdown(msg.content) }}

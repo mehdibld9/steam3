@@ -74,6 +74,10 @@ router.get("/", async (req, res) => {
       posterAvatarUrl: usersTable.avatarUrl,
       posterIsModerator: usersTable.isModerator,
       posterIsAdmin: usersTable.isAdmin,
+      posterPremiumTier: usersTable.premiumTier,
+      posterPremiumExpiresAt: usersTable.premiumExpiresAt,
+      posterNameColor: usersTable.nameColor,
+      posterBadgeType: usersTable.badgeType,
     })
     .from(accountsTable)
     .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
@@ -103,12 +107,18 @@ router.get("/", async (req, res) => {
     myVotes = new Map(votes.map((v) => [v.accountId, v.vote]));
   }
 
-  const result = accounts.map((a) => ({
-    ...a,
-    username: a.posterUsername ?? "",
-    userHasLiked: likedIds.has(a.id),
-    myVote: myVotes.get(a.id) ?? null,
-  }));
+  const now = new Date();
+  const result = accounts.map((a) => {
+    const isPremiumActive = a.posterPremiumTier && a.posterPremiumExpiresAt && new Date(a.posterPremiumExpiresAt as any) > now;
+    return {
+      ...a,
+      username: a.posterUsername ?? "",
+      userHasLiked: likedIds.has(a.id),
+      myVote: myVotes.get(a.id) ?? null,
+      posterNameColor: isPremiumActive ? a.posterNameColor : null,
+      posterBadgeType: isPremiumActive ? a.posterBadgeType : null,
+    };
+  });
 
   res.json({ accounts: result, total: Number(count), page, limit });
 });
@@ -220,6 +230,10 @@ router.get("/:accountId", async (req, res) => {
       posterAvatarUrl: usersTable.avatarUrl,
       posterIsAdmin: usersTable.isAdmin,
       posterIsModerator: usersTable.isModerator,
+      posterPremiumTier: usersTable.premiumTier,
+      posterPremiumExpiresAt: usersTable.premiumExpiresAt,
+      posterNameColor: usersTable.nameColor,
+      posterBadgeType: usersTable.badgeType,
     })
     .from(accountsTable)
     .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
@@ -231,11 +245,15 @@ router.get("/:accountId", async (req, res) => {
     return;
   }
 
-  // Increment view count (fire-and-forget)
-  db.update(accountsTable)
-    .set({ viewCount: sql`${accountsTable.viewCount} + 1` })
-    .where(eq(accountsTable.id, accountId))
-    .catch(() => {});
+  // Increment view count once per session (fire-and-forget)
+  const viewedKey = `viewed_${accountId}`;
+  if (!req.session[viewedKey]) {
+    req.session[viewedKey] = true;
+    db.update(accountsTable)
+      .set({ viewCount: sql`${accountsTable.viewCount} + 1` })
+      .where(eq(accountsTable.id, accountId))
+      .catch(() => {});
+  }
 
   let userHasLiked = false;
   let myVote: string | null = null;

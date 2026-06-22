@@ -91,7 +91,7 @@ router.get("/products/:id", async (req, res) => {
 
 // ── Create product (admin only) ──
 router.post("/products", requireAdmin, async (req, res) => {
-  const { title, description, imageUrl, price, stock, deliveryContents } = req.body;
+  const { title, description, imageUrl, imageDetailUrl, price, stock, deliveryContents, paymentMode } = req.body;
   const creatorId = req.session.userId;
 
   if (!title?.trim() || !description?.trim() || !price || price <= 0) {
@@ -107,9 +107,11 @@ router.post("/products", requireAdmin, async (req, res) => {
       title: title.trim(),
       description: description.trim(),
       imageUrl: imageUrl?.trim() || null,
+      imageDetailUrl: imageDetailUrl?.trim() || null,
       price: Math.max(1, price),
       priceUsd: priceUsd?.trim() || null,
       buyUrl: buyUrl?.trim() || null,
+      paymentMode: paymentMode || "both",
       stock: Math.max(0, stock ?? 0),
       createdBy: creatorId,
     })
@@ -205,6 +207,34 @@ router.get("/products/:id/units", requireAdmin, async (req, res) => {
     .orderBy(productDeliveryUnitsTable.id);
 
   res.json(units);
+});
+
+// ── Update product (admin only) ──
+router.patch("/products/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { title, description, imageUrl, price, priceUsd, buyUrl, stock } = req.body;
+
+  const [product] = await db.select().from(productsTable).where(eq(productsTable.id, id)).limit(1);
+  if (!product) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  const { imageDetailUrl, paymentMode } = req.body;
+
+  const updates: Record<string, any> = {};
+  if (title !== undefined) updates.title = title.trim();
+  if (description !== undefined) updates.description = description.trim();
+  if (imageUrl !== undefined) updates.imageUrl = imageUrl?.trim() || null;
+  if (imageDetailUrl !== undefined) updates.imageDetailUrl = imageDetailUrl?.trim() || null;
+  if (price !== undefined) updates.price = Math.max(1, price);
+  if (priceUsd !== undefined) updates.priceUsd = priceUsd?.trim() || null;
+  if (buyUrl !== undefined) updates.buyUrl = buyUrl?.trim() || null;
+  if (paymentMode !== undefined) updates.paymentMode = paymentMode;
+  if (stock !== undefined) updates.stock = Math.max(0, stock);
+
+  const [updated] = await db.update(productsTable).set(updates).where(eq(productsTable.id, id)).returning();
+  res.json(updated);
 });
 
 // ── Delete product (admin only) ──
@@ -351,19 +381,20 @@ router.post("/products/:id/buy", requireAuth, async (req, res) => {
 
   const senderId = admin?.id ?? product.createdBy;
 
-  const deliveredItems = availableUnits.map((u, i) => `
-📦 Item ${i + 1}:
-${u.content}`).join("\n");
+  const now = new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
 
-  const msgContent = `🛒 Order confirmed!
+  const deliveredItems = availableUnits.map((u, i) => `▸ Item ${i + 1}: \`${u.content}\``).join("\n");
 
-Item: ${product.title}
-Qty: ${qty}
-Cost: ${totalPrice} pts
+  const msgContent = `**Order Confirmed**
 
+**${product.title}**
+Qty: ${qty}  ·  ${totalPrice} pts
+${now}
+
+**Your Items:**
 ${deliveredItems}
 
-All items delivered! Go to your messages to see this.`;
+_Keep this message safe. Contact support if you have any issues._`;
 
   await db
     .insert(messagesTable)

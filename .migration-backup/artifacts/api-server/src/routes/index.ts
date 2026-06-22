@@ -15,6 +15,7 @@ import messagesRouter from "./messages";
 import announcementsRouter from "./announcements";
 import storeRouter from "./store";
 import siteSettingsRouter from "./siteSettings";
+import premiumRouter from "./premium";
 
 const router = express.Router();
 
@@ -33,5 +34,6 @@ router.use("/messages", messagesRouter);
 router.use("/announcements", announcementsRouter);
 router.use("/store", storeRouter);
 router.use("/site-settings", siteSettingsRouter);
+router.use("/premium", premiumRouter);
 
 export default router;

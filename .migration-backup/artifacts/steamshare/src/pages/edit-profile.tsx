@@ -2,13 +2,15 @@ import { Layout } from "@/components/layout";
 import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Lock, Trash2, CheckCircle2, AlertTriangle, User, ArrowLeft } from "lucide-react";
+import { Camera, Lock, Trash2, CheckCircle2, AlertTriangle, User, ArrowLeft, Crown, Palette } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Link } from "wouter";
+import { UserBadge, BADGE_OPTIONS } from "@/components/user-badge";
 
 const BAD_WORDS = [
   "nigger","nigga","faggot","retard","cunt","kike","spic","chink","tranny",
@@ -20,6 +22,20 @@ function containsBadWord(text: string): boolean {
   const lower = text.toLowerCase().replace(/[^a-z0-9]/g, "");
   return BAD_WORDS.some((w) => lower.includes(w));
 }
+
+const BASIC_COLORS = [
+  { hex: "#ef4444", label: "Red" },
+  { hex: "#f97316", label: "Orange" },
+  { hex: "#eab308", label: "Yellow" },
+  { hex: "#22c55e", label: "Green" },
+  { hex: "#3b82f6", label: "Blue" },
+  { hex: "#8b5cf6", label: "Purple" },
+  { hex: "#ec4899", label: "Pink" },
+  { hex: "#06b6d4", label: "Cyan" },
+  { hex: "#ffffff", label: "White" },
+  { hex: "#94a3b8", label: "Silver" },
+  { hex: "rainbow", label: "Rainbow (VIP)" },
+];
 
 export default function EditProfile() {
   const { data: me, isLoading } = useGetMe();
@@ -46,11 +62,27 @@ export default function EditProfile() {
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Premium prefs
+  const [prefLoading, setPrefLoading] = useState(false);
+
+  const { data: premiumStatus, refetch: refetchPremium } = useQuery({
+    queryKey: ["/api/premium/status"],
+    queryFn: async () => {
+      const res = await fetch("/api/premium/status", { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json() as Promise<{ tier: string | null; isActive: boolean; nameColor: string | null; badgeType: string | null; expiresAt: string | null }>;
+    },
+    enabled: !!me,
+  });
+
   if (isLoading) return null;
   if (!me) {
     setLocation("/login");
     return null;
   }
+
+  const isPremium = premiumStatus?.isActive && (premiumStatus.tier === "premium" || premiumStatus.tier === "pro");
+  const isPro = premiumStatus?.isActive && premiumStatus.tier === "pro";
 
   const handleDisplayNameSave = async () => {
     const trimmed = displayName.trim();
@@ -182,6 +214,29 @@ export default function EditProfile() {
     }
   };
 
+  const handlePremiumPref = async (patch: { nameColor?: string | null; badgeType?: string | null }) => {
+    setPrefLoading(true);
+    try {
+      const res = await fetch("/api/premium/preferences", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || "Failed to update preferences");
+      }
+      refetchPremium();
+      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      toast({ title: "Preferences saved!" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setPrefLoading(false);
+    }
+  };
+
   const previewUrl = avatarUrl || me.avatarUrl || undefined;
   const currentDisplayName = (me as any).displayName || "";
   const displayedDisplayName = displayName || currentDisplayName;
@@ -272,6 +327,131 @@ export default function EditProfile() {
             )}
           </div>
         </div>
+
+        {/* ── Premium Customization ── */}
+        {isPremium ? (
+          <div className="bg-card border border-yellow-500/30 rounded-xl p-6 space-y-5">
+            <h2 className="font-bold flex items-center gap-2 text-sm uppercase tracking-wide text-yellow-400">
+              <Crown className="h-4 w-4" /> Premium Customization
+            </h2>
+            <p className="text-xs text-muted-foreground -mt-2">
+              Customize your badge and name color. Changes appear on all your posts and comments.
+              {premiumStatus?.expiresAt && (
+                <span> Subscription expires <strong className="text-foreground">{new Date(premiumStatus.expiresAt).toLocaleDateString()}</strong>.</span>
+              )}
+            </p>
+
+            {/* Name Color */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Palette className="h-4 w-4" /> Name Color
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {BASIC_COLORS.map((c) => {
+                  const isRainbow = c.hex === "rainbow";
+                  const isSelected = premiumStatus?.nameColor === c.hex;
+                  const isProRequired = isRainbow && !isPro;
+                  return (
+                    <button
+                      key={c.hex}
+                      title={isProRequired ? "Rainbow requires Pro" : c.label}
+                      onClick={() => !isProRequired && handlePremiumPref({ nameColor: c.hex })}
+                      disabled={prefLoading || isProRequired}
+                      className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${isProRequired ? "opacity-40 cursor-not-allowed" : ""} ${isRainbow ? "rainbow-swatch" : ""}`}
+                      style={isRainbow ? {
+                        borderColor: isSelected ? "#fff" : "transparent",
+                        boxShadow: isSelected ? "0 0 0 2px rgba(255,255,255,0.5)" : undefined,
+                      } : {
+                        backgroundColor: c.hex,
+                        borderColor: isSelected ? "#fff" : "transparent",
+                        boxShadow: isSelected ? "0 0 0 2px rgba(255,255,255,0.5)" : undefined,
+                      }}
+                    />
+                  );
+                })}
+                {premiumStatus?.nameColor && (
+                  <button
+                    onClick={() => handlePremiumPref({ nameColor: null })}
+                    disabled={prefLoading}
+                    className="w-8 h-8 rounded-full border-2 border-border text-muted-foreground hover:text-foreground flex items-center justify-center text-xs transition-colors"
+                    title="Remove color"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              {premiumStatus?.nameColor && (
+                <p className="text-xs text-muted-foreground">
+                  Preview:{" "}
+                  {premiumStatus.nameColor === "rainbow" ? (
+                    <span className="rainbow-text font-semibold">{me.username}</span>
+                  ) : (
+                    <span style={{ color: premiumStatus.nameColor }} className="font-semibold">{me.username}</span>
+                  )}
+                </p>
+              )}
+              {!isPro && (
+                <p className="text-[10px] text-muted-foreground/70">🌈 Rainbow color requires <Link href="/premium" className="text-primary hover:underline">Pro subscription</Link>.</p>
+              )}
+            </div>
+
+            {/* Badge */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Badge</label>
+              <div className="flex flex-wrap gap-2">
+                {BADGE_OPTIONS.map((opt) => {
+                  const isProRequired = opt.pro && !isPro;
+                  const isSelected = premiumStatus?.badgeType === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      title={isProRequired ? `${opt.label} requires Pro` : opt.label}
+                      onClick={() => !isProRequired && handlePremiumPref({ badgeType: opt.key })}
+                      disabled={prefLoading || isProRequired}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all
+                        ${isSelected ? "border-yellow-500 bg-yellow-500/10 text-yellow-300" : "border-border hover:border-yellow-500/40"}
+                        ${isProRequired ? "opacity-40 cursor-not-allowed" : ""}
+                      `}
+                    >
+                      <UserBadge badgeType={opt.key} size={18} />
+                      <span>{opt.label}</span>
+                      {opt.pro && <span className="text-[9px] text-blue-400 font-bold ml-0.5">PRO</span>}
+                    </button>
+                  );
+                })}
+                {premiumStatus?.badgeType && (
+                  <button
+                    onClick={() => handlePremiumPref({ badgeType: null })}
+                    disabled={prefLoading}
+                    className="px-3 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              {!isPro && (
+                <p className="text-xs text-muted-foreground">
+                  Pro-only badges require a <Link href="/premium" className="text-primary hover:underline">Pro subscription</Link>.
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-card border border-border rounded-xl p-6 text-center space-y-3">
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <Crown className="h-5 w-5 text-yellow-400" />
+              <span className="font-semibold text-sm">Premium Customization</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Unlock custom name colors and badges with a Premium or Pro subscription.
+            </p>
+            <Link href="/premium">
+              <Button className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-sm">
+                Get Premium
+              </Button>
+            </Link>
+          </div>
+        )}
 
         {/* ── Change Password ── */}
         <div className="bg-card border border-border rounded-xl p-6 space-y-4">

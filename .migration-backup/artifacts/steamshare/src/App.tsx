@@ -23,6 +23,7 @@ import Messages from "./pages/messages";
 import EditProfile from "./pages/edit-profile";
 import Store from "./pages/store";
 import ProductDetail from "./pages/product-detail";
+import Premium from "./pages/premium";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,7 @@ function Router() {
       <Route path="/store/:id" component={ProductDetail} />
       <Route path="/messages" component={Messages} />
       <Route path="/edit-profile" component={EditProfile} />
+      <Route path="/premium" component={Premium} />
       <Route component={NotFound} />
     </Switch>
   );

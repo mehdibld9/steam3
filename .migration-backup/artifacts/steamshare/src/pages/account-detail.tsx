@@ -108,7 +108,7 @@ export default function AccountDetail() {
   const id = parseInt(params.id || "0");
   const [, navigate] = useLocation();
   const { data: user } = useGetMe();
-  const { data: account, isLoading: accountLoading } = useGetAccount(id);
+  const { data: account, isLoading: accountLoading } = useGetAccount(id, { query: { queryKey: getGetAccountQueryKey(id), refetchOnWindowFocus: false } });
   const { data: comments, isLoading: commentsLoading } = useListComments(id);
 
   const queryClient = useQueryClient();
@@ -500,7 +500,23 @@ export default function AccountDetail() {
                       <div className="flex-1">
                         <div className="flex justify-between items-start">
                           <div>
-                            <Link href={`/profile/${comment.userId}`} className="font-semibold text-xs sm:text-sm hover:text-primary transition-colors">{comment.username}</Link>
+                            <span className="inline-flex items-center gap-1">
+                              <Link
+                                href={`/profile/${comment.userId}`}
+                                className="font-semibold text-xs sm:text-sm hover:text-primary transition-colors"
+                                style={(comment as any).nameColor ? { color: (comment as any).nameColor } : undefined}
+                              >
+                                {comment.username}
+                              </Link>
+                              {(comment as any).badgeType && (
+                                <img
+                                  src={(comment as any).badgeType === "vip" ? "/badge-vip.png" : "/badge-gold.png"}
+                                  alt={(comment as any).badgeType === "vip" ? "Pro VIP" : "Premium"}
+                                  title={(comment as any).badgeType === "vip" ? "Pro VIP Member" : "Premium Member"}
+                                  style={{ width: 14, height: 14, display: "inline-block" }}
+                                />
+                              )}
+                            </span>
                             <span className="text-[10px] sm:text-xs text-muted-foreground ml-2">{formatDistanceToNow(new Date(comment.createdAt))} ago</span>
                           </div>
                           {(user?.id === comment.userId || user?.isAdmin || (user as any)?.isModerator) && (
@@ -566,7 +582,7 @@ export default function AccountDetail() {
                   </div>
                   <div className="bg-muted/30 rounded-lg p-2">
                     <p className="text-[10px] text-muted-foreground">Likes</p>
-                    <p className="font-bold text-sm">{(poster as any).totalLikes ?? "—"}</p>
+                    <p className="font-bold text-sm">{(poster as any).totalLikesReceived ?? 0}</p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-2">
                     <p className="text-[10px] text-muted-foreground">Posts</p>

@@ -6,7 +6,7 @@ import { useLocation, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { ShoppingBag, Star, ArrowLeft, MessageSquare, Package, PackageOpen, AlertCircle, CheckCircle } from "lucide-react";
+import { ShoppingBag, Star, ArrowLeft, MessageSquare, Package, AlertCircle, CheckCircle, Coins, CreditCard } from "lucide-react";
 
 // ── API helpers ──
 async function fetchProduct(id: number) {
@@ -84,6 +84,7 @@ export default function ProductDetail() {
   const [buyQty, setBuyQty] = useState(1);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
+  const [payMode, setPayMode] = useState<"points" | "money">("points");
 
   const buyMutation = useMutation({
     mutationFn: () => buyProduct(productId, buyQty),
@@ -147,11 +148,11 @@ export default function ProductDetail() {
         </div>
 
         {/* Product hero */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-6 mb-8">
           {/* Image */}
-          <div className="aspect-square md:aspect-[4/3] bg-muted rounded-xl overflow-hidden flex items-center justify-center border border-border">
-            {product.imageUrl ? (
-              <img src={product.imageUrl} alt={product.title} className="w-full h-full object-cover" />
+          <div className="aspect-square md:aspect-[16/9] bg-muted rounded-xl overflow-hidden flex items-center justify-center border border-border">
+            {(product.imageDetailUrl || product.imageUrl) ? (
+              <img src={product.imageDetailUrl || product.imageUrl} alt={product.title} className="w-full h-full object-cover" />
             ) : (
               <Package className="h-16 w-16 text-muted-foreground/30" />
             )}
@@ -179,6 +180,24 @@ export default function ProductDetail() {
 
             <p className="text-sm text-muted-foreground leading-relaxed">{product.description}</p>
 
+            {/* Payment mode toggle — only shown when both modes are allowed */}
+            {product.priceUsd && (product.paymentMode === "both" || !product.paymentMode) && (
+              <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border w-fit">
+                <button
+                  onClick={() => setPayMode("points")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${payMode === "points" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  <Coins className="h-3.5 w-3.5" /> Points
+                </button>
+                <button
+                  onClick={() => setPayMode("money")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${payMode === "money" ? "bg-green-600 text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  <CreditCard className="h-3.5 w-3.5" /> USD
+                </button>
+              </div>
+            )}
+
             {/* Buy section */}
             {user ? (
               <div className="bg-muted/50 rounded-xl p-4 space-y-3 border border-border">
@@ -192,6 +211,26 @@ export default function ProductDetail() {
                       <MessageSquare className="h-4 w-4" />
                       Get Your Items (Go to Messages)
                     </Button>
+                  </div>
+                ) : (payMode === "money" || product.paymentMode === "usd") && product.priceUsd ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-green-600">
+                      <CreditCard className="h-5 w-5" />
+                      <span className="font-semibold text-sm">Pay with USD</span>
+                    </div>
+                    <div className="text-3xl font-bold text-green-600">${product.priceUsd}</div>
+                    {product.buyUrl ? (
+                      <a href={product.buyUrl} target="_blank" rel="noopener noreferrer" className="block w-full">
+                        <Button className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white">
+                          <CreditCard className="h-4 w-4" />
+                          Buy for ${product.priceUsd} USD
+                        </Button>
+                      </a>
+                    ) : (
+                      <Button className="w-full" disabled>
+                        ${product.priceUsd} USD — payment link coming soon
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -238,19 +277,6 @@ export default function ProductDetail() {
                     >
                       {buyMutation.isPending ? "Processing..." : `Buy for ${product.price * buyQty} pts`}
                     </Button>
-                    {product.priceUsd && (
-                      product.buyUrl ? (
-                        <a href={product.buyUrl} target="_blank" rel="noopener noreferrer" className="block w-full">
-                          <Button variant="outline" className="w-full gap-2 border-green-500/40 text-green-600 hover:bg-green-500/10">
-                            Buy for ${product.priceUsd} USD
-                          </Button>
-                        </a>
-                      ) : (
-                        <Button variant="outline" className="w-full gap-2 border-green-500/40 text-green-600 hover:bg-green-500/10" disabled>
-                          ${product.priceUsd} USD (link coming soon)
-                        </Button>
-                      )
-                    )}
                   </div>
                 )}
               </div>
@@ -261,27 +287,6 @@ export default function ProductDetail() {
             )}
           </div>
         </div>
-
-        {/* Delivered items (if user bought) */}
-        {user && product.deliveredUnits?.length > 0 && (
-          <div className="space-y-3 mb-8">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <PackageOpen className="h-5 w-5 text-green-600" />
-              Your Delivered Items
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {product.deliveredUnits.map((u: any, i: number) => (
-                <div key={u.id} className="bg-green-500/5 border border-green-500/20 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs font-bold bg-green-500/10 text-green-600 rounded px-2 py-0.5">Item {i + 1}</span>
-                    <span className="text-xs text-muted-foreground">{new Date(u.createdAt).toLocaleDateString()}</span>
-                  </div>
-                  <p className="text-sm font-mono break-all text-foreground">{u.content}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Reviews */}
         <div className="space-y-4">

@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useState, type ReactNode } from "react";
-import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap, ArrowLeft, Users, LayoutDashboard } from "lucide-react";
+import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap, ArrowLeft, Users, LayoutDashboard, Pencil } from "lucide-react";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { Link } from "wouter";
 
@@ -203,6 +203,7 @@ export default function Admin() {
     ...(user?.isAdmin ? [{ value: "store", label: "Store" }] : []),
     ...(user?.isAdmin ? [{ value: "announcements", label: "News" }] : []),
     ...(user?.isAdmin ? [{ value: "site-settings", label: "Site Settings" }] : []),
+    ...(user?.isAdmin ? [{ value: "premium", label: "✨ Premium" }] : []),
   ];
 
   return (
@@ -235,6 +236,7 @@ export default function Admin() {
           {user?.isAdmin && <TabsContent value="store"><StoreTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="site-settings"><SiteSettingsTab /></TabsContent>}
+          {user?.isAdmin && <TabsContent value="premium"><PremiumAdminTab /></TabsContent>}
         </Tabs>
       </div>
     </Layout>
@@ -850,11 +852,11 @@ async function fetchAdminPurchases() {
   return res.json() as Promise<any[]>;
 }
 
-async function createProduct(title: string, description: string, imageUrl: string, price: number, priceUsd: string, buyUrl: string, stock: number, deliveryContents: string[]) {
+async function createProduct(title: string, description: string, imageUrl: string, imageDetailUrl: string, price: number, priceUsd: string, buyUrl: string, stock: number, paymentMode: string, deliveryContents: string[]) {
   const res = await fetch("/api/store/products", {
     method: "POST", credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, description, imageUrl, price, priceUsd: priceUsd || null, buyUrl: buyUrl || null, stock, deliveryContents }),
+    body: JSON.stringify({ title, description, imageUrl, imageDetailUrl: imageDetailUrl || null, price, priceUsd: priceUsd || null, buyUrl: buyUrl || null, stock, paymentMode, deliveryContents }),
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
   return res.json();
@@ -892,6 +894,16 @@ async function deleteProduct(id: number) {
   return res.json();
 }
 
+async function updateProduct(id: number, data: { title: string; description: string; imageUrl: string; imageDetailUrl: string; price: number; priceUsd: string; buyUrl: string; paymentMode: string }) {
+  const res = await fetch(`/api/store/products/${id}`, {
+    method: "PATCH", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+  return res.json();
+}
+
 function StoreTab() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -902,13 +914,25 @@ function StoreTab() {
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [imgUrl, setImgUrl] = useState("");
+  const [imgDetailUrl, setImgDetailUrl] = useState("");
   const [price, setPrice] = useState(100);
   const [priceUsd, setPriceUsd] = useState("");
   const [buyUrl, setBuyUrl] = useState("");
-  const [stock, setStock] = useState(10);
+  const [stock, setStock] = useState(0);
+  const [paymentMode, setPaymentMode] = useState("both");
   const [deliveryContents, setDeliveryContents] = useState("");
   const [unitsTarget, setUnitsTarget] = useState<any>(null);
   const [unitsText, setUnitsText] = useState("");
+
+  const [editTarget, setEditTarget] = useState<any>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editImgUrl, setEditImgUrl] = useState("");
+  const [editImgDetailUrl, setEditImgDetailUrl] = useState("");
+  const [editPrice, setEditPrice] = useState(100);
+  const [editPriceUsd, setEditPriceUsd] = useState("");
+  const [editBuyUrl, setEditBuyUrl] = useState("");
+  const [editPaymentMode, setEditPaymentMode] = useState("both");
 
   const { data: products = [], isLoading: productsLoading } = useQuery({ queryKey: ["admin-products"], queryFn: fetchAdminProducts });
   const { data: purchases = [], isLoading: purchasesLoading } = useQuery({ queryKey: ["admin-purchases"], queryFn: fetchAdminPurchases });
@@ -916,10 +940,10 @@ function StoreTab() {
   const createMutation = useMutation({
     mutationFn: () => {
       const contents = deliveryContents.split("\n").map(s => s.trim()).filter(Boolean);
-      return createProduct(title, desc, imgUrl, price, priceUsd, buyUrl, stock, contents);
+      return createProduct(title, desc, imgUrl, imgDetailUrl, price, priceUsd, buyUrl, stock, paymentMode, contents);
     },
     onSuccess: () => {
-      setTitle(""); setDesc(""); setImgUrl(""); setPrice(100); setPriceUsd(""); setBuyUrl(""); setStock(10); setDeliveryContents("");
+      setTitle(""); setDesc(""); setImgUrl(""); setImgDetailUrl(""); setPrice(100); setPriceUsd(""); setBuyUrl(""); setStock(10); setPaymentMode("both"); setDeliveryContents("");
       setCreateOpen(false);
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       toast({ title: "Product created" });
@@ -961,6 +985,19 @@ function StoreTab() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const editMutation = useMutation({
+    mutationFn: () => updateProduct(editTarget.id, {
+      title: editTitle, description: editDesc, imageUrl: editImgUrl, imageDetailUrl: editImgDetailUrl,
+      price: editPrice, priceUsd: editPriceUsd, buyUrl: editBuyUrl, paymentMode: editPaymentMode,
+    }),
+    onSuccess: () => {
+      setEditTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      toast({ title: "Product updated" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   return (
     <div className="space-y-8">
       {/* Products Section */}
@@ -985,9 +1022,15 @@ function StoreTab() {
                   <label className="text-sm font-medium block mb-1">Description</label>
                   <textarea className="w-full min-h-[80px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" placeholder="Describe the product..." value={desc} onChange={(e) => setDesc(e.target.value)} />
                 </div>
-                <div>
-                  <label className="text-sm font-medium block mb-1">Image URL (optional)</label>
-                  <Input value={imgUrl} onChange={(e) => setImgUrl(e.target.value)} placeholder="https://..." />
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="text-sm font-medium block mb-1">Cover Image URL <span className="text-muted-foreground font-normal">(store grid)</span></label>
+                    <Input value={imgUrl} onChange={(e) => setImgUrl(e.target.value)} placeholder="https://... (portrait cover shown in grid)" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium block mb-1">Detail Image URL <span className="text-muted-foreground font-normal">(product page)</span></label>
+                    <Input value={imgDetailUrl} onChange={(e) => setImgDetailUrl(e.target.value)} placeholder="https://... (larger image on product page)" />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -1010,9 +1053,25 @@ function StoreTab() {
                   </div>
                 </div>
                 <div>
+                  <label className="text-sm font-medium block mb-2">Payment Methods</label>
+                  <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg p-1 border border-border w-fit">
+                    {(["both", "points", "usd"] as const).map((m) => (
+                      <button key={m} onClick={() => setPaymentMode(m)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${paymentMode === m ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                        {m === "both" ? "Both" : m === "points" ? "Points Only" : "USD Only"}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Controls which payment options buyers see.</p>
+                </div>
+                <div>
                   <label className="text-sm font-medium block mb-1">Delivery Contents (one per line)</label>
-                  <textarea className="w-full min-h-[100px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" placeholder="e.g.&#10;ABC123-DEF456&#10;GHI789-JKL012" value={deliveryContents} onChange={(e) => setDeliveryContents(e.target.value)} />
-                  <p className="text-xs text-muted-foreground mt-1">Each line = 1 delivery unit. Stock auto-adjusted.</p>
+                  <textarea className="w-full min-h-[100px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" placeholder="e.g.&#10;ABC123-DEF456&#10;GHI789-JKL012" value={deliveryContents} onChange={(e) => {
+                    setDeliveryContents(e.target.value);
+                    const lines = e.target.value.split("\n").filter(l => l.trim()).length;
+                    setStock(lines);
+                  }} />
+                  <p className="text-xs text-muted-foreground mt-1">Each line = 1 delivery unit. Stock set automatically.</p>
                 </div>
                 <Button className="w-full" disabled={!title.trim() || !desc.trim() || price <= 0 || createMutation.isPending} onClick={() => createMutation.mutate()}>
                   {createMutation.isPending ? "Creating..." : "Create Product"}
@@ -1058,6 +1117,22 @@ function StoreTab() {
                       </Button>
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setStockTarget(p); setStockAmount(10); }}>
                         + Stock
+                      </Button>
+                      <Button
+                        size="sm" variant="outline" className="h-7 text-xs gap-1"
+                        onClick={() => {
+                          setEditTarget(p);
+                          setEditTitle(p.title);
+                          setEditDesc(p.description || "");
+                          setEditImgUrl(p.imageUrl || "");
+                          setEditImgDetailUrl(p.imageDetailUrl || "");
+                          setEditPrice(p.price);
+                          setEditPriceUsd(p.priceUsd || "");
+                          setEditBuyUrl(p.buyUrl || "");
+                          setEditPaymentMode(p.paymentMode || "both");
+                        }}
+                      >
+                        <Pencil className="h-3 w-3" /> Edit
                       </Button>
                       <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this product?")) deleteMutation.mutate(p.id); }}>
                         <Trash className="h-4 w-4" />
@@ -1137,6 +1212,65 @@ function StoreTab() {
             </div>
             <Button className="w-full" onClick={() => unitsMutation.mutate()} disabled={!unitsText.trim() || unitsMutation.isPending}>
               {unitsMutation.isPending ? "Adding..." : "Add Units"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Pencil className="h-4 w-4 text-primary" /> Edit Product</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="text-sm font-medium block mb-1">Title</label>
+              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Product title" />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">Description</label>
+              <textarea className="w-full min-h-[80px] resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Describe the product..." />
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label className="text-sm font-medium block mb-1">Cover Image URL <span className="text-muted-foreground font-normal">(store grid)</span></label>
+                <Input value={editImgUrl} onChange={(e) => setEditImgUrl(e.target.value)} placeholder="https://..." />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">Detail Image URL <span className="text-muted-foreground font-normal">(product page)</span></label>
+                <Input value={editImgDetailUrl} onChange={(e) => setEditImgDetailUrl(e.target.value)} placeholder="https://..." />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium block mb-1">Price (pts)</label>
+                <Input type="number" value={editPrice} onChange={(e) => setEditPrice(Number(e.target.value))} />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">USD Price (optional)</label>
+                <Input placeholder="e.g. 4.99" value={editPriceUsd} onChange={(e) => setEditPriceUsd(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">Buy URL (for $ button)</label>
+              <Input placeholder="https://..." value={editBuyUrl} onChange={(e) => setEditBuyUrl(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-2">Payment Methods</label>
+              <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg p-1 border border-border w-fit">
+                {(["both", "points", "usd"] as const).map((m) => (
+                  <button key={m} onClick={() => setEditPaymentMode(m)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${editPaymentMode === m ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                    {m === "both" ? "Both" : m === "points" ? "Points Only" : "USD Only"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Button
+              className="w-full"
+              disabled={!editTitle.trim() || !editDesc.trim() || editPrice <= 0 || editMutation.isPending}
+              onClick={() => editMutation.mutate()}
+            >
+              {editMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </DialogContent>
@@ -1510,6 +1644,53 @@ function SiteSettingsTab() {
     setXpValues(xpData);
   }
 
+  // Premium pricing state
+  const [premiumPointsPrice, setPremiumPointsPrice] = useState<number>(500);
+  const [premiumUsdCents, setPremiumUsdCents] = useState<number>(999);
+  const [proUsdCents, setProUsdCents] = useState<number>(1999);
+  const [premiumDiscountPercent, setPremiumDiscountPercent] = useState<number>(0);
+  const premiumPricingInitialized = useState(false);
+
+  const { data: premiumPricingData } = useQuery({
+    queryKey: ["site-settings-premium"],
+    queryFn: async () => {
+      const res = await fetch("/api/premium/pricing", { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  if (premiumPricingData && !premiumPricingInitialized[0]) {
+    premiumPricingInitialized[1](true);
+    setPremiumPointsPrice(premiumPricingData.premiumPointsPrice ?? 500);
+    setPremiumUsdCents(premiumPricingData.premiumUsdCents ?? 999);
+    setProUsdCents(premiumPricingData.proUsdCents ?? 1999);
+    setPremiumDiscountPercent(premiumPricingData.discountPercent ?? 0);
+  }
+
+  const savePremiumPricingMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/site-settings/xp-points", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          premium_points_price: premiumPointsPrice,
+          premium_usd_cents: premiumUsdCents,
+          pro_usd_cents: proUsdCents,
+          premium_discount_percent: premiumDiscountPercent,
+        }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["site-settings-premium"] });
+      toast({ title: "Premium pricing saved" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const saveXpMutation = useMutation({
     mutationFn: async () => {
       const body: Record<string, number> = {};
@@ -1723,6 +1904,64 @@ function SiteSettingsTab() {
         </div>
         <Button className="w-full mt-5" onClick={() => saveXpMutation.mutate()} disabled={saveXpMutation.isPending}>
           {saveXpMutation.isPending ? "Saving..." : "Save Reward Settings"}
+        </Button>
+      </div>
+
+      {/* Premium Pricing */}
+      <div className="bg-card border border-yellow-500/20 rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-yellow-400 font-bold text-xl">✨</span>
+          <h3 className="font-bold text-foreground text-lg">Premium &amp; Pro Pricing</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          Set subscription prices. Set discount % &gt; 0 to show a red strikethrough on the original price.
+        </p>
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Premium — Points Price</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Cost in points to buy Premium for 30 days</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Input type="number" min={0} value={premiumPointsPrice} onChange={(e) => setPremiumPointsPrice(Number(e.target.value))} className="w-24 h-9 text-center font-mono" />
+              <span className="text-xs font-bold text-primary w-7">pts</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Premium — USD Price</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Cost in cents (e.g. 999 = $9.99/mo)</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Input type="number" min={0} value={premiumUsdCents} onChange={(e) => setPremiumUsdCents(Number(e.target.value))} className="w-24 h-9 text-center font-mono" />
+              <span className="text-xs font-bold text-primary w-7">¢</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Pro — USD Price</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Cost in cents (e.g. 1999 = $19.99/mo)</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Input type="number" min={0} value={proUsdCents} onChange={(e) => setProUsdCents(Number(e.target.value))} className="w-24 h-9 text-center font-mono" />
+              <span className="text-xs font-bold text-primary w-7">¢</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Discount %</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Set &gt; 0 to show <span className="text-red-400 line-through">original</span> price with red strikethrough on Premium page
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Input type="number" min={0} max={99} value={premiumDiscountPercent} onChange={(e) => setPremiumDiscountPercent(Math.min(99, Math.max(0, Number(e.target.value))))} className="w-24 h-9 text-center font-mono" />
+              <span className="text-xs font-bold text-primary w-7">%</span>
+            </div>
+          </div>
+        </div>
+        <Button className="w-full mt-5 bg-yellow-500 hover:bg-yellow-600 text-black font-bold" onClick={() => savePremiumPricingMutation.mutate()} disabled={savePremiumPricingMutation.isPending}>
+          {savePremiumPricingMutation.isPending ? "Saving..." : "Save Premium Pricing"}
         </Button>
       </div>
 
@@ -1998,6 +2237,239 @@ async function rejectAccount(accountId: number, note: string) {
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
   return res.json();
+}
+
+function PremiumAdminTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [grantTier, setGrantTier] = useState<"premium" | "pro">("premium");
+  const [grantDays, setGrantDays] = useState(30);
+  const [contactUrl, setContactUrl] = useState("/messages");
+  const [contactUrlLoaded, setContactUrlLoaded] = useState(false);
+
+  const { data: allUsers = [] } = useQuery({ queryKey: ["admin-users"], queryFn: fetchAdminUsers });
+
+  const { data: pricing } = useQuery({
+    queryKey: ["premium-pricing-admin"],
+    queryFn: async () => {
+      const res = await fetch("/api/premium/pricing");
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  if (pricing && !contactUrlLoaded) {
+    setContactUrlLoaded(true);
+    setContactUrl(pricing.proContactUrl ?? "/messages");
+  }
+
+  const filtered = search.trim().length > 0
+    ? (allUsers as any[]).filter((u) => u.username.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
+    : [];
+
+  const grantMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/premium/grant", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: selectedUser.id, tier: grantTier, days: grantDays }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast({ title: `✨ ${grantTier === "pro" ? "Pro" : "Premium"} granted to ${selectedUser.username} for ${grantDays} days` });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/premium/revoke", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: selectedUser.id }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast({ title: `Premium revoked from ${selectedUser.username}` });
+      setSelectedUser((u: any) => ({ ...u, premiumTier: null, premiumExpiresAt: null }));
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const saveContactUrlMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/premium/contact-url", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: contactUrl }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["premium-pricing-admin"] });
+      toast({ title: "Pro contact URL saved" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Grant / Revoke */}
+      <div className="bg-card border border-yellow-500/20 rounded-xl p-6 space-y-4">
+        <h3 className="font-bold text-foreground text-base flex items-center gap-2">
+          <Coins className="h-5 w-5 text-yellow-400" /> Grant / Revoke Premium
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Search for a user by username and grant them Premium or Pro access manually (e.g. after they pay via messages).
+        </p>
+
+        <Input
+          placeholder="Search users by username..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setSelectedUser(null); }}
+          className="max-w-sm"
+        />
+
+        {filtered.length > 0 && !selectedUser && (
+          <div className="bg-muted/30 border border-border rounded-lg divide-y divide-border">
+            {filtered.map((u: any) => (
+              <button
+                key={u.id}
+                onClick={() => { setSelectedUser(u); setSearch(u.username); }}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                  {(u.username?.substring(0, 2) ?? "").toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{u.username}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {u.premiumTier ? <span className="text-yellow-400">★ {u.premiumTier}</span> : "No premium"}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {selectedUser && (
+          <div className="bg-muted/30 border border-yellow-500/20 rounded-lg p-4 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center text-sm font-bold text-yellow-400 shrink-0">
+                {(selectedUser.username?.substring(0, 2) ?? "").toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold">{selectedUser.username}</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedUser.premiumTier
+                    ? `Active: ${selectedUser.premiumTier} — expires ${selectedUser.premiumExpiresAt ? new Date(selectedUser.premiumExpiresAt).toLocaleDateString() : "—"}`
+                    : "No premium subscription"}
+                </p>
+              </div>
+              <button onClick={() => { setSelectedUser(null); setSearch(""); }} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-3 items-end">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Tier to grant</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setGrantTier("premium")}
+                    className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${grantTier === "premium" ? "border-yellow-500 bg-yellow-500/10 text-yellow-400" : "border-border text-muted-foreground hover:text-foreground"}`}
+                  >⭐ Premium</button>
+                  <button
+                    onClick={() => setGrantTier("pro")}
+                    className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${grantTier === "pro" ? "border-blue-500 bg-blue-500/10 text-blue-400" : "border-border text-muted-foreground hover:text-foreground"}`}
+                  >💎 Pro</button>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Duration (days)</p>
+                <Input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={grantDays}
+                  onChange={(e) => setGrantDays(Math.max(1, Number(e.target.value)))}
+                  className="w-24 h-9 font-mono text-center"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
+                  onClick={() => grantMutation.mutate()}
+                  disabled={grantMutation.isPending}
+                >
+                  {grantMutation.isPending ? "Granting..." : `Grant ${grantTier === "pro" ? "Pro" : "Premium"}`}
+                </Button>
+                {selectedUser.premiumTier && (
+                  <Button
+                    variant="outline"
+                    className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                    onClick={() => revokeMutation.mutate()}
+                    disabled={revokeMutation.isPending}
+                  >
+                    {revokeMutation.isPending ? "Revoking..." : "Revoke"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Pro Contact URL */}
+      <div className="bg-card border border-blue-500/20 rounded-xl p-6 space-y-4">
+        <h3 className="font-bold text-foreground text-base flex items-center gap-2">
+          <ExternalLink className="h-5 w-5 text-blue-400" /> Pro "Buy" Button Link
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Where users are sent when they click <strong className="text-foreground">Buy Pro</strong> on the Premium page.
+          Use a relative path like <code className="text-xs bg-muted px-1 rounded">/messages</code> or a full external URL.
+        </p>
+        <div className="flex gap-2 max-w-lg">
+          <Input
+            value={contactUrl}
+            onChange={(e) => setContactUrl(e.target.value)}
+            placeholder="/messages"
+            className="flex-1 font-mono text-sm"
+          />
+          <Button onClick={() => saveContactUrlMutation.mutate()} disabled={saveContactUrlMutation.isPending}>
+            {saveContactUrlMutation.isPending ? "Saving..." : "Save"}
+          </Button>
+        </div>
+        {contactUrl && (
+          <p className="text-xs text-muted-foreground">
+            Current link:{" "}
+            <span className="font-mono text-primary">{contactUrl}</span>
+          </p>
+        )}
+      </div>
+
+      {/* Pricing hint */}
+      <div className="bg-muted/30 border border-border rounded-xl px-5 py-4 flex items-center gap-3">
+        <Settings className="h-5 w-5 text-muted-foreground shrink-0" />
+        <p className="text-sm text-muted-foreground">
+          To adjust <strong className="text-foreground">pricing</strong> (points cost, USD prices, discount %), go to the{" "}
+          <strong className="text-foreground">Site Settings</strong> tab → Premium &amp; Pro Pricing section.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function PendingReviewTab() {

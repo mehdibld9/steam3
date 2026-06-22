@@ -262,14 +262,34 @@ export default function Submit() {
                   </FormItem>
                 )} />
 
-                <FormField control={form.control} name="gamesList" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Games (comma-separated)</FormLabel>
-                    <FormControl><Input placeholder="CS:GO, Rust, Terraria, GTA V" {...field} /></FormControl>
-                    <FormDescription>Separate each game with a comma.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                <FormField control={form.control} name="gamesList" render={({ field }) => {
+                  const isVerifiedNotFamilyShare = verifyStatus === "valid" && !isFamilyShare;
+                  return (
+                    <FormItem>
+                      <FormLabel>Games (comma-separated)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="CS:GO, Rust, Terraria, GTA V"
+                          {...field}
+                          readOnly={isVerifiedNotFamilyShare}
+                          className={isVerifiedNotFamilyShare ? "bg-muted/50 cursor-not-allowed text-muted-foreground" : ""}
+                        />
+                      </FormControl>
+                      {isVerifiedNotFamilyShare ? (
+                        <FormDescription className="text-amber-500">
+                          Games are auto-filled from Steam and cannot be edited.
+                        </FormDescription>
+                      ) : isFamilyShare ? (
+                        <FormDescription>
+                          Family Share detected — enter the games manually, separated by commas.
+                        </FormDescription>
+                      ) : (
+                        <FormDescription>Separate each game with a comma.</FormDescription>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }} />
 
                 <FormField control={form.control} name="pointsCost" render={({ field }) => (
                   <FormItem>

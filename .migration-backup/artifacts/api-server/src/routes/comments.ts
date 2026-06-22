@@ -33,6 +33,10 @@ router.get("/", async (req, res) => {
       createdAt: commentsTable.createdAt,
       username: usersTable.username,
       avatarUrl: usersTable.avatarUrl,
+      premiumTier: usersTable.premiumTier,
+      premiumExpiresAt: usersTable.premiumExpiresAt,
+      nameColor: usersTable.nameColor,
+      badgeType: usersTable.badgeType,
     })
     .from(commentsTable)
     .leftJoin(usersTable, eq(commentsTable.userId, usersTable.id))
@@ -57,12 +61,18 @@ router.get("/", async (req, res) => {
     likedIds = new Set(liked.map((l) => l.targetId));
   }
 
+  const now = new Date();
   res.json(
-    comments.map((c) => ({
-      ...c,
-      username: c.username ?? "",
-      userHasLiked: likedIds.has(c.id),
-    })),
+    comments.map((c) => {
+      const isPremiumActive = c.premiumTier && c.premiumExpiresAt && new Date(c.premiumExpiresAt) > now;
+      return {
+        ...c,
+        username: c.username ?? "",
+        userHasLiked: likedIds.has(c.id),
+        nameColor: isPremiumActive ? c.nameColor : null,
+        badgeType: isPremiumActive ? c.badgeType : null,
+      };
+    }),
   );
 });
 
@@ -82,7 +92,14 @@ router.post("/", requireAuth, async (req, res) => {
     .returning();
 
   const [user] = await db
-    .select({ username: usersTable.username, avatarUrl: usersTable.avatarUrl })
+    .select({
+      username: usersTable.username,
+      avatarUrl: usersTable.avatarUrl,
+      premiumTier: usersTable.premiumTier,
+      premiumExpiresAt: usersTable.premiumExpiresAt,
+      nameColor: usersTable.nameColor,
+      badgeType: usersTable.badgeType,
+    })
     .from(usersTable)
     .where(eq(usersTable.id, userId))
     .limit(1);
@@ -90,11 +107,14 @@ router.post("/", requireAuth, async (req, res) => {
   const xpComment = await getSetting("xp_post_comment");
   await addXp(userId, xpComment);
 
+  const isPremiumActive = user?.premiumTier && user?.premiumExpiresAt && new Date(user.premiumExpiresAt) > new Date();
   res.status(201).json({
     ...comment,
     username: user?.username ?? "",
     avatarUrl: user?.avatarUrl ?? null,
     userHasLiked: false,
+    nameColor: isPremiumActive ? user?.nameColor : null,
+    badgeType: isPremiumActive ? user?.badgeType : null,
   });
 });
 
