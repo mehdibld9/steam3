@@ -465,7 +465,12 @@ export default function AccountDetail() {
                         })()}
                       </p>
                       {(() => {
-                        const s = checkResult?.checkStatus ?? (account as any).lastCheckStatus;
+                        // Prefer fresh check result, then stored status, then derive from healthFailCount
+                        const acc = account as any;
+                        let s: string | null = checkResult?.checkStatus ?? acc.lastCheckStatus ?? null;
+                        if (!s && acc.lastCheckedAt) {
+                          s = acc.healthFailCount > 0 ? "dead" : "live";
+                        }
                         if (!s) return null;
                         if (s === "live") return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-500 border border-green-500/30">● Live</span>;
                         if (s === "2fa")  return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-yellow-500/15 text-yellow-500 border border-yellow-500/30">● 2FA</span>;

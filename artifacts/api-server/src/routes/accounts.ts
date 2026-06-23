@@ -236,6 +236,7 @@ router.get("/:accountId", async (req, res) => {
       posterBadgeType: usersTable.badgeType,
       lastCheckedAt: accountsTable.lastCheckedAt,
       lastCheckStatus: accountsTable.lastCheckStatus,
+      healthFailCount: accountsTable.healthFailCount,
     })
     .from(accountsTable)
     .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
