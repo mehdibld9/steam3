@@ -234,6 +234,7 @@ router.get("/:accountId", async (req, res) => {
       posterPremiumExpiresAt: usersTable.premiumExpiresAt,
       posterNameColor: usersTable.nameColor,
       posterBadgeType: usersTable.badgeType,
+      lastCheckedAt: accountsTable.lastCheckedAt,
     })
     .from(accountsTable)
     .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
@@ -479,6 +480,40 @@ router.post("/:accountId/vote", requireAuth, async (req, res) => {
     }
     res.json({ message: "Vote recorded", myVote: vote });
   }
+});
+
+// POST /accounts/:accountId/check — admin/mod: trigger an immediate health check on one account
+router.post("/:accountId/check", requireModOrAdmin, async (req, res) => {
+  const accountId = parseInt(req.params.accountId, 10);
+  if (isNaN(accountId)) { res.status(400).json({ error: "Invalid account id" }); return; }
+
+  const [account] = await db
+    .select({ id: accountsTable.id, steamUsername: accountsTable.steamUsername, steamPassword: accountsTable.steamPassword, healthFailCount: accountsTable.healthFailCount })
+    .from(accountsTable)
+    .where(eq(accountsTable.id, accountId))
+    .limit(1);
+
+  if (!account) { res.status(404).json({ error: "Account not found" }); return; }
+
+  const { checkSteamCredentials } = await import("../lib/steamChecker");
+  let resultStatus = "unknown";
+  try {
+    const result = await checkSteamCredentials(account.steamUsername, account.steamPassword);
+    const now = new Date();
+    resultStatus = result.status;
+    if (result.status === "valid") {
+      await db.update(accountsTable).set({ healthFailCount: 0, lastCheckedAt: now }).where(eq(accountsTable.id, account.id));
+    } else if (result.status === "invalid") {
+      const newFailCount = account.healthFailCount + 1;
+      await db.update(accountsTable).set({ healthFailCount: newFailCount, lastCheckedAt: now }).where(eq(accountsTable.id, account.id));
+    } else {
+      await db.update(accountsTable).set({ lastCheckedAt: now }).where(eq(accountsTable.id, account.id));
+    }
+  } catch (e) {
+    res.status(500).json({ error: "Check failed" }); return;
+  }
+
+  res.json({ message: "Check complete", status: resultStatus, lastCheckedAt: new Date() });
 });
 
 export default router;

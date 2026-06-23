@@ -29,7 +29,7 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import {
   Heart, Coins, MessageSquare, Trash, Lock,
   Copy, CheckCheck, ChevronDown, ChevronUp,
-  Flag, Edit2, Check, X, MessageCircle, Eye, ArrowLeft, Star,
+  Flag, Edit2, Check, X, MessageCircle, Eye, ArrowLeft, Star, RefreshCw,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -133,6 +133,8 @@ export default function AccountDetail() {
   const [commentReportReason, setCommentReportReason] = useState("");
   const [commentReportDetails, setCommentReportDetails] = useState("");
 
+  const [checkResult, setCheckResult] = useState<{ status: string; lastCheckedAt: string } | null>(null);
+
   const likeAccount = useLikeAccount();
   const unlikeAccount = useUnlikeAccount();
   const claimAccount = useClaimAccount();
@@ -141,6 +143,20 @@ export default function AccountDetail() {
   const unlikeComment = useUnlikeComment();
   const deleteComment = useDeleteComment();
   const deleteAccount = useDeleteAccount();
+
+  const checkHealthMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/accounts/${id}/check`, { method: "POST", credentials: "include" });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Check failed"); }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setCheckResult({ status: data.status, lastCheckedAt: data.lastCheckedAt });
+      queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(id) });
+      toast({ title: "Health check complete", description: `Status: ${data.status}` });
+    },
+    onError: (e: any) => toast({ title: "Check failed", description: e.message, variant: "destructive" }),
+  });
 
   const reportMutation = useMutation({
     mutationFn: () => submitReport("account", id, reportReason, reportDetails),
@@ -285,8 +301,8 @@ export default function AccountDetail() {
             </div>
           </div>
 
-          {/* Poster info bar — forum style */}
-          <div className="border-t border-border px-4 sm:px-6 py-3 flex items-center gap-3">
+          {/* Poster info bar — forum style — hidden on mobile */}
+          <div className="hidden sm:flex border-t border-border px-4 sm:px-6 py-3 items-center gap-3">
             <Link href={`/profile/${account.userId}`}>
               <Avatar className="h-9 w-9 sm:h-10 sm:w-10 border border-border hover:border-primary transition-colors shrink-0">
                 <AvatarImage src={poster?.avatarUrl || "/default-avatar.png"} />
@@ -438,6 +454,28 @@ export default function AccountDetail() {
 
                 <div className="mt-4 space-y-2">
                   <CollapsibleSection title="Games List" items={account.games} />
+                  {/* Last checked + admin/mod check button */}
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">
+                      {(() => {
+                        const ts = checkResult?.lastCheckedAt ?? (account as any).lastCheckedAt;
+                        if (!ts) return "Never checked";
+                        return `Last checked: ${formatDistanceToNow(new Date(ts))} ago`;
+                      })()}
+                    </p>
+                    {user && ((user as any).isAdmin || (user as any).isModerator) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={checkHealthMutation.isPending}
+                        onClick={() => checkHealthMutation.mutate()}
+                        className="h-7 px-2 gap-1.5 text-[10px] sm:text-xs border-primary/30 text-primary hover:bg-primary/10"
+                      >
+                        <RefreshCw className={`h-3 w-3 ${checkHealthMutation.isPending ? "animate-spin" : ""}`} />
+                        {checkHealthMutation.isPending ? "Checking…" : "Check"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Like + Report */}

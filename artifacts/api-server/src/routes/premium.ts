@@ -210,14 +210,17 @@ router.post("/redeem", requireAuth, async (req, res) => {
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
 
   const duration = premCode.days * 24 * 60 * 60 * 1000;
+  const newTier = premCode.tier === "pro" ? "pro" : (user.premiumTier === "pro" ? "pro" : "premium");
+
   let expiresAt: Date;
-  if (isActivePremium(user) && user.premiumExpiresAt) {
+  // Only stack days when staying on the same tier (e.g. premium→premium or pro→pro).
+  // When upgrading tier (premium→pro) start fresh from now so old days don't carry over.
+  const isSameTier = isActivePremium(user) && user.premiumTier === newTier && user.premiumExpiresAt;
+  if (isSameTier) {
     expiresAt = new Date(new Date(user.premiumExpiresAt).getTime() + duration);
   } else {
     expiresAt = new Date(Date.now() + duration);
   }
-
-  const newTier = premCode.tier === "pro" ? "pro" : (user.premiumTier === "pro" ? "pro" : "premium");
   await db.update(usersTable).set({ premiumTier: newTier, premiumExpiresAt: expiresAt }).where(eq(usersTable.id, userId));
   await db.execute(sql.raw(`UPDATE premium_codes SET uses_count = uses_count + 1 WHERE id = ${premCode.id}`));
   if (premCode.uses_count + 1 >= premCode.max_uses) {

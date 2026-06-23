@@ -8,6 +8,11 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Coins, Crown, Star, Zap, Palette, Shield, ThumbsUp, MessageSquare, CheckCircle2, Gift } from "lucide-react";
 import { Link } from "wouter";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Pricing {
   premiumPointsPrice: number;
@@ -276,7 +281,7 @@ export default function Premium() {
         </div>
 
         {/* Redeem Code */}
-        <RedeemCodeBox me={me} onSuccess={() => { queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() }); refetchStatus(); }} />
+        <RedeemCodeBox me={me} status={status} onSuccess={() => { queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() }); refetchStatus(); }} />
 
         {/* Feature comparison note */}
         <div className="bg-card border border-border rounded-xl p-5 space-y-3">
@@ -294,12 +299,13 @@ export default function Premium() {
   );
 }
 
-function RedeemCodeBox({ me, onSuccess }: { me: any; onSuccess: () => void }) {
+function RedeemCodeBox({ me, status, onSuccess }: { me: any; status: any; onSuccess: () => void }) {
   const { toast } = useToast();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const handleRedeem = async () => {
+  const doRedeem = async () => {
     if (!code.trim()) return;
     setLoading(true);
     try {
@@ -321,34 +327,68 @@ function RedeemCodeBox({ me, onSuccess }: { me: any; onSuccess: () => void }) {
     }
   };
 
+  const handleRedeem = () => {
+    if (!code.trim()) return;
+    if (status?.isActive) {
+      setConfirmOpen(true);
+    } else {
+      doRedeem();
+    }
+  };
+
+  const currentTierLabel = status?.tier === "pro" ? "Pro" : "Premium";
+  const expiryLabel = status?.expiresAt ? new Date(status.expiresAt).toLocaleDateString() : "";
+
   return (
-    <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
-      <div className="flex items-center gap-3">
-        <Gift className="h-6 w-6 text-primary" />
-        <div>
-          <h2 className="text-lg font-black">Redeem a Code</h2>
-          <p className="text-xs text-muted-foreground">Have a premium code? Enter it below to activate your subscription.</p>
+    <>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace current subscription?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an active <strong>{currentTierLabel}</strong> subscription
+              {expiryLabel ? ` (expires ${expiryLabel})` : ""}. Redeeming a new code will
+              replace your current subscription — any remaining days on a different tier will be
+              lost. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmOpen(false); doRedeem(); }}>
+              Yes, redeem anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <Gift className="h-6 w-6 text-primary" />
+          <div>
+            <h2 className="text-lg font-black">Redeem a Code</h2>
+            <p className="text-xs text-muted-foreground">Have a premium code? Enter it below to activate your subscription.</p>
+          </div>
         </div>
+        {me ? (
+          <div className="flex gap-2">
+            <Input
+              placeholder="Enter code (e.g. XXXX-XXXX-XXXX)"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              className="font-mono tracking-widest flex-1"
+              onKeyDown={(e) => e.key === "Enter" && handleRedeem()}
+            />
+            <Button onClick={handleRedeem} disabled={loading || !code.trim()} className="shrink-0">
+              {loading ? "Redeeming..." : "Redeem"}
+            </Button>
+          </div>
+        ) : (
+          <Link href="/login">
+            <Button variant="outline" className="w-full">Log in to redeem a code</Button>
+          </Link>
+        )}
       </div>
-      {me ? (
-        <div className="flex gap-2">
-          <Input
-            placeholder="Enter code (e.g. XXXX-XXXX-XXXX)"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            className="font-mono tracking-widest flex-1"
-            onKeyDown={(e) => e.key === "Enter" && handleRedeem()}
-          />
-          <Button onClick={handleRedeem} disabled={loading || !code.trim()} className="shrink-0">
-            {loading ? "Redeeming..." : "Redeem"}
-          </Button>
-        </div>
-      ) : (
-        <Link href="/login">
-          <Button variant="outline" className="w-full">Log in to redeem a code</Button>
-        </Link>
-      )}
-    </div>
+    </>
   );
 }
 
