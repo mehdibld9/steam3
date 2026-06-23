@@ -235,6 +235,7 @@ router.get("/:accountId", async (req, res) => {
       posterNameColor: usersTable.nameColor,
       posterBadgeType: usersTable.badgeType,
       lastCheckedAt: accountsTable.lastCheckedAt,
+      lastCheckStatus: accountsTable.lastCheckStatus,
     })
     .from(accountsTable)
     .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
@@ -499,7 +500,10 @@ router.post("/:accountId/check", requireModOrAdmin, async (req, res) => {
   let resultStatus = "unknown";
   let checkStatus: "live" | "dead" | "2fa" | "error" = "error";
   try {
-    const result = await checkSteamCredentials(account.steamUsername, account.steamPassword);
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Steam check timed out after 45s")), 45000)
+    );
+    const result = await Promise.race([checkSteamCredentials(account.steamUsername, account.steamPassword), timeout]);
     const now = new Date();
     resultStatus = result.status;
     if (result.status === "valid") {
