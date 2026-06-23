@@ -133,7 +133,7 @@ export default function AccountDetail() {
   const [commentReportReason, setCommentReportReason] = useState("");
   const [commentReportDetails, setCommentReportDetails] = useState("");
 
-  const [checkResult, setCheckResult] = useState<{ status: string; lastCheckedAt: string } | null>(null);
+  const [checkResult, setCheckResult] = useState<{ status: string; checkStatus: "live" | "dead" | "2fa" | "error"; lastCheckedAt: string } | null>(null);
 
   const likeAccount = useLikeAccount();
   const unlikeAccount = useUnlikeAccount();
@@ -151,9 +151,9 @@ export default function AccountDetail() {
       return res.json();
     },
     onSuccess: (data) => {
-      setCheckResult({ status: data.status, lastCheckedAt: data.lastCheckedAt });
+      setCheckResult({ status: data.status, checkStatus: data.checkStatus ?? "error", lastCheckedAt: data.lastCheckedAt });
       queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(id) });
-      toast({ title: "Health check complete", description: `Status: ${data.status}` });
+      toast({ title: "Health check complete", description: `Status: ${data.checkStatus ?? data.status}` });
     },
     onError: (e: any) => toast({ title: "Check failed", description: e.message, variant: "destructive" }),
   });
@@ -454,15 +454,25 @@ export default function AccountDetail() {
 
                 <div className="mt-4 space-y-2">
                   <CollapsibleSection title="Games List" items={account.games} />
-                  {/* Last checked + admin/mod check button */}
+                  {/* Last checked + status badge + admin/mod check button */}
                   <div className="flex items-center justify-between mt-2">
-                    <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">
+                        {(() => {
+                          const ts = checkResult?.lastCheckedAt ?? (account as any).lastCheckedAt;
+                          if (!ts) return "Never checked";
+                          return `Last checked: ${formatDistanceToNow(new Date(ts))} ago`;
+                        })()}
+                      </p>
                       {(() => {
-                        const ts = checkResult?.lastCheckedAt ?? (account as any).lastCheckedAt;
-                        if (!ts) return "Never checked";
-                        return `Last checked: ${formatDistanceToNow(new Date(ts))} ago`;
+                        const s = checkResult?.checkStatus ?? (account as any).lastCheckStatus;
+                        if (!s) return null;
+                        if (s === "live") return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-500 border border-green-500/30">● Live</span>;
+                        if (s === "2fa")  return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-yellow-500/15 text-yellow-500 border border-yellow-500/30">● 2FA</span>;
+                        if (s === "dead") return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-500 border border-red-500/30">● Dead</span>;
+                        return null;
                       })()}
-                    </p>
+                    </div>
                     {user && ((user as any).isAdmin || (user as any).isModerator) && (
                       <Button
                         size="sm"

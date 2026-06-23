@@ -24,6 +24,7 @@ export const accountsTable = pgTable("accounts", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
   healthFailCount: integer("health_fail_count").notNull().default(0),
+  lastCheckStatus: text("last_check_status"),
 });
 
 export const insertAccountSchema = createInsertSchema(accountsTable).omit({

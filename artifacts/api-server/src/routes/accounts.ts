@@ -497,15 +497,19 @@ router.post("/:accountId/check", requireModOrAdmin, async (req, res) => {
 
   const { checkSteamCredentials } = await import("../lib/steamChecker");
   let resultStatus = "unknown";
+  let checkStatus: "live" | "dead" | "2fa" | "error" = "error";
   try {
     const result = await checkSteamCredentials(account.steamUsername, account.steamPassword);
     const now = new Date();
     resultStatus = result.status;
     if (result.status === "valid") {
-      await db.update(accountsTable).set({ healthFailCount: 0, lastCheckedAt: now }).where(eq(accountsTable.id, account.id));
+      const is2fa = result.message.includes("2FA");
+      checkStatus = is2fa ? "2fa" : "live";
+      await db.update(accountsTable).set({ healthFailCount: 0, lastCheckedAt: now, lastCheckStatus: checkStatus }).where(eq(accountsTable.id, account.id));
     } else if (result.status === "invalid") {
+      checkStatus = "dead";
       const newFailCount = account.healthFailCount + 1;
-      await db.update(accountsTable).set({ healthFailCount: newFailCount, lastCheckedAt: now }).where(eq(accountsTable.id, account.id));
+      await db.update(accountsTable).set({ healthFailCount: newFailCount, lastCheckedAt: now, lastCheckStatus: "dead" }).where(eq(accountsTable.id, account.id));
     } else {
       await db.update(accountsTable).set({ lastCheckedAt: now }).where(eq(accountsTable.id, account.id));
     }
@@ -513,7 +517,7 @@ router.post("/:accountId/check", requireModOrAdmin, async (req, res) => {
     res.status(500).json({ error: "Check failed" }); return;
   }
 
-  res.json({ message: "Check complete", status: resultStatus, lastCheckedAt: new Date() });
+  res.json({ message: "Check complete", status: resultStatus, checkStatus, lastCheckedAt: new Date() });
 });
 
 export default router;
