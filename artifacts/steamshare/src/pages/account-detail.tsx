@@ -301,8 +301,8 @@ export default function AccountDetail() {
             </div>
           </div>
 
-          {/* Poster info bar — forum style — hidden on mobile */}
-          <div className="hidden sm:flex border-t border-border px-4 sm:px-6 py-3 items-center gap-3">
+          {/* Poster info bar — forum style */}
+          <div className="flex border-t border-border px-4 sm:px-6 py-3 items-center gap-3">
             <Link href={`/profile/${account.userId}`}>
               <Avatar className="h-9 w-9 sm:h-10 sm:w-10 border border-border hover:border-primary transition-colors shrink-0">
                 <AvatarImage src={poster?.avatarUrl || "/default-avatar.png"} />
