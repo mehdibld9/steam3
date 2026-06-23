@@ -78,18 +78,19 @@ router.post("/buy-points", requireAuth, async (req, res) => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
 
+  // Pro users cannot buy-down to premium with points
+  if (isActivePremium(user) && user.premiumTier === "pro") {
+    res.status(400).json({ error: "You already have an active Pro subscription." });
+    return;
+  }
+
   if (user.points < price) {
     res.status(400).json({ error: `Not enough points. You need ${price} points.` });
     return;
   }
 
-  const now = new Date();
-  let expiresAt: Date;
-  if (isActivePremium(user) && user.premiumTier === "premium") {
-    expiresAt = new Date(new Date(user.premiumExpiresAt!).getTime() + 30 * 24 * 60 * 60 * 1000);
-  } else {
-    expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-  }
+  // Always start fresh from now — never stack on an existing subscription
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
   await db.update(usersTable).set({
     points: user.points - price,
@@ -210,7 +211,10 @@ router.post("/redeem", requireAuth, async (req, res) => {
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
 
   const duration = premCode.days * 24 * 60 * 60 * 1000;
-  const newTier = premCode.tier === "pro" ? "pro" : (user.premiumTier === "pro" ? "pro" : "premium");
+  // Only preserve Pro if the user currently has an *active* Pro subscription.
+  // An expired premiumTier="pro" must not silently upgrade a Premium code redeem.
+  const userHasActivePro = isActivePremium(user) && user.premiumTier === "pro";
+  const newTier = premCode.tier === "pro" ? "pro" : (userHasActivePro ? "pro" : "premium");
 
   // Redeem codes always start fresh from now — never stack on existing subscription.
   const expiresAt = new Date(Date.now() + duration);
