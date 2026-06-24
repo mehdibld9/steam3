@@ -511,13 +511,13 @@ router.post("/:accountId/check", requireModOrAdmin, async (req, res) => {
   if (result.status === "valid") {
     const is2fa = String(result.message ?? "").includes("2FA");
     checkStatus = is2fa ? "2fa" : "live";
-    await db.update(accountsTable).set({ healthFailCount: 0, lastCheckedAt: now, lastCheckStatus: checkStatus }).where(eq(accountsTable.id, account.id));
+    await db.update(accountsTable).set({ healthFailCount: 0, lastCheckedAt: now, lastCheckStatus: checkStatus, isAvailable: true }).where(eq(accountsTable.id, account.id));
   } else if (result.status === "invalid") {
     checkStatus = "dead";
     const newFailCount = account.healthFailCount + 1;
-    await db.update(accountsTable).set({ healthFailCount: newFailCount, lastCheckedAt: now, lastCheckStatus: "dead" }).where(eq(accountsTable.id, account.id));
+    await db.update(accountsTable).set({ healthFailCount: newFailCount, lastCheckedAt: now, lastCheckStatus: "dead", isAvailable: false }).where(eq(accountsTable.id, account.id));
   } else {
-    // error / rate_limited — update timestamp only, don't change existing status
+    // error / rate_limited — update timestamp only, don't change availability
     await db.update(accountsTable).set({ lastCheckedAt: now }).where(eq(accountsTable.id, account.id));
   }
 
