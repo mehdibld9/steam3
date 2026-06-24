@@ -18,10 +18,12 @@ async function fetchAnnouncements() {
 }
 
 export default function Browse() {
-  const [search, setSearch] = useState("");
-  const [selectedGame, setSelectedGame] = useState<string>("all");
-  const [sort, setSort] = useState<"recent"|"popular"|"free"|"points">("recent");
-  const [page, setPage] = useState(1);
+  // Initialise from URL so browser-back restores filters
+  const params = new URLSearchParams(window.location.search);
+  const [search, setSearch] = useState(params.get("search") ?? "");
+  const [selectedGame, setSelectedGame] = useState<string>(params.get("game") ?? "all");
+  const [sort, setSort] = useState<"recent"|"popular"|"free"|"points">((params.get("sort") as any) ?? "recent");
+  const [page, setPage] = useState(Number(params.get("page") ?? "1"));
   const [allAccounts, setAllAccounts] = useState<any[]>([]);
 
   const { data: gamesData, isLoading: gamesLoading } = useListGames();
@@ -32,6 +34,17 @@ export default function Browse() {
     limit: 50,
   });
   const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
+
+  // Keep URL in sync with filters (replaceState = no extra history entries)
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (search) p.set("search", search);
+    if (selectedGame !== "all") p.set("game", selectedGame);
+    if (sort !== "recent") p.set("sort", sort);
+    if (page > 1) p.set("page", String(page));
+    const qs = p.toString();
+    window.history.replaceState(null, "", qs ? `/browse?${qs}` : "/browse");
+  }, [search, selectedGame, sort, page]);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -53,6 +66,23 @@ export default function Browse() {
       }
     }
   }, [accountsData, page]);
+
+  // Restore scroll position after accounts load (coming back via browser back)
+  const scrollRestored = useRef(false);
+  useEffect(() => {
+    if (scrollRestored.current || accountsLoading || allAccounts.length === 0) return;
+    const saved = sessionStorage.getItem("browse-scroll");
+    if (saved) {
+      scrollRestored.current = true;
+      sessionStorage.removeItem("browse-scroll");
+      requestAnimationFrame(() => window.scrollTo(0, Number(saved)));
+    }
+  }, [accountsLoading, allAccounts.length]);
+
+  // Save scroll position when leaving the page
+  useEffect(() => {
+    return () => { sessionStorage.setItem("browse-scroll", String(window.scrollY)); };
+  }, []);
 
   const filteredAccounts = allAccounts.filter((a) => {
     const q = search.toLowerCase();

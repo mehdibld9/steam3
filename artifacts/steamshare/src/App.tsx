@@ -1,6 +1,6 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
 import NotFound from "@/pages/not-found";
@@ -29,9 +29,22 @@ const queryClient = new QueryClient();
 
 function ScrollToTop() {
   const [location] = useLocation();
+  const isPopState = useRef(false);
+
   useEffect(() => {
+    const handler = () => { isPopState.current = true; };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
+
+  useEffect(() => {
+    if (isPopState.current) {
+      isPopState.current = false;
+      return; // let the page restore its own scroll
+    }
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, [location]);
+
   return null;
 }
 
