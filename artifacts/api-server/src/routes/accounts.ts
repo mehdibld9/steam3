@@ -510,8 +510,15 @@ router.post("/:accountId/check", requireModOrAdmin, async (req, res) => {
 
   if (result.status === "valid") {
     const is2fa = String(result.message ?? "").includes("2FA");
-    checkStatus = is2fa ? "2fa" : "live";
-    await db.update(accountsTable).set({ healthFailCount: 0, lastCheckedAt: now, lastCheckStatus: checkStatus, isAvailable: true }).where(eq(accountsTable.id, account.id));
+    if (is2fa) {
+      // 2FA accounts can't be used for sharing — treat as dead
+      checkStatus = "dead";
+      const newFailCount = account.healthFailCount + 1;
+      await db.update(accountsTable).set({ healthFailCount: newFailCount, lastCheckedAt: now, lastCheckStatus: "dead", isAvailable: false }).where(eq(accountsTable.id, account.id));
+    } else {
+      checkStatus = "live";
+      await db.update(accountsTable).set({ healthFailCount: 0, lastCheckedAt: now, lastCheckStatus: "live", isAvailable: true }).where(eq(accountsTable.id, account.id));
+    }
   } else if (result.status === "invalid") {
     checkStatus = "dead";
     const newFailCount = account.healthFailCount + 1;
