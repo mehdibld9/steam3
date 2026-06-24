@@ -151,9 +151,17 @@ export default function AccountDetail() {
       return res.json();
     },
     onSuccess: (data) => {
-      setCheckResult({ status: data.status, checkStatus: data.checkStatus ?? "error", lastCheckedAt: data.lastCheckedAt });
+      // Derive checkStatus from raw status if backend didn't send it
+      const cs: string | null =
+        data.checkStatus && data.checkStatus !== "error"
+          ? data.checkStatus
+          : data.status === "valid" ? "live"
+          : data.status === "invalid" ? "dead"
+          : null;
+      setCheckResult({ status: data.status, checkStatus: cs as any, lastCheckedAt: data.lastCheckedAt });
       queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(id) });
-      toast({ title: "Health check complete", description: `Status: ${data.checkStatus ?? data.status}` });
+      const label = cs === "live" ? "Live ✓" : cs === "dead" ? "Dead ✗" : cs === "2fa" ? "2FA (valid creds)" : data.status === "rate_limited" ? "Rate limited — try again later" : data.status === "error" ? "Could not reach Steam" : data.status;
+      toast({ title: "Health check complete", description: `Status: ${label}` });
     },
     onError: (e: any) => toast({ title: "Check failed", description: e.message, variant: "destructive" }),
   });
@@ -465,11 +473,16 @@ export default function AccountDetail() {
                         })()}
                       </p>
                       {(() => {
-                        // Prefer fresh check result, then stored status, then derive from healthFailCount
+                        // Prefer fresh check result (skip null/"error"), then stored DB status, then derive from healthFailCount
                         const acc = account as any;
-                        let s: string | null = checkResult?.checkStatus ?? acc.lastCheckStatus ?? null;
+                        const freshStatus = checkResult?.checkStatus;
+                        const validStatuses = ["live", "dead", "2fa"];
+                        let s: string | null =
+                          (freshStatus && validStatuses.includes(freshStatus) ? freshStatus : null)
+                          ?? (acc.lastCheckStatus && validStatuses.includes(acc.lastCheckStatus) ? acc.lastCheckStatus : null)
+                          ?? null;
                         if (!s && acc.lastCheckedAt) {
-                          s = acc.healthFailCount > 0 ? "dead" : "live";
+                          s = (acc.healthFailCount ?? 0) > 0 ? "dead" : "live";
                         }
                         if (!s) return null;
                         if (s === "live") return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-500 border border-green-500/30">● Live</span>;

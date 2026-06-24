@@ -509,7 +509,7 @@ router.post("/:accountId/check", requireModOrAdmin, async (req, res) => {
   let checkStatus: "live" | "dead" | "2fa" | "error" = "error";
 
   if (result.status === "valid") {
-    const is2fa = result.message.includes("2FA");
+    const is2fa = String(result.message ?? "").includes("2FA");
     checkStatus = is2fa ? "2fa" : "live";
     await db.update(accountsTable).set({ healthFailCount: 0, lastCheckedAt: now, lastCheckStatus: checkStatus }).where(eq(accountsTable.id, account.id));
   } else if (result.status === "invalid") {
