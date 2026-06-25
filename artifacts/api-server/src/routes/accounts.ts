@@ -484,8 +484,8 @@ router.post("/:accountId/vote", requireAuth, async (req, res) => {
   }
 });
 
-// POST /accounts/:accountId/check — admin/mod: trigger an immediate health check on one account
-router.post("/:accountId/check", requireModOrAdmin, async (req, res) => {
+// POST /accounts/:accountId/check — any logged-in user: trigger a live Steam credential check
+router.post("/:accountId/check", requireAuth, async (req, res) => {
   const accountId = parseInt(req.params.accountId, 10);
   if (isNaN(accountId)) { res.status(400).json({ error: "Invalid account id" }); return; }
 
