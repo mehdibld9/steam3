@@ -175,3 +175,98 @@
   background-size: 200%;
   animation: rainbow-shift 3s linear infinite;
 }
+
+/* Fire animated name */
+@keyframes fire-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.fire-text {
+  background: linear-gradient(90deg, #ff0000, #ff4500, #ff8c00, #ffd700, #ff4500, #ff0000);
+  background-size: 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: fire-shift 2s ease infinite;
+}
+.fire-swatch {
+  background: linear-gradient(135deg, #ff0000, #ff4500, #ffd700, #ff4500, #ff0000);
+  background-size: 300%;
+  animation: fire-shift 2s ease infinite;
+}
+
+/* Ocean animated name */
+@keyframes ocean-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.ocean-text {
+  background: linear-gradient(90deg, #0ea5e9, #06b6d4, #22d3ee, #0284c7, #0ea5e9);
+  background-size: 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: ocean-shift 3s ease infinite;
+}
+.ocean-swatch {
+  background: linear-gradient(135deg, #0ea5e9, #06b6d4, #22d3ee, #0284c7, #0ea5e9);
+  background-size: 300%;
+  animation: ocean-shift 3s ease infinite;
+}
+
+/* Galaxy animated name */
+@keyframes galaxy-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.galaxy-text {
+  background: linear-gradient(90deg, #7c3aed, #a855f7, #ec4899, #8b5cf6, #7c3aed);
+  background-size: 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: galaxy-shift 3s ease infinite;
+}
+.galaxy-swatch {
+  background: linear-gradient(135deg, #7c3aed, #a855f7, #ec4899, #8b5cf6, #7c3aed);
+  background-size: 300%;
+  animation: galaxy-shift 3s ease infinite;
+}
+
+/* Neon (green) animated name */
+@keyframes neon-shift {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+.neon-text {
+  color: #39ff14;
+  text-shadow: 0 0 8px #39ff14, 0 0 16px #39ff1488;
+  animation: neon-shift 1.5s ease-in-out infinite;
+}
+.neon-swatch {
+  background: #39ff14;
+  box-shadow: 0 0 8px #39ff14, 0 0 16px #39ff1488;
+  animation: neon-shift 1.5s ease-in-out infinite;
+}
+
+/* Gold shine animated name */
+@keyframes gold-shift {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.gold-text {
+  background: linear-gradient(90deg, #b8860b, #ffd700, #ffa500, #fff8dc, #ffd700, #b8860b);
+  background-size: 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gold-shift 3s linear infinite;
+}
+.gold-swatch {
+  background: linear-gradient(135deg, #b8860b, #ffd700, #ffa500, #fff8dc, #ffd700, #b8860b);
+  background-size: 300%;
+  animation: gold-shift 3s linear infinite;
+}

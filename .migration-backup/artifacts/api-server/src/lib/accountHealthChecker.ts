@@ -5,15 +5,15 @@ import { eq, lte, or, isNull } from "drizzle-orm";
 import { checkSteamCredentials } from "./steamChecker";
 import { logger } from "./logger";
 
-// How often to run the health check cycle (every 7 days)
-const CHECK_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+// How often to run the health check cycle (every 4 days)
+const CHECK_INTERVAL_MS = 4 * 24 * 60 * 60 * 1000;
 
 // How many consecutive failures before auto-deleting the listing
 const MAX_FAIL_COUNT = 3;
 
 /**
  * Run one full health check pass across all available accounts.
- * - Skips accounts checked within the last 7 days.
+ * - Skips accounts checked within the last 4 days.
  * - Uses proxy rotation (already built into checkSteamCredentials).
  * - On success: resets healthFailCount to 0, updates lastCheckedAt.
  * - On failure: increments healthFailCount; deletes listing if >= MAX_FAIL_COUNT.
@@ -23,7 +23,7 @@ export async function runHealthChecks(): Promise<void> {
 
   const sevenDaysAgo = new Date(Date.now() - CHECK_INTERVAL_MS);
 
-  // Fetch accounts that are available and haven't been checked in the last 7 days
+  // Fetch accounts that are available and haven't been checked in the last 4 days
   const accounts = await db
     .select({
       id: accountsTable.id,
@@ -107,10 +107,10 @@ export async function runHealthChecks(): Promise<void> {
 
 /**
  * Start the background scheduler.
- * Runs an immediate check on startup, then repeats every 7 days.
+ * Runs an immediate check on startup, then repeats every 4 days.
  */
 export function startHealthCheckScheduler(): void {
-  logger.info("Account health check scheduler started (interval: 7 days)");
+  logger.info("Account health check scheduler started (interval: 4 days)");
 
   // Run first check shortly after startup (1 minute delay so server is fully ready)
   const initialDelay = 60_000;
@@ -120,7 +120,7 @@ export function startHealthCheckScheduler(): void {
     } catch (e) {
       logger.error({ err: e }, "Initial health check run failed");
     }
-    // Then repeat every 7 days
+    // Then repeat every 4 days
     setInterval(async () => {
       try {
         await runHealthChecks();

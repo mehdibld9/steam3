@@ -1,13 +1,14 @@
 // @ts-nocheck
 import express from "express";
 import { db, usersTable, siteSettingsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { getSetting, getAllXpSettings } from "../lib/settings";
 
 const router = express.Router();
 
-const BASIC_COLORS = ["#ef4444","#f97316","#eab308","#22c55e","#3b82f6","#8b5cf6","#ec4899","#06b6d4","#ffffff","#94a3b8","rainbow"];
+const BASIC_COLORS = ["#ef4444","#f97316","#eab308","#22c55e","#3b82f6","#8b5cf6","#ec4899","#06b6d4","#ffffff","#94a3b8","rainbow","fire","ocean","galaxy","neon","gold"];
+const PRO_ONLY_COLORS = ["rainbow","fire","ocean","galaxy","neon","gold"];
 const VALID_BADGE_TYPES = ["gold","star","vip","crown","fire","shield","diamond","bolt"];
 
 function isActivePremium(user: any): boolean {
@@ -77,18 +78,19 @@ router.post("/buy-points", requireAuth, async (req, res) => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
 
+  // Pro users cannot buy-down to premium with points
+  if (isActivePremium(user) && user.premiumTier === "pro") {
+    res.status(400).json({ error: "You already have an active Pro subscription." });
+    return;
+  }
+
   if (user.points < price) {
     res.status(400).json({ error: `Not enough points. You need ${price} points.` });
     return;
   }
 
-  const now = new Date();
-  let expiresAt: Date;
-  if (isActivePremium(user) && user.premiumTier === "premium") {
-    expiresAt = new Date(new Date(user.premiumExpiresAt!).getTime() + 30 * 24 * 60 * 60 * 1000);
-  } else {
-    expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-  }
+  // Always start fresh from now — never stack on an existing subscription
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
   await db.update(usersTable).set({
     points: user.points - price,
@@ -139,11 +141,11 @@ router.patch("/preferences", requireAuth, async (req, res) => {
     if (nameColor === null) {
       updates.nameColor = null;
     } else {
-      const allowed = BASIC_COLORS;
-      if (!allowed.includes(nameColor)) {
+      if (!BASIC_COLORS.includes(nameColor)) {
         res.status(400).json({ error: "Invalid color" });
         return;
       }
+      // Animated colors require any active premium (not just pro)
       updates.nameColor = nameColor;
     }
   }
@@ -166,6 +168,63 @@ router.patch("/preferences", requireAuth, async (req, res) => {
 
   await db.update(usersTable).set(updates).where(eq(usersTable.id, userId));
   res.json({ message: "Preferences updated" });
+});
+
+// GET /premium/codes — admin list all codes
+router.get("/codes", requireAdmin, async (_req, res) => {
+  const rows = await db.execute(sql.raw(`SELECT id, code, tier, days, max_uses, uses_count, is_active, created_at FROM premium_codes ORDER BY created_at DESC LIMIT 200`));
+  res.json(rows.rows);
+});
+
+// POST /premium/generate-code — admin generate a code
+router.post("/generate-code", requireAdmin, async (req, res) => {
+  const { tier = "premium", days = 30, maxUses = 1 } = req.body as { tier?: string; days?: number; maxUses?: number };
+  if (!["premium", "pro"].includes(tier)) { res.status(400).json({ error: "Invalid tier" }); return; }
+  const seg = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+  const code = `${seg()}-${seg()}-${seg()}`;
+  const rows = await db.execute(sql.raw(`INSERT INTO premium_codes (code, tier, days, max_uses) VALUES ('${code}', '${tier}', ${Number(days)}, ${Number(maxUses)}) RETURNING id, code, tier, days, max_uses, uses_count, is_active, created_at`));
+  res.json(rows.rows[0]);
+});
+
+// DELETE /premium/codes/:id — admin deactivate a code
+router.delete("/codes/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  await db.execute(sql.raw(`UPDATE premium_codes SET is_active = false WHERE id = ${id}`));
+  res.json({ message: "Code deactivated" });
+});
+
+// POST /premium/redeem — user redeem a code
+router.post("/redeem", requireAuth, async (req, res) => {
+  const userId = req.session.userId!;
+  const { code } = req.body as { code: string };
+  if (!code) { res.status(400).json({ error: "Code required" }); return; }
+
+  const sanitized = code.toUpperCase().trim();
+  const rows = await db.execute(sql.raw(`SELECT * FROM premium_codes WHERE code = '${sanitized.replace(/'/g, "''")}' LIMIT 1`));
+  const premCode = rows.rows[0] as any;
+
+  if (!premCode) { res.status(404).json({ error: "Invalid or unknown code" }); return; }
+  if (!premCode.is_active) { res.status(400).json({ error: "This code is no longer active" }); return; }
+  if (premCode.uses_count >= premCode.max_uses) { res.status(400).json({ error: "This code has already been fully redeemed" }); return; }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  const duration = premCode.days * 24 * 60 * 60 * 1000;
+  // Only preserve Pro if the user currently has an *active* Pro subscription.
+  // An expired premiumTier="pro" must not silently upgrade a Premium code redeem.
+  const userHasActivePro = isActivePremium(user) && user.premiumTier === "pro";
+  const newTier = premCode.tier === "pro" ? "pro" : (userHasActivePro ? "pro" : "premium");
+
+  // Redeem codes always start fresh from now — never stack on existing subscription.
+  const expiresAt = new Date(Date.now() + duration);
+  await db.update(usersTable).set({ premiumTier: newTier, premiumExpiresAt: expiresAt }).where(eq(usersTable.id, userId));
+  await db.execute(sql.raw(`UPDATE premium_codes SET uses_count = uses_count + 1 WHERE id = ${premCode.id}`));
+  if (premCode.uses_count + 1 >= premCode.max_uses) {
+    await db.execute(sql.raw(`UPDATE premium_codes SET is_active = false WHERE id = ${premCode.id}`));
+  }
+
+  res.json({ message: `${newTier === "pro" ? "Pro" : "Premium"} activated for ${premCode.days} days!`, tier: newTier, expiresAt });
 });
 
 export default router;

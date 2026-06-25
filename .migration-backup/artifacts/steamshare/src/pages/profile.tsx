@@ -120,7 +120,7 @@ export default function Profile() {
                 style={{ background: levelColor, boxShadow: `0 0 16px ${levelColor}55` }}
               >
                 <Avatar className="h-24 w-24 sm:h-20 sm:w-20 border-2 border-background shadow-lg">
-                  <AvatarImage src={user.avatarUrl || undefined} />
+                  <AvatarImage src={user.avatarUrl || "/default-avatar.png"} />
                   <AvatarFallback className="text-3xl sm:text-2xl bg-secondary">
                     {(user.username?.substring(0, 2) ?? "").toUpperCase()}
                   </AvatarFallback>
@@ -138,14 +138,24 @@ export default function Profile() {
             {/* Name + meta */}
             <div className="flex-1 text-center sm:text-left min-w-0">
               <h1 className="text-2xl sm:text-xl font-black mb-1.5 flex items-center justify-center sm:justify-start gap-2 flex-wrap">
-                <UserBadge badgeType={(user as any).badgeType} size={20} />
                 {(user as any).nameColor === "rainbow" ? (
                   <span className="rainbow-text">{displayedName}</span>
+                ) : (user as any).nameColor === "fire" ? (
+                  <span className="fire-text">{displayedName}</span>
+                ) : (user as any).nameColor === "ocean" ? (
+                  <span className="ocean-text">{displayedName}</span>
+                ) : (user as any).nameColor === "galaxy" ? (
+                  <span className="galaxy-text">{displayedName}</span>
+                ) : (user as any).nameColor === "neon" ? (
+                  <span className="neon-text">{displayedName}</span>
+                ) : (user as any).nameColor === "gold" ? (
+                  <span className="gold-text">{displayedName}</span>
                 ) : (
                   <span style={(user as any).nameColor ? { color: (user as any).nameColor } : undefined}>
                     {displayedName}
                   </span>
                 )}
+                <UserBadge badgeType={(user as any).badgeType} size={20} />
                 {(user as any).displayName && (
                   <span className="text-xs text-muted-foreground font-normal">@{user.username}</span>
                 )}

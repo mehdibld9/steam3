@@ -234,6 +234,9 @@ router.get("/:accountId", async (req, res) => {
       posterPremiumExpiresAt: usersTable.premiumExpiresAt,
       posterNameColor: usersTable.nameColor,
       posterBadgeType: usersTable.badgeType,
+      lastCheckedAt: accountsTable.lastCheckedAt,
+      lastCheckStatus: accountsTable.lastCheckStatus,
+      healthFailCount: accountsTable.healthFailCount,
     })
     .from(accountsTable)
     .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
@@ -479,6 +482,53 @@ router.post("/:accountId/vote", requireAuth, async (req, res) => {
     }
     res.json({ message: "Vote recorded", myVote: vote });
   }
+});
+
+// POST /accounts/:accountId/check — admin/mod: trigger an immediate health check on one account
+router.post("/:accountId/check", requireModOrAdmin, async (req, res) => {
+  const accountId = parseInt(req.params.accountId, 10);
+  if (isNaN(accountId)) { res.status(400).json({ error: "Invalid account id" }); return; }
+
+  const [account] = await db
+    .select({ id: accountsTable.id, steamUsername: accountsTable.steamUsername, steamPassword: accountsTable.steamPassword, healthFailCount: accountsTable.healthFailCount })
+    .from(accountsTable)
+    .where(eq(accountsTable.id, accountId))
+    .limit(1);
+
+  if (!account) { res.status(404).json({ error: "Account not found" }); return; }
+
+  let result;
+  try {
+    // Use the same checker call as /verify-credentials (identical to the submit page)
+    result = await checkSteamCredentials(account.steamUsername, account.steamPassword);
+  } catch (e) {
+    res.status(500).json({ error: "Check failed" }); return;
+  }
+
+  const now = new Date();
+  let checkStatus: "live" | "dead" | "2fa" | "error" = "error";
+
+  if (result.status === "valid") {
+    const is2fa = String(result.message ?? "").includes("2FA");
+    if (is2fa) {
+      // 2FA accounts can't be used for sharing — treat as dead
+      checkStatus = "dead";
+      const newFailCount = account.healthFailCount + 1;
+      await db.update(accountsTable).set({ healthFailCount: newFailCount, lastCheckedAt: now, lastCheckStatus: "dead", isAvailable: false }).where(eq(accountsTable.id, account.id));
+    } else {
+      checkStatus = "live";
+      await db.update(accountsTable).set({ healthFailCount: 0, lastCheckedAt: now, lastCheckStatus: "live", isAvailable: true }).where(eq(accountsTable.id, account.id));
+    }
+  } else if (result.status === "invalid") {
+    checkStatus = "dead";
+    const newFailCount = account.healthFailCount + 1;
+    await db.update(accountsTable).set({ healthFailCount: newFailCount, lastCheckedAt: now, lastCheckStatus: "dead", isAvailable: false }).where(eq(accountsTable.id, account.id));
+  } else {
+    // error / rate_limited — update timestamp only, don't change availability
+    await db.update(accountsTable).set({ lastCheckedAt: now }).where(eq(accountsTable.id, account.id));
+  }
+
+  res.json({ status: result.status, message: result.message, checkStatus, lastCheckedAt: now });
 });
 
 export default router;

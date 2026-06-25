@@ -57,15 +57,23 @@ export function AccountCard({ account }: AccountCardProps) {
             {/* User + stats */}
             <div className="flex items-center gap-2 min-w-0">
               <Avatar className="h-5 w-5 border border-border shrink-0">
-                <AvatarImage src={account.posterAvatarUrl || undefined} />
+                <AvatarImage src={account.posterAvatarUrl || "/default-avatar.png"} />
                 <AvatarFallback className="text-[9px] bg-secondary">
                   {(account.posterUsername?.substring(0, 2) ?? "U").toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               {(account as any).posterNameColor === "rainbow" ? (
-                <span className="rainbow-text text-xs font-medium truncate max-w-[80px]">
-                  {account.posterUsername}
-                </span>
+                <span className="rainbow-text text-xs font-medium truncate max-w-[80px]">{account.posterUsername}</span>
+              ) : (account as any).posterNameColor === "fire" ? (
+                <span className="fire-text text-xs font-medium truncate max-w-[80px]">{account.posterUsername}</span>
+              ) : (account as any).posterNameColor === "ocean" ? (
+                <span className="ocean-text text-xs font-medium truncate max-w-[80px]">{account.posterUsername}</span>
+              ) : (account as any).posterNameColor === "galaxy" ? (
+                <span className="galaxy-text text-xs font-medium truncate max-w-[80px]">{account.posterUsername}</span>
+              ) : (account as any).posterNameColor === "neon" ? (
+                <span className="neon-text text-xs font-medium truncate max-w-[80px]">{account.posterUsername}</span>
+              ) : (account as any).posterNameColor === "gold" ? (
+                <span className="gold-text text-xs font-medium truncate max-w-[80px]">{account.posterUsername}</span>
               ) : (
                 <span
                   className="text-xs font-medium truncate max-w-[80px]"

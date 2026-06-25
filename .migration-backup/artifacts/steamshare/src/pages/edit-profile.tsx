@@ -24,17 +24,22 @@ function containsBadWord(text: string): boolean {
 }
 
 const BASIC_COLORS = [
-  { hex: "#ef4444", label: "Red" },
-  { hex: "#f97316", label: "Orange" },
-  { hex: "#eab308", label: "Yellow" },
-  { hex: "#22c55e", label: "Green" },
-  { hex: "#3b82f6", label: "Blue" },
-  { hex: "#8b5cf6", label: "Purple" },
-  { hex: "#ec4899", label: "Pink" },
-  { hex: "#06b6d4", label: "Cyan" },
-  { hex: "#ffffff", label: "White" },
-  { hex: "#94a3b8", label: "Silver" },
-  { hex: "rainbow", label: "Rainbow (VIP)" },
+  { hex: "#ef4444", label: "Red", animated: false },
+  { hex: "#f97316", label: "Orange", animated: false },
+  { hex: "#eab308", label: "Yellow", animated: false },
+  { hex: "#22c55e", label: "Green", animated: false },
+  { hex: "#3b82f6", label: "Blue", animated: false },
+  { hex: "#8b5cf6", label: "Purple", animated: false },
+  { hex: "#ec4899", label: "Pink", animated: false },
+  { hex: "#06b6d4", label: "Cyan", animated: false },
+  { hex: "#ffffff", label: "White", animated: false },
+  { hex: "#94a3b8", label: "Silver", animated: false },
+  { hex: "rainbow", label: "Rainbow", animated: true, proOnly: true },
+  { hex: "fire", label: "Fire 🔥", animated: true, proOnly: true },
+  { hex: "ocean", label: "Ocean 🌊", animated: true, proOnly: true },
+  { hex: "galaxy", label: "Galaxy 🌌", animated: true, proOnly: true },
+  { hex: "neon", label: "Neon ⚡", animated: true, proOnly: true },
+  { hex: "gold", label: "Gold ✨", animated: true, proOnly: true },
 ];
 
 export default function EditProfile() {
@@ -348,17 +353,24 @@ export default function EditProfile() {
               </label>
               <div className="flex flex-wrap gap-2">
                 {BASIC_COLORS.map((c) => {
-                  const isRainbow = c.hex === "rainbow";
+                  const isAnimated = c.animated;
                   const isSelected = premiumStatus?.nameColor === c.hex;
-                  const isProRequired = isRainbow && !isPro;
+                  const isProRequired = c.animated && !isPremium;
+                  const swatchClass = c.hex === "rainbow" ? "rainbow-swatch"
+                    : c.hex === "fire" ? "fire-swatch"
+                    : c.hex === "ocean" ? "ocean-swatch"
+                    : c.hex === "galaxy" ? "galaxy-swatch"
+                    : c.hex === "neon" ? "neon-swatch"
+                    : c.hex === "gold" ? "gold-swatch"
+                    : "";
                   return (
                     <button
                       key={c.hex}
-                      title={isProRequired ? "Rainbow requires Pro" : c.label}
+                      title={isProRequired ? `${c.label} requires Pro` : c.label}
                       onClick={() => !isProRequired && handlePremiumPref({ nameColor: c.hex })}
                       disabled={prefLoading || isProRequired}
-                      className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${isProRequired ? "opacity-40 cursor-not-allowed" : ""} ${isRainbow ? "rainbow-swatch" : ""}`}
-                      style={isRainbow ? {
+                      className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${isProRequired ? "opacity-40 cursor-not-allowed" : ""} ${swatchClass}`}
+                      style={isAnimated ? {
                         borderColor: isSelected ? "#fff" : "transparent",
                         boxShadow: isSelected ? "0 0 0 2px rgba(255,255,255,0.5)" : undefined,
                       } : {
@@ -385,13 +397,23 @@ export default function EditProfile() {
                   Preview:{" "}
                   {premiumStatus.nameColor === "rainbow" ? (
                     <span className="rainbow-text font-semibold">{me.username}</span>
+                  ) : premiumStatus.nameColor === "fire" ? (
+                    <span className="fire-text font-semibold">{me.username}</span>
+                  ) : premiumStatus.nameColor === "ocean" ? (
+                    <span className="ocean-text font-semibold">{me.username}</span>
+                  ) : premiumStatus.nameColor === "galaxy" ? (
+                    <span className="galaxy-text font-semibold">{me.username}</span>
+                  ) : premiumStatus.nameColor === "neon" ? (
+                    <span className="neon-text font-semibold">{me.username}</span>
+                  ) : premiumStatus.nameColor === "gold" ? (
+                    <span className="gold-text font-semibold">{me.username}</span>
                   ) : (
                     <span style={{ color: premiumStatus.nameColor }} className="font-semibold">{me.username}</span>
                   )}
                 </p>
               )}
-              {!isPro && (
-                <p className="text-[10px] text-muted-foreground/70">🌈 Rainbow color requires <Link href="/premium" className="text-primary hover:underline">Pro subscription</Link>.</p>
+              {!isPremium && (
+                <p className="text-[10px] text-muted-foreground/70">🎨 Animated colors require a <Link href="/premium" className="text-primary hover:underline">Premium subscription</Link>.</p>
               )}
             </div>
 
@@ -413,7 +435,7 @@ export default function EditProfile() {
                         ${isProRequired ? "opacity-40 cursor-not-allowed" : ""}
                       `}
                     >
-                      <UserBadge badgeType={opt.key} size={18} />
+                      <UserBadge badgeType={opt.key} size={15} />
                       <span>{opt.label}</span>
                       {opt.pro && <span className="text-[9px] text-blue-400 font-bold ml-0.5">PRO</span>}
                     </button>

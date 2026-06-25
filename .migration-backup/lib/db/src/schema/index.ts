@@ -16,3 +16,4 @@ export * from "./productReviews";
 export * from "./productPurchases";
 export * from "./productDeliveryUnits";
 export * from "./siteSettings";
+export * from "./premiumCodes";

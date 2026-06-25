@@ -59,17 +59,26 @@ export default function Leaderboard() {
         <div className="col-span-7 sm:col-span-7 flex items-center gap-2 sm:gap-3 min-w-0">
           <div className="rounded-full p-[2px] shrink-0" style={{ background: levelColor }}>
             <Avatar className="h-7 w-7 sm:h-9 sm:w-9 border-2 border-background">
-              <AvatarImage src={user.avatarUrl || undefined} />
+              <AvatarImage src={user.avatarUrl || "/default-avatar.png"} />
               <AvatarFallback className="text-xs">{(user.username?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
             </Avatar>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-            <UserBadge badgeType={user.badgeType} size={14} />
             {user.nameColor === "rainbow" ? (
               <span className={`rainbow-text font-semibold text-sm sm:text-base truncate max-w-[100px] sm:max-w-none`}>
                 {user.displayName || user.username}
                 {highlight && <span className="text-xs ml-1">(you)</span>}
               </span>
+            ) : user.nameColor === "fire" ? (
+              <span className="fire-text font-semibold text-sm sm:text-base truncate max-w-[100px] sm:max-w-none">{user.displayName || user.username}{highlight && <span className="text-xs ml-1">(you)</span>}</span>
+            ) : user.nameColor === "ocean" ? (
+              <span className="ocean-text font-semibold text-sm sm:text-base truncate max-w-[100px] sm:max-w-none">{user.displayName || user.username}{highlight && <span className="text-xs ml-1">(you)</span>}</span>
+            ) : user.nameColor === "galaxy" ? (
+              <span className="galaxy-text font-semibold text-sm sm:text-base truncate max-w-[100px] sm:max-w-none">{user.displayName || user.username}{highlight && <span className="text-xs ml-1">(you)</span>}</span>
+            ) : user.nameColor === "neon" ? (
+              <span className="neon-text font-semibold text-sm sm:text-base truncate max-w-[100px] sm:max-w-none">{user.displayName || user.username}{highlight && <span className="text-xs ml-1">(you)</span>}</span>
+            ) : user.nameColor === "gold" ? (
+              <span className="gold-text font-semibold text-sm sm:text-base truncate max-w-[100px] sm:max-w-none">{user.displayName || user.username}{highlight && <span className="text-xs ml-1">(you)</span>}</span>
             ) : (
               <span
                 className={`font-semibold text-sm sm:text-base truncate max-w-[100px] sm:max-w-none ${highlight ? "text-primary" : "group-hover:text-primary transition-colors"}`}
@@ -79,6 +88,7 @@ export default function Leaderboard() {
                 {highlight && <span className="text-xs text-muted-foreground ml-1">(you)</span>}
               </span>
             )}
+            <UserBadge badgeType={user.badgeType} size={14} />
             {isAdmin && (
               <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/40 text-[9px] sm:text-[10px] flex items-center gap-0.5 h-4 px-1">
                 <Shield className="h-2 w-2 sm:h-2.5 sm:w-2.5" />ADMIN

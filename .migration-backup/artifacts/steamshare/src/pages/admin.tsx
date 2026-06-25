@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useState, type ReactNode } from "react";
-import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap, ArrowLeft, Users, LayoutDashboard, Pencil } from "lucide-react";
+import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap, ArrowLeft, Users, LayoutDashboard, Pencil, Gift, CheckCheck } from "lucide-react";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { Link } from "wouter";
 
@@ -1644,53 +1644,6 @@ function SiteSettingsTab() {
     setXpValues(xpData);
   }
 
-  // Premium pricing state
-  const [premiumPointsPrice, setPremiumPointsPrice] = useState<number>(500);
-  const [premiumUsdCents, setPremiumUsdCents] = useState<number>(999);
-  const [proUsdCents, setProUsdCents] = useState<number>(1999);
-  const [premiumDiscountPercent, setPremiumDiscountPercent] = useState<number>(0);
-  const premiumPricingInitialized = useState(false);
-
-  const { data: premiumPricingData } = useQuery({
-    queryKey: ["site-settings-premium"],
-    queryFn: async () => {
-      const res = await fetch("/api/premium/pricing", { credentials: "include" });
-      if (!res.ok) return null;
-      return res.json();
-    },
-  });
-
-  if (premiumPricingData && !premiumPricingInitialized[0]) {
-    premiumPricingInitialized[1](true);
-    setPremiumPointsPrice(premiumPricingData.premiumPointsPrice ?? 500);
-    setPremiumUsdCents(premiumPricingData.premiumUsdCents ?? 999);
-    setProUsdCents(premiumPricingData.proUsdCents ?? 1999);
-    setPremiumDiscountPercent(premiumPricingData.discountPercent ?? 0);
-  }
-
-  const savePremiumPricingMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch("/api/site-settings/xp-points", {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          premium_points_price: premiumPointsPrice,
-          premium_usd_cents: premiumUsdCents,
-          pro_usd_cents: proUsdCents,
-          premium_discount_percent: premiumDiscountPercent,
-        }),
-      });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["site-settings-premium"] });
-      toast({ title: "Premium pricing saved" });
-    },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
   const saveXpMutation = useMutation({
     mutationFn: async () => {
       const body: Record<string, number> = {};
@@ -1904,64 +1857,6 @@ function SiteSettingsTab() {
         </div>
         <Button className="w-full mt-5" onClick={() => saveXpMutation.mutate()} disabled={saveXpMutation.isPending}>
           {saveXpMutation.isPending ? "Saving..." : "Save Reward Settings"}
-        </Button>
-      </div>
-
-      {/* Premium Pricing */}
-      <div className="bg-card border border-yellow-500/20 rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-yellow-400 font-bold text-xl">✨</span>
-          <h3 className="font-bold text-foreground text-lg">Premium &amp; Pro Pricing</h3>
-        </div>
-        <p className="text-sm text-muted-foreground mb-5">
-          Set subscription prices. Set discount % &gt; 0 to show a red strikethrough on the original price.
-        </p>
-        <div className="space-y-3">
-          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground">Premium — Points Price</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Cost in points to buy Premium for 30 days</p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Input type="number" min={0} value={premiumPointsPrice} onChange={(e) => setPremiumPointsPrice(Number(e.target.value))} className="w-24 h-9 text-center font-mono" />
-              <span className="text-xs font-bold text-primary w-7">pts</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground">Premium — USD Price</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Cost in cents (e.g. 999 = $9.99/mo)</p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Input type="number" min={0} value={premiumUsdCents} onChange={(e) => setPremiumUsdCents(Number(e.target.value))} className="w-24 h-9 text-center font-mono" />
-              <span className="text-xs font-bold text-primary w-7">¢</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground">Pro — USD Price</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Cost in cents (e.g. 1999 = $19.99/mo)</p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Input type="number" min={0} value={proUsdCents} onChange={(e) => setProUsdCents(Number(e.target.value))} className="w-24 h-9 text-center font-mono" />
-              <span className="text-xs font-bold text-primary w-7">¢</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground">Discount %</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Set &gt; 0 to show <span className="text-red-400 line-through">original</span> price with red strikethrough on Premium page
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Input type="number" min={0} max={99} value={premiumDiscountPercent} onChange={(e) => setPremiumDiscountPercent(Math.min(99, Math.max(0, Number(e.target.value))))} className="w-24 h-9 text-center font-mono" />
-              <span className="text-xs font-bold text-primary w-7">%</span>
-            </div>
-          </div>
-        </div>
-        <Button className="w-full mt-5 bg-yellow-500 hover:bg-yellow-600 text-black font-bold" onClick={() => savePremiumPricingMutation.mutate()} disabled={savePremiumPricingMutation.isPending}>
-          {savePremiumPricingMutation.isPending ? "Saving..." : "Save Premium Pricing"}
         </Button>
       </div>
 
@@ -2248,6 +2143,16 @@ function PremiumAdminTab() {
   const [grantDays, setGrantDays] = useState(30);
   const [contactUrl, setContactUrl] = useState("/messages");
   const [contactUrlLoaded, setContactUrlLoaded] = useState(false);
+  const [premiumPointsPrice, setPremiumPointsPrice] = useState<number>(500);
+  const [premiumUsdCents, setPremiumUsdCents] = useState<number>(999);
+  const [proUsdCents, setProUsdCents] = useState<number>(1999);
+  const [premiumDiscountPercent, setPremiumDiscountPercent] = useState<number>(0);
+  const premiumPricingInitialized = useState(false);
+  const [codeGenTier, setCodeGenTier] = useState<"premium" | "pro">("premium");
+  const [codeGenDays, setCodeGenDays] = useState(30);
+  const [codeGenMaxUses, setCodeGenMaxUses] = useState(1);
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   const { data: allUsers = [] } = useQuery({ queryKey: ["admin-users"], queryFn: fetchAdminUsers });
 
@@ -2260,10 +2165,78 @@ function PremiumAdminTab() {
     },
   });
 
+  const { data: codes = [], refetch: refetchCodes } = useQuery({
+    queryKey: ["admin-premium-codes"],
+    queryFn: async () => {
+      const res = await fetch("/api/premium/codes", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   if (pricing && !contactUrlLoaded) {
     setContactUrlLoaded(true);
     setContactUrl(pricing.proContactUrl ?? "/messages");
   }
+
+  if (pricing && !premiumPricingInitialized[0]) {
+    premiumPricingInitialized[1](true);
+    setPremiumPointsPrice(pricing.premiumPointsPrice ?? 500);
+    setPremiumUsdCents(pricing.premiumUsdCents ?? 999);
+    setProUsdCents(pricing.proUsdCents ?? 1999);
+    setPremiumDiscountPercent(pricing.discountPercent ?? 0);
+  }
+
+  const savePremiumPricingMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/site-settings/xp-points", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          premium_points_price: premiumPointsPrice,
+          premium_usd_cents: premiumUsdCents,
+          pro_usd_cents: proUsdCents,
+          premium_discount_percent: premiumDiscountPercent,
+        }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["premium-pricing-admin"] });
+      toast({ title: "Premium pricing saved" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const generateCodeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/premium/generate-code", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: codeGenTier, days: codeGenDays, maxUses: codeGenMaxUses }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      setGeneratedCode(data.code);
+      refetchCodes();
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deactivateCodeMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/premium/codes/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => { refetchCodes(); toast({ title: "Code deactivated" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
 
   const filtered = search.trim().length > 0
     ? (allUsers as any[]).filter((u) => u.username.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
@@ -2283,6 +2256,8 @@ function PremiumAdminTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       toast({ title: `✨ ${grantTier === "pro" ? "Pro" : "Premium"} granted to ${selectedUser.username} for ${grantDays} days` });
+      const expiresAt = new Date(Date.now() + grantDays * 24 * 60 * 60 * 1000).toISOString();
+      setSelectedUser((u: any) => ({ ...u, premiumTier: grantTier, premiumExpiresAt: expiresAt }));
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -2460,13 +2435,122 @@ function PremiumAdminTab() {
         )}
       </div>
 
-      {/* Pricing hint */}
-      <div className="bg-muted/30 border border-border rounded-xl px-5 py-4 flex items-center gap-3">
-        <Settings className="h-5 w-5 text-muted-foreground shrink-0" />
-        <p className="text-sm text-muted-foreground">
-          To adjust <strong className="text-foreground">pricing</strong> (points cost, USD prices, discount %), go to the{" "}
-          <strong className="text-foreground">Site Settings</strong> tab → Premium &amp; Pro Pricing section.
-        </p>
+      {/* Premium Pricing */}
+      <div className="bg-card border border-yellow-500/20 rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-yellow-400 font-bold text-xl">✨</span>
+          <h3 className="font-bold text-foreground text-lg">Premium &amp; Pro Pricing</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">Set subscription prices. Set discount % &gt; 0 to show a red strikethrough on the original price.</p>
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Premium — Points Price</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Cost in points to buy Premium for 30 days</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Input type="number" min={0} value={premiumPointsPrice} onChange={(e) => setPremiumPointsPrice(Number(e.target.value))} className="w-24 h-9 text-center font-mono" />
+              <span className="text-xs font-bold text-primary w-7">pts</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Premium — USD Price</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Cost in cents (e.g. 999 = $9.99/mo)</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Input type="number" min={0} value={premiumUsdCents} onChange={(e) => setPremiumUsdCents(Number(e.target.value))} className="w-24 h-9 text-center font-mono" />
+              <span className="text-xs font-bold text-primary w-7">¢</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Pro — USD Price</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Cost in cents (e.g. 1999 = $19.99/mo)</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Input type="number" min={0} value={proUsdCents} onChange={(e) => setProUsdCents(Number(e.target.value))} className="w-24 h-9 text-center font-mono" />
+              <span className="text-xs font-bold text-primary w-7">¢</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 bg-muted/30 rounded-lg px-4 py-3 border border-border">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Discount %</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Set &gt; 0 to show <span className="text-red-400 line-through">original</span> price with red strikethrough</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Input type="number" min={0} max={99} value={premiumDiscountPercent} onChange={(e) => setPremiumDiscountPercent(Math.min(99, Math.max(0, Number(e.target.value))))} className="w-24 h-9 text-center font-mono" />
+              <span className="text-xs font-bold text-primary w-7">%</span>
+            </div>
+          </div>
+        </div>
+        <Button className="w-full mt-5 bg-yellow-500 hover:bg-yellow-600 text-black font-bold" onClick={() => savePremiumPricingMutation.mutate()} disabled={savePremiumPricingMutation.isPending}>
+          {savePremiumPricingMutation.isPending ? "Saving..." : "Save Pricing"}
+        </Button>
+      </div>
+
+      {/* Code Generator */}
+      <div className="bg-card border border-primary/20 rounded-xl p-6 space-y-5">
+        <h3 className="font-bold text-foreground text-base flex items-center gap-2">
+          <Gift className="h-5 w-5 text-primary" /> Redeem Code Generator
+        </h3>
+        <p className="text-sm text-muted-foreground">Generate single-use or multi-use codes to gift premium access to users.</p>
+
+        <div className="flex flex-wrap gap-3 items-end">
+          <div>
+            <p className="text-xs text-muted-foreground mb-1.5 font-medium">Tier</p>
+            <div className="flex gap-2">
+              <button onClick={() => setCodeGenTier("premium")} className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${codeGenTier === "premium" ? "border-yellow-500 bg-yellow-500/10 text-yellow-400" : "border-border text-muted-foreground hover:text-foreground"}`}>⭐ Premium</button>
+              <button onClick={() => setCodeGenTier("pro")} className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${codeGenTier === "pro" ? "border-blue-500 bg-blue-500/10 text-blue-400" : "border-border text-muted-foreground hover:text-foreground"}`}>💎 Pro</button>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1.5 font-medium">Duration (days)</p>
+            <Input type="number" min={1} max={365} value={codeGenDays} onChange={(e) => setCodeGenDays(Math.max(1, Number(e.target.value)))} className="w-24 h-9 font-mono text-center" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1.5 font-medium">Max uses</p>
+            <Input type="number" min={1} max={1000} value={codeGenMaxUses} onChange={(e) => setCodeGenMaxUses(Math.max(1, Number(e.target.value)))} className="w-24 h-9 font-mono text-center" />
+          </div>
+          <Button onClick={() => generateCodeMutation.mutate()} disabled={generateCodeMutation.isPending} className="bg-primary hover:bg-primary/90">
+            {generateCodeMutation.isPending ? "Generating..." : "Generate Code"}
+          </Button>
+        </div>
+
+        {generatedCode && (
+          <div className="bg-primary/10 border border-primary/30 rounded-lg px-4 py-3 flex items-center gap-3">
+            <code className="font-mono text-primary font-bold text-lg tracking-widest flex-1">{generatedCode}</code>
+            <button
+              onClick={() => { navigator.clipboard.writeText(generatedCode); setCopiedCode(true); setTimeout(() => setCopiedCode(false), 2000); }}
+              className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+              title="Copy code"
+            >
+              {copiedCode ? <CheckCheck className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+            </button>
+          </div>
+        )}
+
+        {/* Codes list */}
+        {(codes as any[]).length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Active Codes</p>
+            <div className="bg-muted/30 border border-border rounded-lg divide-y divide-border max-h-56 overflow-y-auto">
+              {(codes as any[]).map((c: any) => (
+                <div key={c.id} className={`flex items-center gap-3 px-4 py-2.5 text-sm ${!c.is_active ? "opacity-40" : ""}`}>
+                  <code className="font-mono font-bold text-primary flex-1 text-xs">{c.code}</code>
+                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${c.tier === "pro" ? "bg-blue-500/20 text-blue-400" : "bg-yellow-500/20 text-yellow-400"}`}>{c.tier}</span>
+                  <span className="text-xs text-muted-foreground">{c.days}d</span>
+                  <span className="text-xs text-muted-foreground">{c.uses_count}/{c.max_uses}</span>
+                  {c.is_active && (
+                    <button onClick={() => deactivateCodeMutation.mutate(c.id)} className="text-destructive hover:text-destructive/80 transition-colors ml-1" title="Deactivate">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

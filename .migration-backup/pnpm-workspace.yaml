@@ -33,6 +33,7 @@ minimumReleaseAgeExclude:
   # this setting guards against does not apply to our own packages.
   - '@replit/*'
   - stripe-replit-sync
+  - bcrypt
 
 packages:
   - artifacts/*
@@ -70,7 +71,6 @@ autoInstallPeers: false
 
 onlyBuiltDependencies:
   - '@swc/core'
-  - bcrypt
   - esbuild
   - msw
   - unrs-resolver

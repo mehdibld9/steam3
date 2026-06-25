@@ -29,10 +29,11 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import {
   Heart, Coins, MessageSquare, Trash, Lock,
   Copy, CheckCheck, ChevronDown, ChevronUp,
-  Flag, Edit2, Check, X, MessageCircle, Eye, ArrowLeft, Star,
+  Flag, Edit2, Check, X, MessageCircle, Eye, ArrowLeft, Star, RefreshCw,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { UserBadge } from "@/components/user-badge";
 
 function CopyField({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
@@ -132,6 +133,8 @@ export default function AccountDetail() {
   const [commentReportReason, setCommentReportReason] = useState("");
   const [commentReportDetails, setCommentReportDetails] = useState("");
 
+  const [checkResult, setCheckResult] = useState<{ status: string; checkStatus: "live" | "dead" | "2fa" | "error"; lastCheckedAt: string } | null>(null);
+
   const likeAccount = useLikeAccount();
   const unlikeAccount = useUnlikeAccount();
   const claimAccount = useClaimAccount();
@@ -140,6 +143,28 @@ export default function AccountDetail() {
   const unlikeComment = useUnlikeComment();
   const deleteComment = useDeleteComment();
   const deleteAccount = useDeleteAccount();
+
+  const checkHealthMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/accounts/${id}/check`, { method: "POST", credentials: "include" });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Check failed"); }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      // Derive checkStatus from raw status if backend didn't send it
+      const cs: string | null =
+        data.checkStatus && data.checkStatus !== "error"
+          ? data.checkStatus
+          : data.status === "valid" ? "live"
+          : data.status === "invalid" ? "dead"
+          : null;
+      setCheckResult({ status: data.status, checkStatus: cs as any, lastCheckedAt: data.lastCheckedAt });
+      queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(id) });
+      const label = cs === "live" ? "Live ✓" : cs === "dead" ? "Dead ✗" : cs === "2fa" ? "2FA (valid creds)" : data.status === "rate_limited" ? "Rate limited — try again later" : data.status === "error" ? "Could not reach Steam" : data.status;
+      toast({ title: "Health check complete", description: `Status: ${label}` });
+    },
+    onError: (e: any) => toast({ title: "Check failed", description: e.message, variant: "destructive" }),
+  });
 
   const reportMutation = useMutation({
     mutationFn: () => submitReport("account", id, reportReason, reportDetails),
@@ -285,18 +310,37 @@ export default function AccountDetail() {
           </div>
 
           {/* Poster info bar — forum style */}
-          <div className="border-t border-border px-4 sm:px-6 py-3 flex items-center gap-3">
+          <div className="flex border-t border-border px-4 sm:px-6 py-3 items-center gap-3">
             <Link href={`/profile/${account.userId}`}>
               <Avatar className="h-9 w-9 sm:h-10 sm:w-10 border border-border hover:border-primary transition-colors shrink-0">
-                <AvatarImage src={poster?.avatarUrl || undefined} />
+                <AvatarImage src={poster?.avatarUrl || "/default-avatar.png"} />
                 <AvatarFallback className="text-xs">{(account.posterUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
               </Avatar>
             </Link>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <Link href={`/profile/${account.userId}`} className="font-bold text-sm sm:text-base hover:text-primary transition-colors truncate">
-                  {account.posterUsername}
-                </Link>
+                {(account as any).posterNameColor === "rainbow" ? (
+                  <Link href={`/profile/${account.userId}`} className="rainbow-text font-bold text-sm sm:text-base truncate">{account.posterUsername}</Link>
+                ) : (account as any).posterNameColor === "fire" ? (
+                  <Link href={`/profile/${account.userId}`} className="fire-text font-bold text-sm sm:text-base truncate">{account.posterUsername}</Link>
+                ) : (account as any).posterNameColor === "ocean" ? (
+                  <Link href={`/profile/${account.userId}`} className="ocean-text font-bold text-sm sm:text-base truncate">{account.posterUsername}</Link>
+                ) : (account as any).posterNameColor === "galaxy" ? (
+                  <Link href={`/profile/${account.userId}`} className="galaxy-text font-bold text-sm sm:text-base truncate">{account.posterUsername}</Link>
+                ) : (account as any).posterNameColor === "neon" ? (
+                  <Link href={`/profile/${account.userId}`} className="neon-text font-bold text-sm sm:text-base truncate">{account.posterUsername}</Link>
+                ) : (account as any).posterNameColor === "gold" ? (
+                  <Link href={`/profile/${account.userId}`} className="gold-text font-bold text-sm sm:text-base truncate">{account.posterUsername}</Link>
+                ) : (
+                  <Link
+                    href={`/profile/${account.userId}`}
+                    className="font-bold text-sm sm:text-base hover:text-primary transition-colors truncate"
+                    style={(account as any).posterNameColor ? { color: (account as any).posterNameColor } : undefined}
+                  >
+                    {account.posterUsername}
+                  </Link>
+                )}
+                <UserBadge badgeType={(account as any).posterBadgeType} size={14} />
                 {poster?.badgeName && (
                   <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] px-1.5 py-0 flex items-center gap-0.5 shrink-0">
                     <Star className="h-2.5 w-2.5" />{poster.badgeName}
@@ -418,6 +462,48 @@ export default function AccountDetail() {
 
                 <div className="mt-4 space-y-2">
                   <CollapsibleSection title="Games List" items={account.games} />
+                  {/* Last checked + status badge + admin/mod check button */}
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">
+                        {(() => {
+                          const ts = checkResult?.lastCheckedAt ?? (account as any).lastCheckedAt;
+                          if (!ts) return "Never checked";
+                          return `Last checked: ${formatDistanceToNow(new Date(ts))} ago`;
+                        })()}
+                      </p>
+                      {(() => {
+                        // Prefer fresh check result (skip null/"error"), then stored DB status, then derive from healthFailCount
+                        const acc = account as any;
+                        const freshStatus = checkResult?.checkStatus;
+                        const validStatuses = ["live", "dead", "2fa"];
+                        let s: string | null =
+                          (freshStatus && validStatuses.includes(freshStatus) ? freshStatus : null)
+                          ?? (acc.lastCheckStatus && validStatuses.includes(acc.lastCheckStatus) ? acc.lastCheckStatus : null)
+                          ?? null;
+                        if (!s && acc.lastCheckedAt) {
+                          s = (acc.healthFailCount ?? 0) > 0 ? "dead" : "live";
+                        }
+                        if (!s) return null;
+                        if (s === "live") return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-500 border border-green-500/30">● Live</span>;
+                        if (s === "2fa")  return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-yellow-500/15 text-yellow-500 border border-yellow-500/30">● 2FA</span>;
+                        if (s === "dead") return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-500 border border-red-500/30">● Dead</span>;
+                        return null;
+                      })()}
+                    </div>
+                    {user && ((user as any).isAdmin || (user as any).isModerator) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={checkHealthMutation.isPending}
+                        onClick={() => checkHealthMutation.mutate()}
+                        className="h-7 px-2 gap-1.5 text-[10px] sm:text-xs border-primary/30 text-primary hover:bg-primary/10"
+                      >
+                        <RefreshCw className={`h-3 w-3 ${checkHealthMutation.isPending ? "animate-spin" : ""}`} />
+                        {checkHealthMutation.isPending ? "Checking…" : "Check"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Like + Report */}
@@ -456,7 +542,7 @@ export default function AccountDetail() {
 
               <div className="flex gap-3 sm:gap-4 mb-6 sm:mb-8">
                 <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0">
-                  <AvatarImage src={user?.avatarUrl || undefined} />
+                  <AvatarImage src={user?.avatarUrl || "/default-avatar.png"} />
                   <AvatarFallback className="text-xs">{user?.username?.substring(0, 2).toUpperCase() || "?"}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 space-y-2">
@@ -493,7 +579,7 @@ export default function AccountDetail() {
                     <div key={comment.id} className="flex gap-3 sm:gap-4 group">
                       <Link href={`/profile/${comment.userId}`}>
                         <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 cursor-pointer">
-                          <AvatarImage src={comment.avatarUrl || undefined} />
+                          <AvatarImage src={comment.avatarUrl || "/default-avatar.png"} />
                           <AvatarFallback className="text-xs">{(comment.username?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                         </Avatar>
                       </Link>
@@ -562,7 +648,7 @@ export default function AccountDetail() {
 
               <Link href={`/profile/${account.userId}`} className="flex items-center gap-3 group">
                 <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border border-border group-hover:border-primary transition-colors">
-                  <AvatarImage src={poster?.avatarUrl || undefined} />
+                  <AvatarImage src={poster?.avatarUrl || "/default-avatar.png"} />
                   <AvatarFallback className="text-xs">{(account.posterUsername?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>

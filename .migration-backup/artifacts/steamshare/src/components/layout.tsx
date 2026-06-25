@@ -323,13 +323,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     className="flex items-center gap-1 hover:opacity-80 transition-opacity"
                   >
                     <div className="relative">
-                      <Avatar className="h-8 w-8 border border-border">
-                        <AvatarImage src={user.avatarUrl || undefined} />
+                      <Avatar className="h-9 w-9 border border-border">
+                        <AvatarImage src={user.avatarUrl || "/default-avatar.png"} />
                         <AvatarFallback className="text-xs bg-secondary">
                           {(user.username?.substring(0, 2) ?? "").toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="absolute -bottom-0.5 -right-0.5 bg-primary text-white text-[8px] font-black rounded px-0.5 leading-tight">
+                      <div className="absolute bottom-0 right-0 bg-primary text-white text-[8px] font-black rounded px-[3px] leading-tight shadow-sm">
                         {user.level}
                       </div>
                     </div>
@@ -409,7 +409,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Link href={`/profile/${user.id}`} onClick={() => setMenuOpen(false)}>
                   <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
                     <Avatar className="h-10 w-10 border border-border">
-                      <AvatarImage src={user.avatarUrl || undefined} />
+                      <AvatarImage src={user.avatarUrl || "/default-avatar.png"} />
                       <AvatarFallback className="bg-secondary text-sm">
                         {(user.username?.substring(0, 2) ?? "").toUpperCase()}
                       </AvatarFallback>
