@@ -12,4 +12,5 @@ export interface CommentInput {
      * @maxLength 500
      */
   content: string;
+  parentId?: number | null;
 }
