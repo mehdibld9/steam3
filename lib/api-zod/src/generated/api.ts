@@ -313,7 +313,8 @@ export const createCommentBodyContentMax = 500;
 
 
 export const CreateCommentBody = zod.object({
-  "content": zod.string().min(1).max(createCommentBodyContentMax)
+  "content": zod.string().min(1).max(createCommentBodyContentMax),
+  "parentId": zod.number().int().optional().nullable()
 })
 
 export const CreateCommentResponse = zod.object({

@@ -8,6 +8,7 @@ export const commentsTable = pgTable("comments", {
   id: serial("id").primaryKey(),
   accountId: integer("account_id").notNull().references(() => accountsTable.id, { onDelete: "cascade" }),
   userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  parentId: integer("parent_id"),
   content: text("content").notNull(),
   likesCount: integer("likes_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
