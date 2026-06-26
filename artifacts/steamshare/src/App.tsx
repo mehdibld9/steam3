@@ -31,16 +31,39 @@ function ScrollToTop() {
   const [location] = useLocation();
   const isPopState = useRef(false);
 
+  // Take over scroll restoration from the browser — we'll handle it ourselves
   useEffect(() => {
-    const handler = () => { isPopState.current = true; };
-    window.addEventListener("popstate", handler);
-    return () => window.removeEventListener("popstate", handler);
+    history.scrollRestoration = "manual";
+    return () => { history.scrollRestoration = "auto"; };
   }, []);
 
+  // Save scroll position for the current path as the user scrolls (debounced)
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const save = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        sessionStorage.setItem(`scroll:${location}`, String(window.scrollY));
+      }, 100);
+    };
+    window.addEventListener("scroll", save, { passive: true });
+    const onPop = () => { isPopState.current = true; };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("scroll", save);
+      window.removeEventListener("popstate", onPop);
+    };
+  }, [location]);
+
+  // On route change: restore scroll for back/forward, or jump to top for fresh nav
   useEffect(() => {
     if (isPopState.current) {
       isPopState.current = false;
-      return; // let the page restore its own scroll
+      const saved = Number(sessionStorage.getItem(`scroll:${location}`) ?? 0);
+      // Double rAF: first frame mounts the page, second frame waits for layout
+      requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, saved)));
+      return;
     }
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, [location]);
