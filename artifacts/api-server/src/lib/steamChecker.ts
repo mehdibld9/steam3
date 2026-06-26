@@ -349,6 +349,13 @@ export async function checkSteamCredentials(username: string, password: string):
         return { status: "invalid", message: "Wrong username or password", games: [], steamid: "", isFamilyShare: false };
       }
 
+      // Steam returns HTTP 200 with eresult != 1 for bad credentials (e.g. eresult=5 = InvalidPassword)
+      const eresult = Number((auth.response as any).eresult ?? 1);
+      if (eresult !== 1 && eresult !== 0) {
+        logger.info({ eresult }, "BeginAuth returned non-OK eresult — invalid credentials");
+        return { status: "invalid", message: "Wrong username or password", games: [], steamid: "", isFamilyShare: false };
+      }
+
       const steamid64 = String(auth.response.steamid ?? "");
       const clientId = String(auth.response.client_id ?? "");
       const requestId = String(auth.response.request_id ?? "");
