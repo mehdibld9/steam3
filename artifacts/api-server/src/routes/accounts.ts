@@ -1,7 +1,7 @@
 // @ts-nocheck
 import express from "express";
 import { db, accountsTable, usersTable, likesTable, accountVotesTable, commentsTable } from "@workspace/db";
-import { eq, desc, and, sql, inArray } from "drizzle-orm";
+import { eq, desc, and, sql, inArray, isNull } from "drizzle-orm";
 import { CreateAccountBody } from "@workspace/api-zod";
 import { requireAuth, requireModOrAdmin } from "../middlewares/auth";
 import { checkSteamCredentials } from "../lib/steamChecker";
@@ -53,7 +53,7 @@ router.get("/", async (req, res) => {
   const sort = (req.query.sort as string) ?? "recent";
   const userId = req.session?.userId;
 
-  const conditions = [eq(accountsTable.isAvailable, true)];
+  const conditions = [eq(accountsTable.isAvailable, true), isNull(accountsTable.deletedAt)];
   if (game) conditions.push(sql`${game} = ANY(${accountsTable.games})`);
 
   const accounts = await db
@@ -240,7 +240,7 @@ router.get("/:accountId", async (req, res) => {
     })
     .from(accountsTable)
     .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
-    .where(eq(accountsTable.id, accountId))
+    .where(and(eq(accountsTable.id, accountId), isNull(accountsTable.deletedAt)))
     .limit(1);
 
   if (!account) {
@@ -331,7 +331,10 @@ router.delete("/:accountId", requireAuth, async (req, res) => {
     return;
   }
 
-  await db.delete(accountsTable).where(eq(accountsTable.id, accountId));
+  const reason = String((req.body as any)?.reason ?? "").trim() || null;
+  await db.update(accountsTable)
+    .set({ deletedAt: new Date(), deletedByUserId: userId, deletedReason: reason, isAvailable: false })
+    .where(eq(accountsTable.id, accountId));
   res.json({ message: "Account deleted" });
 });
 
