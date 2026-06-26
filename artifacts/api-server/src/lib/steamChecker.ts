@@ -44,8 +44,8 @@ async function getRsaKey(
   proxies: Awaited<ReturnType<typeof pickProxies>>,
   proxyIndex: number = 0,
 ): Promise<{ mod: string; exp: string; timestamp: string; proxyIndex: number } | null> {
-  if (proxyIndex >= proxies.length) return null;
-  const proxy = proxies[proxyIndex] ?? null;
+  if (proxyIndex > proxies.length) return null;
+  const proxy = proxyIndex < proxies.length ? proxies[proxyIndex] : null; // null = direct connection fallback
   try {
     const url = new URL("https://api.steampowered.com/IAuthenticationService/GetPasswordRSAPublicKey/v1/");
     url.searchParams.set("account_name", username);
@@ -81,8 +81,8 @@ async function beginAuthSession(
   proxies: Awaited<ReturnType<typeof pickProxies>>,
   proxyIndex: number = 0,
 ): Promise<{ response: Record<string, unknown>; proxyIndex: number } | null> {
-  if (proxyIndex >= proxies.length) return null;
-  const proxy = proxies[proxyIndex] ?? null;
+  if (proxyIndex > proxies.length) return null;
+  const proxy = proxyIndex < proxies.length ? proxies[proxyIndex] : null; // null = direct connection fallback
   try {
     const body = new URLSearchParams({
       account_name: username,
@@ -132,8 +132,8 @@ async function pollAuthSession(
   proxies: Awaited<ReturnType<typeof pickProxies>>,
   proxyIndex: number = 0,
 ): Promise<Record<string, unknown> | null> {
-  if (proxyIndex >= proxies.length) return null;
-  const proxy = proxies[proxyIndex] ?? null;
+  if (proxyIndex > proxies.length) return null;
+  const proxy = proxyIndex < proxies.length ? proxies[proxyIndex] : null; // null = direct connection fallback
   try {
     const body = new URLSearchParams({ client_id: clientId, request_id: requestId });
     const res = await fetchViaProxy(
@@ -166,8 +166,8 @@ async function finalizeLogin(
   proxies: Awaited<ReturnType<typeof pickProxies>>,
   proxyIndex: number = 0,
 ): Promise<boolean> {
-  if (proxyIndex >= proxies.length) return false;
-  const proxy = proxies[proxyIndex] ?? null;
+  if (proxyIndex > proxies.length) return false;
+  const proxy = proxyIndex < proxies.length ? proxies[proxyIndex] : null; // null = direct connection fallback
   try {
     const body = new URLSearchParams({
       nonce: refreshToken,
@@ -274,8 +274,8 @@ async function isSteamFamilyShareAccount(
   proxies: Awaited<ReturnType<typeof pickProxies>>,
   proxyIndex: number = 0,
 ): Promise<boolean> {
-  if (!accessToken || proxyIndex >= proxies.length) return false;
-  const proxy = proxies[proxyIndex] ?? null;
+  if (!accessToken || proxyIndex > proxies.length) return false;
+  const proxy = proxyIndex < proxies.length ? proxies[proxyIndex] : null; // null = direct connection fallback
   try {
     const url = new URL("https://api.steampowered.com/IFamilyGroupsService/GetFamilyGroupForUser/v1/");
     url.searchParams.set("access_token", accessToken);
