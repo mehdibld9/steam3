@@ -31,41 +31,36 @@ function ScrollToTop() {
   const [location] = useLocation();
   const isPopState = useRef(false);
 
-  // Take over scroll restoration from the browser — we'll handle it ourselves
+  // Intercept pushState once so we capture the scroll position AT the moment
+  // the user navigates away — more reliable than a debounced scroll listener.
   useEffect(() => {
     history.scrollRestoration = "manual";
-    return () => { history.scrollRestoration = "auto"; };
-  }, []);
 
-  // Save scroll position for the current path as the user scrolls (debounced)
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    const save = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        sessionStorage.setItem(`scroll:${location}`, String(window.scrollY));
-      }, 100);
+    const orig = history.pushState.bind(history);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (history as any).pushState = function (state: any, title: string, url?: string | URL | null) {
+      sessionStorage.setItem(`scroll:${window.location.pathname}`, String(window.scrollY));
+      return orig(state, title, url);
     };
-    window.addEventListener("scroll", save, { passive: true });
+
     const onPop = () => { isPopState.current = true; };
     window.addEventListener("popstate", onPop);
+
     return () => {
-      clearTimeout(timer);
-      window.removeEventListener("scroll", save);
+      (history as any).pushState = orig;
       window.removeEventListener("popstate", onPop);
+      history.scrollRestoration = "auto";
     };
-  }, [location]);
+  }, []); // intentionally run once
 
   // On route change: restore scroll for back/forward, or jump to top for fresh nav.
-  // Pages that load data before they can scroll (e.g. /browse) handle their own
-  // restoration after data arrives — skip the generic restore for those paths.
+  // /browse handles its own restoration after data finishes loading.
   const DATA_RESTORE_PATHS = ["/browse"];
   useEffect(() => {
     if (isPopState.current) {
       isPopState.current = false;
-      if (DATA_RESTORE_PATHS.includes(location)) return; // page restores itself
+      if (DATA_RESTORE_PATHS.includes(location)) return;
       const saved = Number(sessionStorage.getItem(`scroll:${location}`) ?? 0);
-      // Double rAF: first frame mounts the page, second frame waits for layout
       requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, saved)));
       return;
     }

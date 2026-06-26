@@ -514,10 +514,18 @@ router.post("/:accountId/check", requireAuth, async (req, res) => {
   if (result.status === "valid") {
     const is2fa = String(result.message ?? "").includes("2FA");
     if (is2fa) {
-      // 2FA accounts can't be used for sharing — treat as dead
+      // 2FA accounts can't be used for sharing — treat as dead and soft-delete
       checkStatus = "dead";
       const newFailCount = account.healthFailCount + 1;
-      await db.update(accountsTable).set({ healthFailCount: newFailCount, lastCheckedAt: now, lastCheckStatus: "dead", isAvailable: false }).where(eq(accountsTable.id, account.id));
+      await db.update(accountsTable).set({
+        healthFailCount: newFailCount,
+        lastCheckedAt: now,
+        lastCheckStatus: "dead",
+        isAvailable: false,
+        deletedAt: now,
+        deletedByUserId: null,
+        deletedReason: "Dead — requires 2FA",
+      }).where(eq(accountsTable.id, account.id));
     } else {
       checkStatus = "live";
       await db.update(accountsTable).set({ healthFailCount: 0, lastCheckedAt: now, lastCheckStatus: "live", isAvailable: true }).where(eq(accountsTable.id, account.id));
@@ -525,7 +533,15 @@ router.post("/:accountId/check", requireAuth, async (req, res) => {
   } else if (result.status === "invalid") {
     checkStatus = "dead";
     const newFailCount = account.healthFailCount + 1;
-    await db.update(accountsTable).set({ healthFailCount: newFailCount, lastCheckedAt: now, lastCheckStatus: "dead", isAvailable: false }).where(eq(accountsTable.id, account.id));
+    await db.update(accountsTable).set({
+      healthFailCount: newFailCount,
+      lastCheckedAt: now,
+      lastCheckStatus: "dead",
+      isAvailable: false,
+      deletedAt: now,
+      deletedByUserId: null,
+      deletedReason: "Dead — invalid credentials",
+    }).where(eq(accountsTable.id, account.id));
   } else {
     // error / rate_limited — update timestamp only, don't change availability
     await db.update(accountsTable).set({ lastCheckedAt: now }).where(eq(accountsTable.id, account.id));
