@@ -443,7 +443,7 @@ export default function Messages() {
                         )}
 
                         <div
-                          className={`max-w-[70%] rounded-2xl px-4 py-2 text-sm ${
+                          className={`max-w-[70%] min-w-0 break-words overflow-hidden rounded-2xl px-4 py-2 text-sm ${
                             isMe
                               ? "bg-primary text-white rounded-br-sm"
                               : isBotMsg

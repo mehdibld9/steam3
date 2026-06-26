@@ -203,8 +203,8 @@ export default function Admin() {
     ...(user?.isAdmin ? [{ value: "store", label: "Store" }] : []),
     ...(user?.isAdmin ? [{ value: "announcements", label: "News" }] : []),
     ...(user?.isAdmin ? [{ value: "site-settings", label: "Site Settings" }] : []),
-    ...(user?.isAdmin ? [{ value: "premium", label: "✨ Premium" }] : []),
-    ...(user?.isAdmin ? [{ value: "deleted-accounts", label: "🗑 Deleted" }] : []),
+    ...(user?.isAdmin ? [{ value: "premium", label: "Premium" }] : []),
+    ...(user?.isAdmin ? [{ value: "deleted-accounts", label: "Deleted" }] : []),
   ];
 
   return (
