@@ -56,10 +56,14 @@ function ScrollToTop() {
     };
   }, [location]);
 
-  // On route change: restore scroll for back/forward, or jump to top for fresh nav
+  // On route change: restore scroll for back/forward, or jump to top for fresh nav.
+  // Pages that load data before they can scroll (e.g. /browse) handle their own
+  // restoration after data arrives — skip the generic restore for those paths.
+  const DATA_RESTORE_PATHS = ["/browse"];
   useEffect(() => {
     if (isPopState.current) {
       isPopState.current = false;
+      if (DATA_RESTORE_PATHS.includes(location)) return; // page restores itself
       const saved = Number(sessionStorage.getItem(`scroll:${location}`) ?? 0);
       // Double rAF: first frame mounts the page, second frame waits for layout
       requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, saved)));
