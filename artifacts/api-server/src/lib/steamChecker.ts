@@ -358,6 +358,12 @@ export async function checkSteamCredentials(username: string, password: string):
 
       const steamid64 = String(auth.response.steamid ?? "");
       const clientId = String(auth.response.client_id ?? "");
+
+      // If BeginAuth returned no usable session data (no steamid, no client_id), credentials are wrong
+      if (!steamid64 && !clientId) {
+        logger.info({ responseKeys: Object.keys(auth.response) }, "BeginAuth response has no steamid/client_id — invalid credentials");
+        return { status: "invalid", message: "Wrong username or password", games: [], steamid: "", isFamilyShare: false };
+      }
       const requestId = String(auth.response.request_id ?? "");
       const confirmations = (auth.response.allowed_confirmations ?? []) as Array<Record<string, unknown>>;
       const confTypes = new Set(confirmations.map((c) => Number(c.confirmation_type)));

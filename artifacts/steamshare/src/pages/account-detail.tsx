@@ -154,12 +154,12 @@ export default function AccountDetail() {
     },
     onSuccess: (data) => {
       // Derive checkStatus from raw status if backend didn't send it
-      const cs: string | null =
+      const cs: string =
         data.checkStatus && data.checkStatus !== "error"
           ? data.checkStatus
           : data.status === "valid" ? "live"
           : data.status === "invalid" ? "dead"
-          : null;
+          : "error"; // keep "error" explicit so badge doesn't fall back to old DB status
       setCheckResult({ status: data.status, checkStatus: cs as any, lastCheckedAt: data.lastCheckedAt });
       queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(id) });
       const label = cs === "live" ? "Live ✓" : cs === "dead" ? "Dead ✗" : cs === "2fa" ? "2FA (valid creds)" : data.status === "rate_limited" ? "Rate limited — try again later" : data.status === "error" ? "Could not reach Steam" : data.status;
@@ -475,9 +475,12 @@ export default function AccountDetail() {
                         })()}
                       </p>
                       {(() => {
-                        // Prefer fresh check result (skip null/"error"), then stored DB status, then derive from healthFailCount
+                        // If we just ran a check and it errored, show "?" — never fall back to old "live" DB value
                         const acc = account as any;
                         const freshStatus = checkResult?.checkStatus;
+                        if (freshStatus === "error") {
+                          return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">? Unknown</span>;
+                        }
                         const validStatuses = ["live", "dead", "2fa"];
                         let s: string | null =
                           (freshStatus && validStatuses.includes(freshStatus) ? freshStatus : null)
