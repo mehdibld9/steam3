@@ -1,5 +1,5 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { QueryClient, QueryCache, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
@@ -25,7 +25,28 @@ import Store from "./pages/store";
 import ProductDetail from "./pages/product-detail";
 import Premium from "./pages/premium";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error) => {
+      const status = (error as any)?.status;
+      if (typeof status === "number" && status >= 400 && status < 500) return;
+      console.error(error);
+    },
+  }),
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        const status = (error as any)?.status;
+        if (typeof status === "number" && status >= 400 && status < 500) return false;
+        return failureCount < 2;
+      },
+      throwOnError: false,
+    },
+    mutations: {
+      throwOnError: false,
+    },
+  },
+});
 
 function ScrollToTop() {
   const [location] = useLocation();
