@@ -117,6 +117,12 @@ export default function AccountDetail() {
   const [commentContent, setCommentContent] = useState("");
   const [claimResult, setClaimResult] = useState<{ username: string; password: string } | null>(null);
   const [claimError, setClaimError] = useState("");
+
+  // Restore credentials from DB if user already claimed this account
+  const myClaim = (account as any)?.myClaim as { steamUsername: string; steamPassword: string } | null | undefined;
+  if (myClaim && !claimResult) {
+    setClaimResult({ username: myClaim.steamUsername, password: myClaim.steamPassword });
+  }
   const [likeError, setLikeError] = useState("");
   const [commentError, setCommentError] = useState("");
 

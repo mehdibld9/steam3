@@ -18,3 +18,4 @@ export * from "./productDeliveryUnits";
 export * from "./siteSettings";
 export * from "./premiumCodes";
 export * from "./ipBans";
+export * from "./accountClaims";

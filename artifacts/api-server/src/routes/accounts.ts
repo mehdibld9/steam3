@@ -1,6 +1,6 @@
 // @ts-nocheck
 import express from "express";
-import { db, accountsTable, usersTable, likesTable, accountVotesTable, commentsTable } from "@workspace/db";
+import { db, accountsTable, usersTable, likesTable, accountVotesTable, commentsTable, accountClaimsTable } from "@workspace/db";
 import { eq, desc, and, sql, inArray, isNull } from "drizzle-orm";
 import { CreateAccountBody } from "@workspace/api-zod";
 import { requireAuth, requireModOrAdmin } from "../middlewares/auth";
@@ -261,6 +261,8 @@ router.get("/:accountId", async (req, res) => {
   let userHasLiked = false;
   let myVote: string | null = null;
   let userHasCommented = false;
+  let myClaim: { steamUsername: string; steamPassword: string } | null = null;
+
   if (userId) {
     const [like] = await db.select().from(likesTable)
       .where(and(eq(likesTable.userId, userId), eq(likesTable.targetType, "account"), eq(likesTable.targetId, accountId)))
@@ -276,9 +278,17 @@ router.get("/:accountId", async (req, res) => {
       .where(and(eq(commentsTable.userId, userId), eq(commentsTable.accountId, accountId)))
       .limit(1);
     userHasCommented = !!commentRow;
+
+    // Return cached credentials if this user already claimed this account
+    const [claimRow] = await db.select().from(accountClaimsTable)
+      .where(and(eq(accountClaimsTable.userId, userId), eq(accountClaimsTable.accountId, accountId)))
+      .limit(1);
+    if (claimRow) {
+      myClaim = { steamUsername: claimRow.steamUsername ?? "", steamPassword: claimRow.steamPassword ?? "" };
+    }
   }
 
-  res.json({ ...account, username: account.posterUsername ?? "", userHasLiked, myVote, userHasCommented });
+  res.json({ ...account, username: account.posterUsername ?? "", userHasLiked, myVote, userHasCommented, myClaim });
 });
 
 // Edit account (owner / admin / mod)
@@ -382,6 +392,15 @@ router.post("/:accountId/claim", requireAuth, async (req, res) => {
     }
   }
 
+  // If user already claimed this account before, just return their stored credentials
+  const [existingClaim] = await db.select().from(accountClaimsTable)
+    .where(and(eq(accountClaimsTable.userId, userId), eq(accountClaimsTable.accountId, accountId)))
+    .limit(1);
+  if (existingClaim) {
+    res.json({ steamUsername: existingClaim.steamUsername, steamPassword: existingClaim.steamPassword, pointsSpent: 0 });
+    return;
+  }
+
   await db.update(usersTable).set({ points: sql`${usersTable.points} - ${account.pointsCost}` }).where(eq(usersTable.id, userId));
   await db.update(usersTable).set({ points: sql`${usersTable.points} + ${account.pointsCost}` }).where(eq(usersTable.id, account.userId));
 
@@ -390,6 +409,15 @@ router.post("/:accountId/claim", requireAuth, async (req, res) => {
   } else {
     await db.update(accountsTable).set({ claimsCount: sql`${accountsTable.claimsCount} + 1` }).where(eq(accountsTable.id, accountId));
   }
+
+  // Persist the claim so credentials survive page refreshes
+  await db.insert(accountClaimsTable).values({
+    accountId,
+    userId,
+    steamUsername: account.steamUsername,
+    steamPassword: account.steamPassword,
+    pointsSpent: account.pointsCost,
+  });
 
   res.json({ steamUsername: account.steamUsername, steamPassword: account.steamPassword, pointsSpent: account.pointsCost });
 });
