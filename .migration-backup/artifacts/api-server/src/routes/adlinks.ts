@@ -53,23 +53,28 @@ router.get("/:code/redeem", requireAuth, async (req, res) => {
     return;
   }
 
-  const [alreadyRedeemed] = await db
-    .select()
-    .from(adLinkRedemptionsTable)
-    .where(
-      and(
-        eq(adLinkRedemptionsTable.adLinkId, link.id),
-        eq(adLinkRedemptionsTable.userId, userId),
-      ),
-    )
-    .limit(1);
+  // Atomically insert the redemption record. The DB-level unique constraint on
+  // (ad_link_id, user_id) guarantees only one redemption per user per link even
+  // under concurrent requests — no SELECT-then-INSERT race condition.
+  let inserted;
+  try {
+    [inserted] = await db
+      .insert(adLinkRedemptionsTable)
+      .values({ adLinkId: link.id, userId })
+      .returning({ id: adLinkRedemptionsTable.id });
+  } catch (e: any) {
+    if (e?.code === "23505") {
+      res.status(400).json({ error: "You have already redeemed this link" });
+      return;
+    }
+    throw e;
+  }
 
-  if (alreadyRedeemed) {
+  if (!inserted) {
     res.status(400).json({ error: "You have already redeemed this link" });
     return;
   }
 
-  await db.insert(adLinkRedemptionsTable).values({ adLinkId: link.id, userId });
   await db
     .update(adLinksTable)
     .set({ usesCount: sql`${adLinksTable.usesCount} + 1` })

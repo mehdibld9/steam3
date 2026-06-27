@@ -203,7 +203,8 @@ export default function Admin() {
     ...(user?.isAdmin ? [{ value: "store", label: "Store" }] : []),
     ...(user?.isAdmin ? [{ value: "announcements", label: "News" }] : []),
     ...(user?.isAdmin ? [{ value: "site-settings", label: "Site Settings" }] : []),
-    ...(user?.isAdmin ? [{ value: "premium", label: "✨ Premium" }] : []),
+    ...(user?.isAdmin ? [{ value: "premium", label: "Premium" }] : []),
+    ...(user?.isAdmin ? [{ value: "deleted-accounts", label: "Deleted" }] : []),
   ];
 
   return (
@@ -237,6 +238,7 @@ export default function Admin() {
           {user?.isAdmin && <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="site-settings"><SiteSettingsTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="premium"><PremiumAdminTab /></TabsContent>}
+          {user?.isAdmin && <TabsContent value="deleted-accounts"><DeletedAccountsTab /></TabsContent>}
         </Tabs>
       </div>
     </Layout>
@@ -484,6 +486,97 @@ function AccountsTab() {
           ))}
         </TableBody>
       </Table>
+    </div>
+  );
+}
+
+// --- Deleted Accounts Tab ---
+async function fetchDeletedAccounts(page: number) {
+  const res = await fetch(`/api/admin/deleted-accounts?page=${page}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to load deleted accounts");
+  return res.json() as Promise<{ accounts: Array<{ id: number; title: string; steamUsername: string; createdAt: string; deletedAt: string; deletedReason: string | null; posterUsername: string | null; deletedByUsername: string }>; total: number; page: number; limit: number }>;
+}
+
+function DeletedAccountsTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [page, setPage] = useState(1);
+  const { data, isLoading } = useQuery({ queryKey: ["admin-deleted-accounts", page], queryFn: () => fetchDeletedAccounts(page) });
+
+  const restoreMutation = useMutation({
+    mutationFn: async (accountId: number) => {
+      const res = await fetch(`/api/admin/deleted-accounts/${accountId}/restore`, { method: "POST", credentials: "include" });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-deleted-accounts"] });
+      toast({ title: "Account restored" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const totalPages = data ? Math.ceil(data.total / data.limit) : 1;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold">Deleted Accounts</h2>
+          <p className="text-sm text-muted-foreground">{data?.total ?? 0} account{(data?.total ?? 0) !== 1 ? "s" : ""} removed</p>
+        </div>
+      </div>
+      <div className="bg-card border border-border rounded-xl overflow-hidden overflow-x-auto">
+        <Table>
+          <TableHeader className="bg-muted/50">
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Title</TableHead>
+              <TableHead>Steam User</TableHead>
+              <TableHead>Posted By</TableHead>
+              <TableHead>Deleted By</TableHead>
+              <TableHead>Reason</TableHead>
+              <TableHead>Deleted</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+            ) : !data?.accounts?.length ? (
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No deleted accounts</TableCell></TableRow>
+            ) : data.accounts.map(a => (
+              <TableRow key={a.id}>
+                <TableCell className="font-mono text-xs text-muted-foreground">{a.id}</TableCell>
+                <TableCell className="font-medium max-w-[180px] truncate">{a.title}</TableCell>
+                <TableCell className="font-mono text-xs">{a.steamUsername}</TableCell>
+                <TableCell className="text-sm">{a.posterUsername ?? "—"}</TableCell>
+                <TableCell className="text-sm">{a.deletedByUsername}</TableCell>
+                <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate">{a.deletedReason ?? <span className="italic">No reason</span>}</TableCell>
+                <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                  {new Date(a.deletedAt).toLocaleDateString(undefined, { year: "2-digit", month: "short", day: "numeric" })}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => restoreMutation.mutate(a.id)}
+                    disabled={restoreMutation.isPending}
+                  >
+                    Restore
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-2">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Prev</Button>
+          <span className="text-sm flex items-center px-2">{page} / {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
+        </div>
+      )}
     </div>
   );
 }

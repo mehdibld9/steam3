@@ -47,7 +47,7 @@ const NAV_ITEMS = [
   { href: "/premium", label: "Premium", icon: Crown },
 ];
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export function Layout({ children, noFooter }: { children: React.ReactNode; noFooter?: boolean }) {
   const { data: user } = useGetMe();
   const logout = useLogout();
   const queryClient = useQueryClient();
@@ -538,7 +538,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1">{children}</main>
 
-      <Footer />
+      {!noFooter && <Footer />}
     </div>
   );
 }

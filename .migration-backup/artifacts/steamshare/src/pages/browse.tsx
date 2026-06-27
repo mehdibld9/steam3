@@ -67,22 +67,18 @@ export default function Browse() {
     }
   }, [accountsData, page]);
 
-  // Restore scroll position after accounts load (coming back via browser back)
+  // Restore scroll position after accounts load (coming back via browser back).
+  // Reads from the same "scroll:/browse" key that ScrollToTop saves to, so we
+  // wait until data is rendered (page is tall enough) before restoring.
   const scrollRestored = useRef(false);
   useEffect(() => {
     if (scrollRestored.current || accountsLoading || allAccounts.length === 0) return;
-    const saved = sessionStorage.getItem("browse-scroll");
-    if (saved) {
+    const saved = sessionStorage.getItem("scroll:/browse");
+    if (saved && Number(saved) > 0) {
       scrollRestored.current = true;
-      sessionStorage.removeItem("browse-scroll");
       requestAnimationFrame(() => window.scrollTo(0, Number(saved)));
     }
   }, [accountsLoading, allAccounts.length]);
-
-  // Save scroll position when leaving the page
-  useEffect(() => {
-    return () => { sessionStorage.setItem("browse-scroll", String(window.scrollY)); };
-  }, []);
 
   const filteredAccounts = allAccounts.filter((a) => {
     const q = search.toLowerCase();

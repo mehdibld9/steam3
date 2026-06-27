@@ -31,16 +31,38 @@ function ScrollToTop() {
   const [location] = useLocation();
   const isPopState = useRef(false);
 
+  // Intercept pushState once so we capture the scroll position AT the moment
+  // the user navigates away — more reliable than a debounced scroll listener.
   useEffect(() => {
-    const handler = () => { isPopState.current = true; };
-    window.addEventListener("popstate", handler);
-    return () => window.removeEventListener("popstate", handler);
-  }, []);
+    history.scrollRestoration = "manual";
 
+    const orig = history.pushState.bind(history);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (history as any).pushState = function (state: any, title: string, url?: string | URL | null) {
+      sessionStorage.setItem(`scroll:${window.location.pathname}`, String(window.scrollY));
+      return orig(state, title, url);
+    };
+
+    const onPop = () => { isPopState.current = true; };
+    window.addEventListener("popstate", onPop);
+
+    return () => {
+      (history as any).pushState = orig;
+      window.removeEventListener("popstate", onPop);
+      history.scrollRestoration = "auto";
+    };
+  }, []); // intentionally run once
+
+  // On route change: restore scroll for back/forward, or jump to top for fresh nav.
+  // /browse handles its own restoration after data finishes loading.
+  const DATA_RESTORE_PATHS = ["/browse"];
   useEffect(() => {
     if (isPopState.current) {
       isPopState.current = false;
-      return; // let the page restore its own scroll
+      if (DATA_RESTORE_PATHS.includes(location)) return;
+      const saved = Number(sessionStorage.getItem(`scroll:${location}`) ?? 0);
+      requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, saved)));
+      return;
     }
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, [location]);

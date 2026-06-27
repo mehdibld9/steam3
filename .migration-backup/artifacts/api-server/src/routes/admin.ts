@@ -1,7 +1,7 @@
 // @ts-nocheck
 import express from "express";
 import { db, usersTable, accountsTable, reportsTable, commentsTable } from "@workspace/db";
-import { eq, desc, sql, and, inArray } from "drizzle-orm";
+import { eq, desc, sql, and, inArray, isNotNull } from "drizzle-orm";
 import { requireAdmin, requireModOrAdmin } from "../middlewares/auth";
 import { sendBotMessage } from "../lib/adminBot";
 import { getSetting } from "../lib/settings";
@@ -333,6 +333,66 @@ router.get("/dashboard", requireAdmin, async (_req, res) => {
       pointsCirculating: Number(totalPoints),
     },
   });
+});
+
+// GET /admin/deleted-accounts — list all soft-deleted accounts (admin only)
+router.get("/deleted-accounts", requireAdmin, async (req, res) => {
+  const page = parseInt(String(req.query.page ?? "1"), 10);
+  const limit = 50;
+  const offset = (page - 1) * limit;
+
+  const rows = await db
+    .select({
+      id: accountsTable.id,
+      title: accountsTable.title,
+      steamUsername: accountsTable.steamUsername,
+      createdAt: accountsTable.createdAt,
+      deletedAt: accountsTable.deletedAt,
+      deletedReason: accountsTable.deletedReason,
+      posterUsername: usersTable.username,
+      deletedByUserId: accountsTable.deletedByUserId,
+    })
+    .from(accountsTable)
+    .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
+    .where(isNotNull(accountsTable.deletedAt))
+    .orderBy(desc(accountsTable.deletedAt))
+    .limit(limit)
+    .offset(offset);
+
+  // Fetch deleter usernames separately
+  const deleterIds = [...new Set(rows.map(r => r.deletedByUserId).filter(Boolean))] as number[];
+  let deleters: Record<number, string> = {};
+  if (deleterIds.length > 0) {
+    const deleterRows = await db
+      .select({ id: usersTable.id, username: usersTable.username })
+      .from(usersTable)
+      .where(inArray(usersTable.id, deleterIds));
+    deleters = Object.fromEntries(deleterRows.map(d => [d.id, d.username]));
+  }
+
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(accountsTable)
+    .where(isNotNull(accountsTable.deletedAt));
+
+  const result = rows.map(r => ({
+    ...r,
+    deletedByUsername: r.deletedByUserId ? (deleters[r.deletedByUserId] ?? `#${r.deletedByUserId}`) : "Unknown",
+  }));
+
+  res.json({ accounts: result, total: Number(count), page, limit });
+});
+
+// POST /admin/deleted-accounts/:accountId/restore — restore a soft-deleted account (admin only)
+router.post("/deleted-accounts/:accountId/restore", requireAdmin, async (req, res) => {
+  const accountId = parseInt(req.params.accountId, 10);
+  if (isNaN(accountId)) { res.status(400).json({ error: "Invalid account id" }); return; }
+
+  await db.update(accountsTable)
+    .set({ deletedAt: null, deletedByUserId: null, deletedReason: null, isAvailable: true })
+    .where(eq(accountsTable.id, accountId));
+
+  res.json({ message: "Account restored" });
 });
 
 export default router;

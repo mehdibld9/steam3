@@ -1,7 +1,7 @@
 // @ts-nocheck
 import express from "express";
 import { db, accountsTable, usersTable, likesTable, accountVotesTable, commentsTable } from "@workspace/db";
-import { eq, desc, and, sql, inArray } from "drizzle-orm";
+import { eq, desc, and, sql, inArray, isNull } from "drizzle-orm";
 import { CreateAccountBody } from "@workspace/api-zod";
 import { requireAuth, requireModOrAdmin } from "../middlewares/auth";
 import { checkSteamCredentials } from "../lib/steamChecker";
@@ -53,7 +53,7 @@ router.get("/", async (req, res) => {
   const sort = (req.query.sort as string) ?? "recent";
   const userId = req.session?.userId;
 
-  const conditions = [eq(accountsTable.isAvailable, true)];
+  const conditions = [eq(accountsTable.isAvailable, true), isNull(accountsTable.deletedAt)];
   if (game) conditions.push(sql`${game} = ANY(${accountsTable.games})`);
 
   const accounts = await db
@@ -240,7 +240,7 @@ router.get("/:accountId", async (req, res) => {
     })
     .from(accountsTable)
     .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
-    .where(eq(accountsTable.id, accountId))
+    .where(and(eq(accountsTable.id, accountId), isNull(accountsTable.deletedAt)))
     .limit(1);
 
   if (!account) {
@@ -331,7 +331,10 @@ router.delete("/:accountId", requireAuth, async (req, res) => {
     return;
   }
 
-  await db.delete(accountsTable).where(eq(accountsTable.id, accountId));
+  const reason = String((req.body as any)?.reason ?? "").trim() || null;
+  await db.update(accountsTable)
+    .set({ deletedAt: new Date(), deletedByUserId: userId, deletedReason: reason, isAvailable: false })
+    .where(eq(accountsTable.id, accountId));
   res.json({ message: "Account deleted" });
 });
 
@@ -484,8 +487,8 @@ router.post("/:accountId/vote", requireAuth, async (req, res) => {
   }
 });
 
-// POST /accounts/:accountId/check — admin/mod: trigger an immediate health check on one account
-router.post("/:accountId/check", requireModOrAdmin, async (req, res) => {
+// POST /accounts/:accountId/check — any logged-in user: trigger a live Steam credential check
+router.post("/:accountId/check", requireAuth, async (req, res) => {
   const accountId = parseInt(req.params.accountId, 10);
   if (isNaN(accountId)) { res.status(400).json({ error: "Invalid account id" }); return; }
 
@@ -511,10 +514,18 @@ router.post("/:accountId/check", requireModOrAdmin, async (req, res) => {
   if (result.status === "valid") {
     const is2fa = String(result.message ?? "").includes("2FA");
     if (is2fa) {
-      // 2FA accounts can't be used for sharing — treat as dead
+      // 2FA accounts can't be used for sharing — treat as dead and soft-delete
       checkStatus = "dead";
       const newFailCount = account.healthFailCount + 1;
-      await db.update(accountsTable).set({ healthFailCount: newFailCount, lastCheckedAt: now, lastCheckStatus: "dead", isAvailable: false }).where(eq(accountsTable.id, account.id));
+      await db.update(accountsTable).set({
+        healthFailCount: newFailCount,
+        lastCheckedAt: now,
+        lastCheckStatus: "dead",
+        isAvailable: false,
+        deletedAt: now,
+        deletedByUserId: null,
+        deletedReason: "Dead — requires 2FA",
+      }).where(eq(accountsTable.id, account.id));
     } else {
       checkStatus = "live";
       await db.update(accountsTable).set({ healthFailCount: 0, lastCheckedAt: now, lastCheckStatus: "live", isAvailable: true }).where(eq(accountsTable.id, account.id));
@@ -522,7 +533,15 @@ router.post("/:accountId/check", requireModOrAdmin, async (req, res) => {
   } else if (result.status === "invalid") {
     checkStatus = "dead";
     const newFailCount = account.healthFailCount + 1;
-    await db.update(accountsTable).set({ healthFailCount: newFailCount, lastCheckedAt: now, lastCheckStatus: "dead", isAvailable: false }).where(eq(accountsTable.id, account.id));
+    await db.update(accountsTable).set({
+      healthFailCount: newFailCount,
+      lastCheckedAt: now,
+      lastCheckStatus: "dead",
+      isAvailable: false,
+      deletedAt: now,
+      deletedByUserId: null,
+      deletedReason: "Dead — invalid credentials",
+    }).where(eq(accountsTable.id, account.id));
   } else {
     // error / rate_limited — update timestamp only, don't change availability
     await db.update(accountsTable).set({ lastCheckedAt: now }).where(eq(accountsTable.id, account.id));

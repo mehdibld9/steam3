@@ -44,8 +44,8 @@ async function getRsaKey(
   proxies: Awaited<ReturnType<typeof pickProxies>>,
   proxyIndex: number = 0,
 ): Promise<{ mod: string; exp: string; timestamp: string; proxyIndex: number } | null> {
-  if (proxyIndex >= proxies.length) return null;
-  const proxy = proxies[proxyIndex] ?? null;
+  if (proxyIndex > proxies.length) return null;
+  const proxy = proxyIndex < proxies.length ? proxies[proxyIndex] : null; // null = direct connection fallback
   try {
     const url = new URL("https://api.steampowered.com/IAuthenticationService/GetPasswordRSAPublicKey/v1/");
     url.searchParams.set("account_name", username);
@@ -81,8 +81,8 @@ async function beginAuthSession(
   proxies: Awaited<ReturnType<typeof pickProxies>>,
   proxyIndex: number = 0,
 ): Promise<{ response: Record<string, unknown>; proxyIndex: number } | null> {
-  if (proxyIndex >= proxies.length) return null;
-  const proxy = proxies[proxyIndex] ?? null;
+  if (proxyIndex > proxies.length) return null;
+  const proxy = proxyIndex < proxies.length ? proxies[proxyIndex] : null; // null = direct connection fallback
   try {
     const body = new URLSearchParams({
       account_name: username,
@@ -132,8 +132,8 @@ async function pollAuthSession(
   proxies: Awaited<ReturnType<typeof pickProxies>>,
   proxyIndex: number = 0,
 ): Promise<Record<string, unknown> | null> {
-  if (proxyIndex >= proxies.length) return null;
-  const proxy = proxies[proxyIndex] ?? null;
+  if (proxyIndex > proxies.length) return null;
+  const proxy = proxyIndex < proxies.length ? proxies[proxyIndex] : null; // null = direct connection fallback
   try {
     const body = new URLSearchParams({ client_id: clientId, request_id: requestId });
     const res = await fetchViaProxy(
@@ -166,8 +166,8 @@ async function finalizeLogin(
   proxies: Awaited<ReturnType<typeof pickProxies>>,
   proxyIndex: number = 0,
 ): Promise<boolean> {
-  if (proxyIndex >= proxies.length) return false;
-  const proxy = proxies[proxyIndex] ?? null;
+  if (proxyIndex > proxies.length) return false;
+  const proxy = proxyIndex < proxies.length ? proxies[proxyIndex] : null; // null = direct connection fallback
   try {
     const body = new URLSearchParams({
       nonce: refreshToken,
@@ -274,8 +274,8 @@ async function isSteamFamilyShareAccount(
   proxies: Awaited<ReturnType<typeof pickProxies>>,
   proxyIndex: number = 0,
 ): Promise<boolean> {
-  if (!accessToken || proxyIndex >= proxies.length) return false;
-  const proxy = proxies[proxyIndex] ?? null;
+  if (!accessToken || proxyIndex > proxies.length) return false;
+  const proxy = proxyIndex < proxies.length ? proxies[proxyIndex] : null; // null = direct connection fallback
   try {
     const url = new URL("https://api.steampowered.com/IFamilyGroupsService/GetFamilyGroupForUser/v1/");
     url.searchParams.set("access_token", accessToken);
@@ -349,8 +349,21 @@ export async function checkSteamCredentials(username: string, password: string):
         return { status: "invalid", message: "Wrong username or password", games: [], steamid: "", isFamilyShare: false };
       }
 
+      // Steam returns HTTP 200 with eresult != 1 for bad credentials (e.g. eresult=5 = InvalidPassword)
+      const eresult = Number((auth.response as any).eresult ?? 1);
+      if (eresult !== 1 && eresult !== 0) {
+        logger.info({ eresult }, "BeginAuth returned non-OK eresult — invalid credentials");
+        return { status: "invalid", message: "Wrong username or password", games: [], steamid: "", isFamilyShare: false };
+      }
+
       const steamid64 = String(auth.response.steamid ?? "");
       const clientId = String(auth.response.client_id ?? "");
+
+      // If BeginAuth returned no usable session data (no steamid, no client_id), credentials are wrong
+      if (!steamid64 && !clientId) {
+        logger.info({ responseKeys: Object.keys(auth.response) }, "BeginAuth response has no steamid/client_id — invalid credentials");
+        return { status: "invalid", message: "Wrong username or password", games: [], steamid: "", isFamilyShare: false };
+      }
       const requestId = String(auth.response.request_id ?? "");
       const confirmations = (auth.response.allowed_confirmations ?? []) as Array<Record<string, unknown>>;
       const confTypes = new Set(confirmations.map((c) => Number(c.confirmation_type)));

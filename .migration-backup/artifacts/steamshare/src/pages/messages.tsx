@@ -261,7 +261,6 @@ export default function Messages() {
   const [selectedIsMod, setSelectedIsMod] = useState(false);
   const [draft, setDraft] = useState("");
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -298,9 +297,6 @@ export default function Messages() {
     },
   });
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
   const handleSend = () => {
     if (!draft.trim() || !selectedUserId) return;
@@ -332,7 +328,7 @@ export default function Messages() {
   const isBot = selectedUsername === "Admin Bot";
 
   return (
-    <Layout>
+    <Layout noFooter>
       <div className="container mx-auto px-4 py-6 max-w-5xl">
         <button
           onClick={() => { const prev = window.location.pathname; window.history.back(); setTimeout(() => { if (window.location.pathname === prev) navigate("/"); }, 80); }}
@@ -434,8 +430,8 @@ export default function Messages() {
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                  {messages?.map((msg) => {
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 flex flex-col-reverse">
+                  {[...(messages ?? [])].reverse().map((msg) => {
                     const isMe = msg.senderId === me.id;
                     const isBotMsg = !isMe && isBot;
                     return (
@@ -447,7 +443,7 @@ export default function Messages() {
                         )}
 
                         <div
-                          className={`max-w-[70%] rounded-2xl px-4 py-2 text-sm ${
+                          className={`max-w-[70%] min-w-0 rounded-2xl px-4 py-2 text-sm ${
                             isMe
                               ? "bg-primary text-white rounded-br-sm"
                               : isBotMsg
@@ -457,11 +453,11 @@ export default function Messages() {
                         >
                           {isBotMsg || msg.content.includes('**') || msg.content.includes('\n') ? (
                             <p
-                              className="whitespace-pre-wrap"
+                              className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
                               dangerouslySetInnerHTML={{ __html: renderBotMarkdown(msg.content) }}
                             />
                           ) : (
-                            <p>{msg.content}</p>
+                            <p className="break-words [overflow-wrap:anywhere]">{msg.content}</p>
                           )}
                           <p className={`text-[10px] mt-0.5 ${isMe ? "text-white/70 text-right" : "text-muted-foreground"}`}>
                             {formatDistanceToNow(new Date(msg.createdAt))} ago
@@ -479,7 +475,6 @@ export default function Messages() {
                       </div>
                     );
                   })}
-                  <div ref={messagesEndRef} />
                 </div>
 
                 {isBot ? (

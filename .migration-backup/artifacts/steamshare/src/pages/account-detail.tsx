@@ -29,7 +29,7 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import {
   Heart, Coins, MessageSquare, Trash, Lock,
   Copy, CheckCheck, ChevronDown, ChevronUp,
-  Flag, Edit2, Check, X, MessageCircle, Eye, ArrowLeft, Star, RefreshCw,
+  Flag, Edit2, Check, X, MessageCircle, Eye, ArrowLeft, Star, RefreshCw, CornerDownRight,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -134,6 +134,8 @@ export default function AccountDetail() {
   const [commentReportDetails, setCommentReportDetails] = useState("");
 
   const [checkResult, setCheckResult] = useState<{ status: string; checkStatus: "live" | "dead" | "2fa" | "error"; lastCheckedAt: string } | null>(null);
+  const [replyToId, setReplyToId] = useState<number | null>(null);
+  const [replyContent, setReplyContent] = useState("");
 
   const likeAccount = useLikeAccount();
   const unlikeAccount = useUnlikeAccount();
@@ -152,12 +154,12 @@ export default function AccountDetail() {
     },
     onSuccess: (data) => {
       // Derive checkStatus from raw status if backend didn't send it
-      const cs: string | null =
+      const cs: string =
         data.checkStatus && data.checkStatus !== "error"
           ? data.checkStatus
           : data.status === "valid" ? "live"
           : data.status === "invalid" ? "dead"
-          : null;
+          : "error"; // keep "error" explicit so badge doesn't fall back to old DB status
       setCheckResult({ status: data.status, checkStatus: cs as any, lastCheckedAt: data.lastCheckedAt });
       queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(id) });
       const label = cs === "live" ? "Live ✓" : cs === "dead" ? "Dead ✗" : cs === "2fa" ? "2FA (valid creds)" : data.status === "rate_limited" ? "Rate limited — try again later" : data.status === "error" ? "Could not reach Steam" : data.status;
@@ -473,9 +475,12 @@ export default function AccountDetail() {
                         })()}
                       </p>
                       {(() => {
-                        // Prefer fresh check result (skip null/"error"), then stored DB status, then derive from healthFailCount
+                        // If we just ran a check and it errored, show "?" — never fall back to old "live" DB value
                         const acc = account as any;
                         const freshStatus = checkResult?.checkStatus;
+                        if (freshStatus === "error") {
+                          return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">? Unknown</span>;
+                        }
                         const validStatuses = ["live", "dead", "2fa"];
                         let s: string | null =
                           (freshStatus && validStatuses.includes(freshStatus) ? freshStatus : null)
@@ -572,68 +577,178 @@ export default function AccountDetail() {
               <div className="space-y-5 sm:space-y-6">
                 {commentsLoading ? (
                   <div className="space-y-4"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
-                ) : comments?.length === 0 ? (
+                ) : (comments?.filter(c => !(c as any).parentId).length === 0 && !commentsLoading) ? (
                   <div className="text-center py-6 text-muted-foreground italic text-sm">No comments yet.</div>
                 ) : (
-                  comments?.map((comment) => (
-                    <div key={comment.id} className="flex gap-3 sm:gap-4 group">
-                      <Link href={`/profile/${comment.userId}`}>
-                        <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 cursor-pointer">
-                          <AvatarImage src={comment.avatarUrl || "/default-avatar.png"} />
-                          <AvatarFallback className="text-xs">{(comment.username?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                      </Link>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="inline-flex items-center gap-1">
-                              <Link
-                                href={`/profile/${comment.userId}`}
-                                className="font-semibold text-xs sm:text-sm hover:text-primary transition-colors"
-                                style={(comment as any).nameColor ? { color: (comment as any).nameColor } : undefined}
-                              >
-                                {comment.username}
-                              </Link>
-                              {(comment as any).badgeType && (
-                                <img
-                                  src={(comment as any).badgeType === "vip" ? "/badge-vip.png" : "/badge-gold.png"}
-                                  alt={(comment as any).badgeType === "vip" ? "Pro VIP" : "Premium"}
-                                  title={(comment as any).badgeType === "vip" ? "Pro VIP Member" : "Premium Member"}
-                                  style={{ width: 14, height: 14, display: "inline-block" }}
-                                />
+                  comments?.filter(c => !(c as any).parentId).map((comment) => {
+                    const replies = comments?.filter(r => (r as any).parentId === comment.id) ?? [];
+                    return (
+                      <div key={comment.id}>
+                        {/* Top-level comment */}
+                        <div className="flex gap-3 sm:gap-4 group">
+                          <Link href={`/profile/${comment.userId}`}>
+                            <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 cursor-pointer">
+                              <AvatarImage src={comment.avatarUrl || "/default-avatar.png"} />
+                              <AvatarFallback className="text-xs">{(comment.username?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                          </Link>
+                          <div className="flex-1">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className="inline-flex items-center gap-1">
+                                  <Link
+                                    href={`/profile/${comment.userId}`}
+                                    className="font-semibold text-xs sm:text-sm hover:text-primary transition-colors"
+                                    style={(comment as any).nameColor ? { color: (comment as any).nameColor } : undefined}
+                                  >
+                                    {comment.username}
+                                  </Link>
+                                  {(comment as any).badgeType && (
+                                    <img
+                                      src={(comment as any).badgeType === "vip" ? "/badge-vip.png" : "/badge-gold.png"}
+                                      alt={(comment as any).badgeType === "vip" ? "Pro VIP" : "Premium"}
+                                      title={(comment as any).badgeType === "vip" ? "Pro VIP Member" : "Premium Member"}
+                                      style={{ width: 14, height: 14, display: "inline-block" }}
+                                    />
+                                  )}
+                                </span>
+                                <span className="text-[10px] sm:text-xs text-muted-foreground ml-2">{formatDistanceToNow(new Date(comment.createdAt))} ago</span>
+                              </div>
+                              {(user?.id === comment.userId || user?.isAdmin || (user as any)?.isModerator) && (
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={async () => { await deleteComment.mutateAsync({ accountId: id, commentId: comment.id }); queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(id) }); }}>
+                                  <Trash className="h-3 w-3" />
+                                </Button>
                               )}
-                            </span>
-                            <span className="text-[10px] sm:text-xs text-muted-foreground ml-2">{formatDistanceToNow(new Date(comment.createdAt))} ago</span>
+                            </div>
+                            <p className="mt-1 text-xs sm:text-sm">{comment.content}</p>
+                            <div className="mt-2 flex items-center gap-2">
+                              <Button variant="ghost" size="sm" className={`h-6 px-2 text-xs flex gap-1 ${comment.userHasLiked ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
+                                onClick={async () => {
+                                  if (!user) return;
+                                  if (comment.userHasLiked) await unlikeComment.mutateAsync({ accountId: id, commentId: comment.id });
+                                  else await likeComment.mutateAsync({ accountId: id, commentId: comment.id });
+                                  queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(id) });
+                                }}>
+                                <Heart className={`h-3 w-3 ${comment.userHasLiked ? "fill-primary text-primary" : ""}`} />
+                                {comment.likesCount}
+                              </Button>
+                              {user && (
+                                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs flex gap-1 text-muted-foreground hover:text-primary"
+                                  onClick={() => { setReplyToId(replyToId === comment.id ? null : comment.id); setReplyContent(""); }}>
+                                  <CornerDownRight className="h-3 w-3" /> Reply
+                                </Button>
+                              )}
+                              {user && user.id !== comment.userId && (
+                                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs flex gap-1 text-muted-foreground hover:text-red-500"
+                                  onClick={() => { setCommentReportId(comment.id); setCommentReportReason(""); setCommentReportDetails(""); }}>
+                                  <Flag className="h-3 w-3" /> Report
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                          {(user?.id === comment.userId || user?.isAdmin || (user as any)?.isModerator) && (
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={async () => { await deleteComment.mutateAsync({ accountId: id, commentId: comment.id }); queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(id) }); }}>
-                              <Trash className="h-3 w-3" />
-                            </Button>
-                          )}
                         </div>
-                        <p className="mt-1 text-xs sm:text-sm">{comment.content}</p>
-                        <div className="mt-2 flex items-center gap-2">
-                          <Button variant="ghost" size="sm" className={`h-6 px-2 text-xs flex gap-1 ${comment.userHasLiked ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
-                            onClick={async () => {
-                              if (!user) return;
-                              if (comment.userHasLiked) await unlikeComment.mutateAsync({ accountId: id, commentId: comment.id });
-                              else await likeComment.mutateAsync({ accountId: id, commentId: comment.id });
-                              queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(id) });
-                            }}>
-                            <Heart className={`h-3 w-3 ${comment.userHasLiked ? "fill-primary text-primary" : ""}`} />
-                            {comment.likesCount}
-                          </Button>
-                          {user && user.id !== comment.userId && (
-                            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs flex gap-1 text-muted-foreground hover:text-red-500"
-                              onClick={() => { setCommentReportId(comment.id); setCommentReportReason(""); setCommentReportDetails(""); }}>
-                              <Flag className="h-3 w-3" /> Report
-                            </Button>
-                          )}
-                        </div>
+
+                        {/* Inline reply box */}
+                        {replyToId === comment.id && (
+                          <div className="ml-11 sm:ml-14 mt-2 flex gap-2 items-start">
+                            <Avatar className="h-6 w-6 shrink-0 mt-1">
+                              <AvatarImage src={user?.avatarUrl || "/default-avatar.png"} />
+                              <AvatarFallback className="text-[10px]">{user?.username?.substring(0, 2).toUpperCase() || "?"}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 space-y-1.5">
+                              <Textarea
+                                placeholder={`Replying to ${comment.username}…`}
+                                className="min-h-[56px] resize-none text-xs"
+                                value={replyContent}
+                                onChange={(e) => setReplyContent(e.target.value)}
+                                autoFocus
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => { setReplyToId(null); setReplyContent(""); }}>Cancel</Button>
+                                <Button size="sm" className="h-6 px-2 text-xs" disabled={!replyContent.trim() || createComment.isPending}
+                                  onClick={async () => {
+                                    if (!user || !replyContent.trim()) return;
+                                    try {
+                                      await createComment.mutateAsync({ accountId: id, data: { content: replyContent, parentId: comment.id } });
+                                      setReplyToId(null);
+                                      setReplyContent("");
+                                      queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(id) });
+                                    } catch (e: any) { toast({ title: e.message || "Could not post reply", variant: "destructive" }); }
+                                  }}>
+                                  {createComment.isPending ? "Posting…" : "Reply"}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Nested replies */}
+                        {replies.length > 0 && (
+                          <div className="ml-11 sm:ml-14 mt-3 space-y-3 border-l-2 border-border pl-3 sm:pl-4">
+                            {replies.map((reply) => (
+                              <div key={reply.id} className="flex gap-2 sm:gap-3 group">
+                                <Link href={`/profile/${reply.userId}`}>
+                                  <Avatar className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 cursor-pointer">
+                                    <AvatarImage src={reply.avatarUrl || "/default-avatar.png"} />
+                                    <AvatarFallback className="text-[10px]">{(reply.username?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
+                                  </Avatar>
+                                </Link>
+                                <div className="flex-1">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <span className="inline-flex items-center gap-1">
+                                        <Link
+                                          href={`/profile/${reply.userId}`}
+                                          className="font-semibold text-[11px] sm:text-xs hover:text-primary transition-colors"
+                                          style={(reply as any).nameColor ? { color: (reply as any).nameColor } : undefined}
+                                        >
+                                          {reply.username}
+                                        </Link>
+                                        {(reply as any).badgeType && (
+                                          <img
+                                            src={(reply as any).badgeType === "vip" ? "/badge-vip.png" : "/badge-gold.png"}
+                                            alt={(reply as any).badgeType === "vip" ? "Pro VIP" : "Premium"}
+                                            style={{ width: 12, height: 12, display: "inline-block" }}
+                                          />
+                                        )}
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground ml-1.5">{formatDistanceToNow(new Date(reply.createdAt))} ago</span>
+                                    </div>
+                                    {(user?.id === reply.userId || user?.isAdmin || (user as any)?.isModerator) && (
+                                      <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={async () => { await deleteComment.mutateAsync({ accountId: id, commentId: reply.id }); queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(id) }); }}>
+                                        <Trash className="h-2.5 w-2.5" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                  <p className="mt-0.5 text-[11px] sm:text-xs">{reply.content}</p>
+                                  <div className="mt-1.5 flex items-center gap-1.5">
+                                    <Button variant="ghost" size="sm" className={`h-5 px-1.5 text-[10px] flex gap-1 ${reply.userHasLiked ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
+                                      onClick={async () => {
+                                        if (!user) return;
+                                        if (reply.userHasLiked) await unlikeComment.mutateAsync({ accountId: id, commentId: reply.id });
+                                        else await likeComment.mutateAsync({ accountId: id, commentId: reply.id });
+                                        queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(id) });
+                                      }}>
+                                      <Heart className={`h-2.5 w-2.5 ${reply.userHasLiked ? "fill-primary text-primary" : ""}`} />
+                                      {reply.likesCount}
+                                    </Button>
+                                    {user && user.id !== reply.userId && (
+                                      <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] flex gap-1 text-muted-foreground hover:text-red-500"
+                                        onClick={() => { setCommentReportId(reply.id); setCommentReportReason(""); setCommentReportDetails(""); }}>
+                                        <Flag className="h-2.5 w-2.5" /> Report
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import pinoHttp from "pino-http";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import rateLimit from "express-rate-limit";
 import { pool } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -67,6 +68,28 @@ app.use(
     },
   }),
 );
+
+// Rate limiting — prevent brute-force and race-condition abuse on sensitive endpoints
+const redeemLimiter = rateLimit({
+  windowMs: 60 * 1000,       // 1 minute window
+  max: 5,                     // max 5 redemption attempts per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later" },
+});
+app.use("/api/adlinks", redeemLimiter);
+app.use("/api/premium/redeem", redeemLimiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minute window
+  max: 20,                    // max 20 login/register attempts per 15 min per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts, please try again later" },
+});
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
+app.use("/api/auth/forgot-password", authLimiter);
 
 app.use("/api", router);
 

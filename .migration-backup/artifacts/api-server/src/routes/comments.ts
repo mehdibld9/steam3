@@ -1,7 +1,7 @@
 // @ts-nocheck
 import express from "express";
 import { db, commentsTable, usersTable, likesTable } from "@workspace/db";
-import { eq, and, sql, inArray, asc } from "drizzle-orm";
+import { eq, and, sql, inArray, asc, isNull } from "drizzle-orm";
 import { CreateCommentBody } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { filterContent } from "../lib/contentFilter";
@@ -28,6 +28,7 @@ router.get("/", async (req, res) => {
       id: commentsTable.id,
       accountId: commentsTable.accountId,
       userId: commentsTable.userId,
+      parentId: commentsTable.parentId,
       content: commentsTable.content,
       likesCount: commentsTable.likesCount,
       createdAt: commentsTable.createdAt,
@@ -86,9 +87,25 @@ router.post("/", requireAuth, async (req, res) => {
     return;
   }
 
+  const parentId = parsed.data.parentId ?? null;
+
+  // Validate parentId belongs to this account if provided
+  if (parentId !== null) {
+    const [parent] = await db
+      .select({ id: commentsTable.id, parentId: commentsTable.parentId })
+      .from(commentsTable)
+      .where(and(eq(commentsTable.id, parentId), eq(commentsTable.accountId, accountId)))
+      .limit(1);
+    if (!parent) {
+      res.status(400).json({ error: "Parent comment not found" });
+      return;
+    }
+    // Only allow one level of nesting — reply to the top-level parent
+  }
+
   const [comment] = await db
     .insert(commentsTable)
-    .values({ accountId, userId, content: await filterContent(parsed.data.content) })
+    .values({ accountId, userId, content: await filterContent(parsed.data.content), parentId })
     .returning();
 
   const [user] = await db
@@ -139,6 +156,8 @@ router.delete("/:commentId", requireAuth, async (req, res) => {
     return;
   }
 
+  // Also delete all replies to this comment
+  await db.delete(commentsTable).where(eq(commentsTable.parentId, commentId));
   await db.delete(commentsTable).where(eq(commentsTable.id, commentId));
   res.json({ message: "Comment deleted" });
 });

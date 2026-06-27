@@ -1,6 +1,6 @@
 // @ts-nocheck
 import express from "express";
-import { db, usersTable, siteSettingsTable } from "@workspace/db";
+import { db, usersTable, siteSettingsTable, premiumCodesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { getSetting, getAllXpSettings } from "../lib/settings";
@@ -197,15 +197,19 @@ router.delete("/codes/:id", requireAdmin, async (req, res) => {
 router.post("/redeem", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
   const { code } = req.body as { code: string };
-  if (!code) { res.status(400).json({ error: "Code required" }); return; }
+  if (!code || typeof code !== "string") { res.status(400).json({ error: "Code required" }); return; }
 
   const sanitized = code.toUpperCase().trim();
-  const rows = await db.execute(sql.raw(`SELECT * FROM premium_codes WHERE code = '${sanitized.replace(/'/g, "''")}' LIMIT 1`));
-  const premCode = rows.rows[0] as any;
+  // Use parameterized ORM query — no string interpolation, no SQL injection risk
+  const [premCode] = await db
+    .select()
+    .from(premiumCodesTable)
+    .where(eq(premiumCodesTable.code, sanitized))
+    .limit(1);
 
   if (!premCode) { res.status(404).json({ error: "Invalid or unknown code" }); return; }
-  if (!premCode.is_active) { res.status(400).json({ error: "This code is no longer active" }); return; }
-  if (premCode.uses_count >= premCode.max_uses) { res.status(400).json({ error: "This code has already been fully redeemed" }); return; }
+  if (!premCode.isActive) { res.status(400).json({ error: "This code is no longer active" }); return; }
+  if (premCode.usesCount >= premCode.maxUses) { res.status(400).json({ error: "This code has already been fully redeemed" }); return; }
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
@@ -218,11 +222,14 @@ router.post("/redeem", requireAuth, async (req, res) => {
 
   // Redeem codes always start fresh from now — never stack on existing subscription.
   const expiresAt = new Date(Date.now() + duration);
+  const newUsesCount = premCode.usesCount + 1;
   await db.update(usersTable).set({ premiumTier: newTier, premiumExpiresAt: expiresAt }).where(eq(usersTable.id, userId));
-  await db.execute(sql.raw(`UPDATE premium_codes SET uses_count = uses_count + 1 WHERE id = ${premCode.id}`));
-  if (premCode.uses_count + 1 >= premCode.max_uses) {
-    await db.execute(sql.raw(`UPDATE premium_codes SET is_active = false WHERE id = ${premCode.id}`));
-  }
+  await db.update(premiumCodesTable)
+    .set({
+      usesCount: sql`${premiumCodesTable.usesCount} + 1`,
+      isActive: newUsesCount >= premCode.maxUses ? false : premCode.isActive,
+    })
+    .where(eq(premiumCodesTable.id, premCode.id));
 
   res.json({ message: `${newTier === "pro" ? "Pro" : "Premium"} activated for ${premCode.days} days!`, tier: newTier, expiresAt });
 });
