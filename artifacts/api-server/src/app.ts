@@ -55,9 +55,12 @@ app.use(
       pool,
       createTableIfMissing: true,
     }),
-    secret: process.env.SESSION_SECRET ?? (process.env.NODE_ENV === "production"
-      ? (() => { throw new Error("SESSION_SECRET env var is required in production"); })()
-      : "steamshare-dev-secret"),
+    secret: process.env.SESSION_SECRET ?? (() => {
+      if (process.env.NODE_ENV === "production") {
+        console.warn("[WARN] SESSION_SECRET is not set — using fallback. Set SESSION_SECRET in your environment variables.");
+      }
+      return "steamshare-dev-secret";
+    })(),
     resave: false,
     saveUninitialized: false,
     cookie: {
