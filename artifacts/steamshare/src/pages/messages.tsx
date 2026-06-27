@@ -10,6 +10,14 @@ import { Link, useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+function sanitizeHref(url: string): string {
+  const trimmed = url.trim().toLowerCase();
+  if (trimmed.startsWith("javascript:") || trimmed.startsWith("vbscript:") || trimmed.startsWith("data:")) {
+    return "#";
+  }
+  return url;
+}
+
 function renderBotMarkdown(text: string): string {
   return text
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -17,7 +25,7 @@ function renderBotMarkdown(text: string): string {
     .replace(/__(.+?)__/g, "<u>$1</u>")
     .replace(/_(.+?)_/g, "<em>$1</em>")
     .replace(/`(.+?)`/g, '<code class="bg-black/20 rounded px-0.5 font-mono text-xs">$1</code>')
-    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="underline">$1</a>')
+    .replace(/\[(.+?)\]\((.+?)\)/g, (_m, label, href) => `<a href="${sanitizeHref(href)}" target="_blank" rel="noopener noreferrer" class="underline">${label}</a>`)
     .replace(/\n/g, "<br/>");
 }
 

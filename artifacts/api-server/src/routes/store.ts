@@ -345,32 +345,52 @@ router.post("/products/:id/buy", requireAuth, async (req, res) => {
     return;
   }
 
-  // Deduct points
-  await db
-    .update(usersTable)
-    .set({ points: user.points - totalPrice })
-    .where(eq(usersTable.id, userId));
-
-  // Decrease stock
-  await db
-    .update(productsTable)
-    .set({ stock: product.stock - qty })
-    .where(eq(productsTable.id, productId));
-
-  // Record purchase
-  await db.insert(productPurchasesTable).values({
-    productId,
-    userId,
-    quantity: qty,
-    totalPrice,
-  });
-
-  // Mark delivery units as delivered to this user
   const unitIds = availableUnits.map((u) => u.id);
-  await db
-    .update(productDeliveryUnitsTable)
-    .set({ isDelivered: true, userId })
-    .where(inArray(productDeliveryUnitsTable.id, unitIds));
+
+  // Wrap all mutations in a transaction to prevent race conditions
+  // (double-spend, overselling, partial failures)
+  await db.transaction(async (tx) => {
+    // Re-check stock and points inside the transaction to prevent races
+    const [freshProduct] = await tx
+      .select({ stock: productsTable.stock })
+      .from(productsTable)
+      .where(eq(productsTable.id, productId))
+      .limit(1);
+    if (!freshProduct || freshProduct.stock < qty) {
+      throw new Error("Not enough stock");
+    }
+
+    const [freshUser] = await tx
+      .select({ points: usersTable.points })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+    if (!freshUser || freshUser.points < totalPrice) {
+      throw new Error("Not enough points");
+    }
+
+    await tx
+      .update(usersTable)
+      .set({ points: freshUser.points - totalPrice })
+      .where(eq(usersTable.id, userId));
+
+    await tx
+      .update(productsTable)
+      .set({ stock: freshProduct.stock - qty })
+      .where(eq(productsTable.id, productId));
+
+    await tx.insert(productPurchasesTable).values({
+      productId,
+      userId,
+      quantity: qty,
+      totalPrice,
+    });
+
+    await tx
+      .update(productDeliveryUnitsTable)
+      .set({ isDelivered: true, userId })
+      .where(inArray(productDeliveryUnitsTable.id, unitIds));
+  });
 
   // Auto-message the user with the delivered items
   const [admin] = await db
