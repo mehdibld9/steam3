@@ -45,8 +45,8 @@ const BAN_DURATIONS = [
 export default function Profile() {
   const params = useParams();
   const id = parseInt(params.id || "0");
-  const { data: user, isLoading: userLoading } = useGetUser(id, { query: { queryKey: getGetUserQueryKey(id), enabled: !!id } });
-  const { data: accounts, isLoading: accountsLoading } = useGetUserAccounts(id, { query: { queryKey: getGetUserAccountsQueryKey(id), enabled: !!id } });
+  const { data: user, isLoading: userLoading } = useGetUser(id, { query: { queryKey: getGetUserQueryKey(id), enabled: !!id && !isNaN(id), retry: false } });
+  const { data: accounts, isLoading: accountsLoading } = useGetUserAccounts(id, { query: { queryKey: getGetUserAccountsQueryKey(id), enabled: !!id && !isNaN(id), retry: false } });
   const { data: me } = useGetMe();
   const queryClient = useQueryClient();
   const { toast } = useToast();

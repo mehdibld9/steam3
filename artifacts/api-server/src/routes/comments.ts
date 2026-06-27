@@ -121,8 +121,16 @@ router.post("/", requireAuth, async (req, res) => {
     .where(eq(usersTable.id, userId))
     .limit(1);
 
-  const xpComment = await getSetting("xp_post_comment");
-  await addXp(userId, xpComment);
+  // Only award XP for the first comment a user posts on each account
+  // to prevent the post→delete→repost XP farming loop.
+  const existingCommentCount = await db
+    .select({ id: commentsTable.id })
+    .from(commentsTable)
+    .where(and(eq(commentsTable.userId, userId), eq(commentsTable.accountId, accountId)));
+  if (existingCommentCount.length <= 1) {
+    const xpComment = await getSetting("xp_post_comment");
+    await addXp(userId, xpComment);
+  }
 
   const isPremiumActive = user?.premiumTier && user?.premiumExpiresAt && new Date(user.premiumExpiresAt) > new Date();
   res.status(201).json({

@@ -124,7 +124,7 @@ router.get("/", async (req, res) => {
 });
 
 // GET /check-credentials?username=xxx&password=yyy — checks if the exact username+password combo is already listed
-router.get("/check-credentials", async (req, res) => {
+router.get("/check-credentials", requireAuth, async (req, res) => {
   const username = String(req.query.username ?? "").trim();
   const password = String(req.query.password ?? "").trim();
   if (!username || !password) {
@@ -404,6 +404,14 @@ router.post("/:accountId/like", requireAuth, async (req, res) => {
     return;
   }
 
+  const [account] = await db.select({ userId: accountsTable.userId }).from(accountsTable).where(eq(accountsTable.id, accountId)).limit(1);
+
+  // Prevent self-likes
+  if (account?.userId === userId) {
+    res.status(403).json({ error: "You cannot like your own post" });
+    return;
+  }
+
   const [existing] = await db.select().from(likesTable)
     .where(and(eq(likesTable.userId, userId), eq(likesTable.targetType, "account"), eq(likesTable.targetId, accountId)))
     .limit(1);
@@ -411,10 +419,10 @@ router.post("/:accountId/like", requireAuth, async (req, res) => {
   if (!existing) {
     await db.insert(likesTable).values({ userId, targetType: "account", targetId: accountId });
     await db.update(accountsTable).set({ likesCount: sql`${accountsTable.likesCount} + 1` }).where(eq(accountsTable.id, accountId));
-    const [account] = await db.select({ userId: accountsTable.userId }).from(accountsTable).where(eq(accountsTable.id, accountId)).limit(1);
     const xpLike = await getSetting("xp_like_account");
+    // Only the post owner earns XP when their post is liked — likers do not earn XP
+    // to prevent the like→unlike→like farming loop.
     if (account) await addXp(account.userId, xpLike);
-    await addXp(userId, xpLike);
   }
 
   res.json({ message: "Liked" });

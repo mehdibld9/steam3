@@ -172,8 +172,8 @@ router.patch("/preferences", requireAuth, async (req, res) => {
 
 // GET /premium/codes — admin list all codes
 router.get("/codes", requireAdmin, async (_req, res) => {
-  const rows = await db.execute(sql.raw(`SELECT id, code, tier, days, max_uses, uses_count, is_active, created_at FROM premium_codes ORDER BY created_at DESC LIMIT 200`));
-  res.json(rows.rows);
+  const rows = await db.select().from(premiumCodesTable).orderBy(sql`${premiumCodesTable.createdAt} DESC`).limit(200);
+  res.json(rows);
 });
 
 // POST /premium/generate-code — admin generate a code
@@ -182,14 +182,20 @@ router.post("/generate-code", requireAdmin, async (req, res) => {
   if (!["premium", "pro"].includes(tier)) { res.status(400).json({ error: "Invalid tier" }); return; }
   const seg = () => Math.random().toString(36).substring(2, 6).toUpperCase();
   const code = `${seg()}-${seg()}-${seg()}`;
-  const rows = await db.execute(sql.raw(`INSERT INTO premium_codes (code, tier, days, max_uses) VALUES ('${code}', '${tier}', ${Number(days)}, ${Number(maxUses)}) RETURNING id, code, tier, days, max_uses, uses_count, is_active, created_at`));
-  res.json(rows.rows[0]);
+  const [row] = await db.insert(premiumCodesTable).values({
+    code,
+    tier: tier as "premium" | "pro",
+    days: Math.max(1, Math.floor(Number(days))),
+    maxUses: Math.max(1, Math.floor(Number(maxUses))),
+  }).returning();
+  res.json(row);
 });
 
 // DELETE /premium/codes/:id — admin deactivate a code
 router.delete("/codes/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id);
-  await db.execute(sql.raw(`UPDATE premium_codes SET is_active = false WHERE id = ${id}`));
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.update(premiumCodesTable).set({ isActive: false }).where(eq(premiumCodesTable.id, id));
   res.json({ message: "Code deactivated" });
 });
 

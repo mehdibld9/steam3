@@ -1,0 +1,1 @@
+- [SteamShare security fixes](steamshare-security.md) — XP farming via like/unlike cycle, self-likes, comment spam, unauthenticated check-credentials, SQL injection in premium routes, profile freeze.
