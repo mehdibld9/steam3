@@ -33,3 +33,20 @@ React Query retries failed requests 3 times by default. If the API returned a no
 
 ## Workflow restart name
 `artifacts/api-server: API Server` — use this exact string with `restartWorkflow()`.
+
+## Second-pass security hardening
+
+### Rate limiter path mismatch
+app.ts mounted redeemLimiter on "/api/adlinks" but routes/index.ts mounts as "/api/ad-links". Always verify limiter paths against index.ts route prefixes.
+**Why:** Silent failure — limiter exists in code but never runs.
+
+### requireAuth must check ban status
+requireAuth only verified session.userId; it never checked if the user was banned. Banned users stayed active for the full session lifetime (30 days).
+**Fix:** DB ban check cached in session._banCheckedAt, refreshed every 120s.
+**Why:** Any authenticated endpoint is abusable without this gate.
+
+### Session fixation
+Login/register must call req.session.regenerate() before setting userId to prevent an attacker from pre-planting a known session ID.
+
+### Upload rate limiting
+POST /api/accounts must use express-rate-limit with skip: (req) => req.method !== "POST" so GET routes are not affected.

@@ -43,17 +43,19 @@ router.post("/register", async (req, res) => {
     .values({ username, email, passwordHash, registrationIp: ip, points: startingPoints })
     .returning();
 
-  req.session.userId = user.id;
-  req.session.isAdmin = user.isAdmin;
-  req.session.isModerator = user.isModerator;
-
   const { passwordHash: _, ...safeUser } = user;
-  req.session.save((err) => {
-    if (err) {
-      res.status(500).json({ error: "Session error" });
-      return;
-    }
-    res.status(201).json(safeUser);
+
+  // Regenerate session ID after registration to prevent session fixation attacks
+  req.session.regenerate((err) => {
+    if (err) { res.status(500).json({ error: "Session error" }); return; }
+    req.session.userId = user.id;
+    req.session.isAdmin = user.isAdmin;
+    req.session.isModerator = user.isModerator;
+    req.session._banCheckedAt = Date.now();
+    req.session.save((saveErr) => {
+      if (saveErr) { res.status(500).json({ error: "Session error" }); return; }
+      res.status(201).json(safeUser);
+    });
   });
 });
 
@@ -86,17 +88,19 @@ router.post("/login", async (req, res) => {
     user.banExpiresAt = null;
   }
 
-  req.session.userId = user.id;
-  req.session.isAdmin = user.isAdmin;
-  req.session.isModerator = user.isModerator;
-
   const { passwordHash: _, ...safeUser } = user;
-  req.session.save((err) => {
-    if (err) {
-      res.status(500).json({ error: "Session error" });
-      return;
-    }
-    res.status(200).json(safeUser);
+
+  // Regenerate session ID after login to prevent session fixation attacks
+  req.session.regenerate((err) => {
+    if (err) { res.status(500).json({ error: "Session error" }); return; }
+    req.session.userId = user.id;
+    req.session.isAdmin = user.isAdmin;
+    req.session.isModerator = user.isModerator;
+    req.session._banCheckedAt = Date.now();
+    req.session.save((saveErr) => {
+      if (saveErr) { res.status(500).json({ error: "Session error" }); return; }
+      res.status(200).json(safeUser);
+    });
   });
 });
 
@@ -132,6 +136,11 @@ router.put("/profile", requireAuth, async (req, res) => {
   const { avatarUrl, displayName } = req.body;
   if (typeof avatarUrl !== "string" && avatarUrl !== null && avatarUrl !== undefined) {
     res.status(400).json({ error: "Invalid avatarUrl" });
+    return;
+  }
+  // Only allow http/https URLs to prevent javascript: or data: URI injection
+  if (avatarUrl && !/^https?:\/\//i.test(avatarUrl)) {
+    res.status(400).json({ error: "avatarUrl must be a valid http or https URL" });
     return;
   }
   if (displayName !== undefined && typeof displayName !== "string") {
@@ -194,6 +203,14 @@ router.delete("/account", requireAuth, async (req, res) => {
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return;
+  }
+  // Banned users cannot delete their account to evade bans
+  if (user.isBanned) {
+    const isActiveBan = !user.banExpiresAt || new Date() < new Date(user.banExpiresAt);
+    if (isActiveBan) {
+      res.status(403).json({ error: "Banned accounts cannot be deleted" });
+      return;
+    }
   }
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {

@@ -77,7 +77,7 @@ const redeemLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later" },
 });
-app.use("/api/adlinks", redeemLimiter);
+app.use("/api/ad-links", redeemLimiter);
 app.use("/api/premium/redeem", redeemLimiter);
 
 const authLimiter = rateLimit({
@@ -90,6 +90,17 @@ const authLimiter = rateLimit({
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/register", authLimiter);
 app.use("/api/auth/forgot-password", authLimiter);
+
+// Limit account uploads: max 10 new listings per IP per hour (applies to POST only)
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  skip: (req) => req.method !== "POST",
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many uploads. Please wait before listing more accounts." },
+});
+app.use("/api/accounts", uploadLimiter);
 
 app.use("/api", router);
 
