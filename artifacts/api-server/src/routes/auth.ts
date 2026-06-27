@@ -1,7 +1,7 @@
 // @ts-nocheck
 import express from "express";
 import { getSetting } from "../lib/settings";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { db, usersTable, ipBansTable } from "@workspace/db";
 import { eq, or } from "drizzle-orm";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
