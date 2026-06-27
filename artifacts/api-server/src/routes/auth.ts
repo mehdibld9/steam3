@@ -143,6 +143,32 @@ router.put("/profile", requireAuth, async (req, res) => {
     res.status(400).json({ error: "avatarUrl must be a valid http or https URL" });
     return;
   }
+  // Block private/local IP ranges (SSRF prevention).
+  // Attackers set avatar URLs to local IPs so every visitor's browser
+  // silently probes their local network when loading the leaderboard.
+  if (avatarUrl) {
+    try {
+      const { hostname } = new URL(avatarUrl);
+      const isPrivate =
+        hostname === "localhost" ||
+        hostname === "::1" ||
+        hostname.endsWith(".local") ||
+        hostname.endsWith(".internal") ||
+        /^127\./.test(hostname) ||                         // 127.0.0.0/8
+        /^10\./.test(hostname) ||                          // 10.0.0.0/8
+        /^192\.168\./.test(hostname) ||                    // 192.168.0.0/16
+        /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||   // 172.16.0.0/12
+        /^169\.254\./.test(hostname) ||                    // 169.254.0.0/16
+        /^0\./.test(hostname);                             // 0.0.0.0/8
+      if (isPrivate) {
+        res.status(400).json({ error: "avatarUrl cannot point to a private or local network address" });
+        return;
+      }
+    } catch {
+      res.status(400).json({ error: "avatarUrl is not a valid URL" });
+      return;
+    }
+  }
   if (displayName !== undefined && typeof displayName !== "string") {
     res.status(400).json({ error: "Invalid displayName" });
     return;
