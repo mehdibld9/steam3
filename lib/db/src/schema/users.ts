@@ -19,6 +19,8 @@ export const usersTable = pgTable("users", {
   banReason: text("ban_reason"),
   banExpiresAt: timestamp("ban_expires_at", { withTimezone: true }),
   registrationIp: text("registration_ip"),
+  lastLoginIp: text("last_login_ip"),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   premiumTier: text("premium_tier"),
   premiumExpiresAt: timestamp("premium_expires_at", { withTimezone: true }),

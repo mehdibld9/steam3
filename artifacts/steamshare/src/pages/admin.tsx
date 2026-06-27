@@ -255,6 +255,7 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
   const [banReason, setBanReason] = useState("");
   const [pointsTarget, setPointsTarget] = useState<any>(null);
   const [pointsDelta, setPointsDelta] = useState(0);
+  const [expandedUser, setExpandedUser] = useState<number | null>(null);
 
   const { data: users = [], isLoading, isError, error } = useQuery({ queryKey: ["admin-users"], queryFn: fetchAdminUsers });
 
@@ -311,69 +312,117 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No users found.</TableCell></TableRow>
             ) : filtered.map((u: any) => (
-              <TableRow key={u.id}>
-                <TableCell>
-                  <Link href={`/profile/${u.id}`} className="font-medium hover:text-primary">{u.username}</Link>
-                  <div className="text-xs text-muted-foreground">#{u.id}</div>
-                </TableCell>
-                <TableCell>
-                  <span className="text-primary font-mono text-sm">{u.points} pts</span>
-                  <div className="text-xs text-muted-foreground">{u.xp} XP</div>
-                </TableCell>
-                <TableCell>
-                  {u.isAdmin && <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 text-[10px]">ADMIN</Badge>}
-                  {u.isModerator && !u.isAdmin && <Badge className="bg-blue-500/20 text-blue-600 border-blue-500/30 text-[10px]">MOD</Badge>}
-                  {!u.isAdmin && !u.isModerator && <span className="text-xs text-muted-foreground">User</span>}
-                </TableCell>
-                <TableCell>
-                  {u.isBanned
-                    ? <div>
-                        <Badge variant="destructive" className="text-[10px]">Banned</Badge>
-                        {u.banReason && <div className="text-xs text-muted-foreground mt-0.5 max-w-[120px] truncate" title={u.banReason}>{u.banReason}</div>}
+              <>
+                <TableRow key={u.id} className="cursor-pointer hover:bg-muted/30" onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)}>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      {expandedUser === u.id ? <ChevronUp className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
+                      <div>
+                        <Link href={`/profile/${u.id}`} className="font-medium hover:text-primary" onClick={(e) => e.stopPropagation()}>{u.username}</Link>
+                        {u.displayName && u.displayName !== u.username && (
+                          <div className="text-xs text-muted-foreground">{u.displayName}</div>
+                        )}
+                        <div className="text-xs text-muted-foreground">#{u.id}</div>
                       </div>
-                    : <Badge className="bg-green-500/10 text-green-600 border-green-500/30 text-[10px]">Active</Badge>
-                  }
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1 flex-wrap">
-                    {/* Points (admin only) */}
-                    {isAdmin && !u.isAdmin && (
-                      <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => { setPointsTarget(u); setPointsDelta(0); }}>
-                        <Coins className="h-3 w-3" /> Points
-                      </Button>
-                    )}
-
-                    {/* Mod toggle (admin only) */}
-                    {isAdmin && !u.isAdmin && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className={`gap-1 h-7 text-xs ${u.isModerator ? "text-blue-600 border-blue-500/30" : ""}`}
-                        onClick={() => modMutation.mutate({ userId: u.id, promote: !u.isModerator })}
-                        disabled={modMutation.isPending}
-                      >
-                        {u.isModerator ? <UserX className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
-                        {u.isModerator ? "Demote" : "Mod"}
-                      </Button>
-                    )}
-
-                    {/* Ban / Unban */}
-                    {!u.isAdmin && (
-                      u.isBanned ? (
-                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-green-600 border-green-500/30"
-                          onClick={() => unbanMutation.mutate(u.id)} disabled={unbanMutation.isPending}>
-                          <CheckCircle className="h-3 w-3" /> Unban
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-primary font-mono text-sm">{u.points} pts</span>
+                    <div className="text-xs text-muted-foreground">{u.xp} XP</div>
+                  </TableCell>
+                  <TableCell>
+                    {u.isAdmin && <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 text-[10px]">ADMIN</Badge>}
+                    {u.isModerator && !u.isAdmin && <Badge className="bg-blue-500/20 text-blue-600 border-blue-500/30 text-[10px]">MOD</Badge>}
+                    {!u.isAdmin && !u.isModerator && <span className="text-xs text-muted-foreground">User</span>}
+                  </TableCell>
+                  <TableCell>
+                    {u.isBanned
+                      ? <div>
+                          <Badge variant="destructive" className="text-[10px]">Banned</Badge>
+                          {u.banReason && <div className="text-xs text-muted-foreground mt-0.5 max-w-[120px] truncate" title={u.banReason}>{u.banReason}</div>}
+                        </div>
+                      : <Badge className="bg-green-500/10 text-green-600 border-green-500/30 text-[10px]">Active</Badge>
+                    }
+                  </TableCell>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1 flex-wrap">
+                      {/* Points (admin only) */}
+                      {isAdmin && !u.isAdmin && (
+                        <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => { setPointsTarget(u); setPointsDelta(0); }}>
+                          <Coins className="h-3 w-3" /> Points
                         </Button>
-                      ) : (
-                        <Button size="sm" variant="destructive" className="h-7 text-xs gap-1"
-                          onClick={() => { setBanTarget(u); setBanDuration(24); setBanReason(""); }}>
-                          <Ban className="h-3 w-3" /> Ban
+                      )}
+
+                      {/* Mod toggle (admin only) */}
+                      {isAdmin && !u.isAdmin && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={`gap-1 h-7 text-xs ${u.isModerator ? "text-blue-600 border-blue-500/30" : ""}`}
+                          onClick={() => modMutation.mutate({ userId: u.id, promote: !u.isModerator })}
+                          disabled={modMutation.isPending}
+                        >
+                          {u.isModerator ? <UserX className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
+                          {u.isModerator ? "Demote" : "Mod"}
                         </Button>
-                      )
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
+                      )}
+
+                      {/* Ban / Unban */}
+                      {!u.isAdmin && (
+                        u.isBanned ? (
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-green-600 border-green-500/30"
+                            onClick={() => unbanMutation.mutate(u.id)} disabled={unbanMutation.isPending}>
+                            <CheckCircle className="h-3 w-3" /> Unban
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="destructive" className="h-7 text-xs gap-1"
+                            onClick={() => { setBanTarget(u); setBanDuration(24); setBanReason(""); }}>
+                            <Ban className="h-3 w-3" /> Ban
+                          </Button>
+                        )
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+                {expandedUser === u.id && (
+                  <TableRow key={`${u.id}-detail`} className="bg-muted/20 hover:bg-muted/20">
+                    <TableCell colSpan={5} className="py-3 px-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                        <div className="space-y-0.5">
+                          <div className="text-muted-foreground font-medium uppercase tracking-wide text-[10px]">Email</div>
+                          <div className="font-mono text-foreground break-all">{u.email ?? "—"}</div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-muted-foreground font-medium uppercase tracking-wide text-[10px]">Registration IP</div>
+                          <div className="font-mono text-foreground">{u.registrationIp ?? "—"}</div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-muted-foreground font-medium uppercase tracking-wide text-[10px]">Last Login IP</div>
+                          <div className="font-mono text-foreground">{u.lastLoginIp ?? "—"}</div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-muted-foreground font-medium uppercase tracking-wide text-[10px]">Last Login</div>
+                          <div className="text-foreground">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "—"}</div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-muted-foreground font-medium uppercase tracking-wide text-[10px]">Joined</div>
+                          <div className="text-foreground">{u.createdAt ? new Date(u.createdAt).toLocaleString() : "—"}</div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-muted-foreground font-medium uppercase tracking-wide text-[10px]">Premium</div>
+                          <div className="text-foreground">{u.premiumTier ?? "None"}{u.premiumExpiresAt ? ` (until ${new Date(u.premiumExpiresAt).toLocaleDateString()})` : ""}</div>
+                        </div>
+                        {u.avatarUrl && (
+                          <div className="space-y-0.5 col-span-2">
+                            <div className="text-muted-foreground font-medium uppercase tracking-wide text-[10px]">Avatar URL</div>
+                            <div className="font-mono text-foreground break-all text-[10px]">{u.avatarUrl}</div>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </>
             ))}
           </TableBody>
         </Table>

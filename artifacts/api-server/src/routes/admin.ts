@@ -28,6 +28,8 @@ router.get("/users", requireModOrAdmin, async (req, res) => {
     .select({
       id: usersTable.id,
       username: usersTable.username,
+      displayName: usersTable.displayName,
+      email: usersTable.email,
       avatarUrl: usersTable.avatarUrl,
       points: usersTable.points,
       xp: usersTable.xp,
@@ -38,6 +40,9 @@ router.get("/users", requireModOrAdmin, async (req, res) => {
       isBanned: usersTable.isBanned,
       banReason: usersTable.banReason,
       banExpiresAt: usersTable.banExpiresAt,
+      registrationIp: usersTable.registrationIp,
+      lastLoginIp: usersTable.lastLoginIp,
+      lastLoginAt: usersTable.lastLoginAt,
       createdAt: usersTable.createdAt,
       premiumTier: usersTable.premiumTier,
       premiumExpiresAt: usersTable.premiumExpiresAt,

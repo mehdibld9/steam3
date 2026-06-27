@@ -1,1 +1,1 @@
-- [SteamShare security fixes](steamshare-security.md) — XP farming via like/unlike cycle, self-likes, comment spam, unauthenticated check-credentials, SQL injection in premium routes, profile freeze.
+- [Security hardening decisions](security-hardening.md) — XP farming fix, SSRF via avatar URL, ban bypass, session fixation, email whitelist, IP tracking all implemented.

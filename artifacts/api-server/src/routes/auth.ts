@@ -15,6 +15,8 @@ function getClientIp(req: Parameters<typeof router.post>[1] extends (req: infer 
   return (req as any).socket?.remoteAddress ?? "unknown";
 }
 
+const ALLOWED_EMAIL_DOMAINS = ["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "yahoo.fr", "yahoo.co.uk", "hotmail.fr", "hotmail.co.uk", "live.com", "msn.com"];
+
 router.post("/register", async (req, res) => {
   const parsed = RegisterBody.safeParse(req.body);
   if (!parsed.success) {
@@ -22,6 +24,14 @@ router.post("/register", async (req, res) => {
     return;
   }
   const { username, email, password } = parsed.data;
+
+  // Only allow trusted email providers to reduce throwaway/bot accounts
+  const emailDomain = email.split("@")[1]?.toLowerCase() ?? "";
+  if (!ALLOWED_EMAIL_DOMAINS.includes(emailDomain)) {
+    res.status(400).json({ error: "Only Gmail, Outlook, Hotmail, and Yahoo email addresses are accepted." });
+    return;
+  }
+
   const ip = (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
@@ -89,6 +99,10 @@ router.post("/login", async (req, res) => {
   }
 
   const { passwordHash: _, ...safeUser } = user;
+
+  // Record last login IP and timestamp for audit trail
+  const loginIp = (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
+  await db.update(usersTable).set({ lastLoginIp: loginIp, lastLoginAt: new Date() }).where(eq(usersTable.id, user.id));
 
   // Regenerate session ID after login to prevent session fixation attacks
   req.session.regenerate((err) => {
