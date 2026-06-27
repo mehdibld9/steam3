@@ -2,10 +2,11 @@
 import express from "express";
 import { getSetting } from "../lib/settings";
 import bcrypt from "bcrypt";
-import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, ipBansTable } from "@workspace/db";
+import { eq, or } from "drizzle-orm";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
+import { isVpnOrProxy } from "../lib/ipCheck";
 
 const router = express.Router();
 
@@ -33,6 +34,20 @@ router.post("/register", async (req, res) => {
   }
 
   const ip = (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
+
+  // Check if IP is banned
+  const [ipBan] = await db.select().from(ipBansTable).where(eq(ipBansTable.ip, ip)).limit(1);
+  if (ipBan) {
+    res.status(403).json({ error: "Registration is not available from your network." });
+    return;
+  }
+
+  // Block VPN / proxy / hosting IPs
+  const vpn = await isVpnOrProxy(ip);
+  if (vpn) {
+    res.status(403).json({ error: "VPN and proxy connections are not allowed. Please disable your VPN and try again." });
+    return;
+  }
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
   if (existing.length > 0) {
@@ -77,6 +92,15 @@ router.post("/login", async (req, res) => {
   }
   const { username, password } = parsed.data;
 
+  const loginIpRaw = (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
+
+  // Check if IP is banned before even looking up the user
+  const [loginIpBan] = await db.select().from(ipBansTable).where(eq(ipBansTable.ip, loginIpRaw)).limit(1);
+  if (loginIpBan) {
+    res.status(403).json({ error: "Access from your network has been restricted." });
+    return;
+  }
+
   const [user] = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
   if (!user) {
     res.status(401).json({ error: "Invalid credentials" });
@@ -101,8 +125,7 @@ router.post("/login", async (req, res) => {
   const { passwordHash: _, ...safeUser } = user;
 
   // Record last login IP and timestamp for audit trail
-  const loginIp = (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
-  await db.update(usersTable).set({ lastLoginIp: loginIp, lastLoginAt: new Date() }).where(eq(usersTable.id, user.id));
+  await db.update(usersTable).set({ lastLoginIp: loginIpRaw, lastLoginAt: new Date() }).where(eq(usersTable.id, user.id));
 
   // Regenerate session ID after login to prevent session fixation attacks
   req.session.regenerate((err) => {

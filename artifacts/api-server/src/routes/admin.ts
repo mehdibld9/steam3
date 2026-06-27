@@ -1,7 +1,7 @@
 // @ts-nocheck
 import express from "express";
-import { db, usersTable, accountsTable, reportsTable, commentsTable } from "@workspace/db";
-import { eq, desc, sql, and, inArray, isNotNull } from "drizzle-orm";
+import { db, usersTable, accountsTable, reportsTable, commentsTable, ipBansTable } from "@workspace/db";
+import { eq, desc, sql, and, inArray, isNotNull, or } from "drizzle-orm";
 import { requireAdmin, requireModOrAdmin } from "../middlewares/auth";
 import { sendBotMessage } from "../lib/adminBot";
 import { getSetting } from "../lib/settings";
@@ -78,15 +78,64 @@ router.post("/users/:userId/ban", requireModOrAdmin, async (req, res) => {
   await db.update(usersTable)
     .set({ isBanned: true, banReason: reason ?? null, banExpiresAt })
     .where(eq(usersTable.id, userId));
+
+  // Auto IP-ban: block both registration IP and last login IP so they can't make a new account
+  const ipsToBan = [target.registrationIp, target.lastLoginIp].filter((ip): ip is string =>
+    !!ip && ip !== "unknown"
+  );
+  for (const ip of [...new Set(ipsToBan)]) {
+    await db.insert(ipBansTable)
+      .values({ ip, reason: `Auto-banned: user ${target.username} (id=${target.id}) was banned — ${reason ?? "no reason"}`, bannedByUserId: req.session.userId })
+      .onConflictDoNothing();
+  }
+
   res.json({ message: "User banned" });
 });
 
 router.delete("/users/:userId/ban", requireModOrAdmin, async (req, res) => {
   const userId = parseInt(req.params.userId, 10);
+
+  // Fetch user IPs so we can remove the auto IP bans too
+  const [target] = await db.select({ registrationIp: usersTable.registrationIp, lastLoginIp: usersTable.lastLoginIp })
+    .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+
   await db.update(usersTable)
     .set({ isBanned: false, banReason: null, banExpiresAt: null })
     .where(eq(usersTable.id, userId));
+
+  // Remove auto IP bans for this user's IPs
+  if (target) {
+    const ips = [target.registrationIp, target.lastLoginIp].filter((ip): ip is string => !!ip && ip !== "unknown");
+    for (const ip of [...new Set(ips)]) {
+      await db.delete(ipBansTable).where(eq(ipBansTable.ip, ip));
+    }
+  }
+
   res.json({ message: "User unbanned" });
+});
+
+// --- IP Bans Management ---
+router.get("/ip-bans", requireAdmin, async (req, res) => {
+  const bans = await db.select().from(ipBansTable).orderBy(desc(ipBansTable.createdAt));
+  res.json(bans);
+});
+
+router.post("/ip-bans", requireAdmin, async (req, res) => {
+  const { ip, reason } = req.body as { ip: string; reason?: string };
+  if (!ip || typeof ip !== "string") {
+    res.status(400).json({ error: "IP is required" });
+    return;
+  }
+  await db.insert(ipBansTable)
+    .values({ ip: ip.trim(), reason: reason ?? null, bannedByUserId: req.session.userId })
+    .onConflictDoNothing();
+  res.json({ message: "IP banned" });
+});
+
+router.delete("/ip-bans/:ip", requireAdmin, async (req, res) => {
+  const ip = decodeURIComponent(req.params.ip);
+  await db.delete(ipBansTable).where(eq(ipBansTable.ip, ip));
+  res.json({ message: "IP unbanned" });
 });
 
 // Promote / demote moderator — admin only

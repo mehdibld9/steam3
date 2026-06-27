@@ -204,6 +204,7 @@ export default function Admin() {
     ...(user?.isAdmin ? [{ value: "announcements", label: "News" }] : []),
     ...(user?.isAdmin ? [{ value: "site-settings", label: "Site Settings" }] : []),
     ...(user?.isAdmin ? [{ value: "premium", label: "Premium" }] : []),
+    ...(user?.isAdmin ? [{ value: "ip-bans", label: "IP Bans" }] : []),
     ...(user?.isAdmin ? [{ value: "deleted-accounts", label: "Deleted" }] : []),
   ];
 
@@ -238,6 +239,7 @@ export default function Admin() {
           {user?.isAdmin && <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="site-settings"><SiteSettingsTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="premium"><PremiumAdminTab /></TabsContent>}
+          {user?.isAdmin && <TabsContent value="ip-bans"><IpBansTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="deleted-accounts"><DeletedAccountsTab /></TabsContent>}
         </Tabs>
       </div>
@@ -2962,6 +2964,114 @@ function PendingReviewTab() {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// --- IP Bans Tab ---
+async function fetchIpBans() {
+  const res = await fetch("/api/admin/ip-bans", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to load IP bans");
+  return res.json() as Promise<Array<{ id: number; ip: string; reason: string | null; bannedByUserId: number | null; createdAt: string }>>;
+}
+
+function IpBansTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [newIp, setNewIp] = useState("");
+  const [newReason, setNewReason] = useState("");
+
+  const { data: bans = [], isLoading } = useQuery({ queryKey: ["admin-ip-bans"], queryFn: fetchIpBans });
+
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/ip-bans", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ip: newIp.trim(), reason: newReason.trim() || undefined }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+    },
+    onSuccess: () => {
+      setNewIp(""); setNewReason("");
+      queryClient.invalidateQueries({ queryKey: ["admin-ip-bans"] });
+      toast({ title: "IP banned" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: async (ip: string) => {
+      const res = await fetch(`/api/admin/ip-bans/${encodeURIComponent(ip)}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-ip-bans"] }); toast({ title: "IP unbanned" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <h3 className="text-sm font-bold flex items-center gap-2"><Ban className="h-4 w-4 text-red-500" /> Add IP Ban</h3>
+        <p className="text-xs text-muted-foreground">Banned IPs cannot register or log in. Banning a user automatically bans their IPs — use this to manually add extra IPs.</p>
+        <div className="flex gap-2 flex-wrap">
+          <Input
+            placeholder="IP address (e.g. 94.227.67.19)"
+            value={newIp}
+            onChange={(e) => setNewIp(e.target.value)}
+            className="max-w-xs font-mono text-sm"
+          />
+          <Input
+            placeholder="Reason (optional)"
+            value={newReason}
+            onChange={(e) => setNewReason(e.target.value)}
+            className="max-w-xs text-sm"
+          />
+          <Button
+            variant="destructive"
+            className="gap-1.5"
+            disabled={!newIp.trim() || addMutation.isPending}
+            onClick={() => addMutation.mutate()}
+          >
+            <Ban className="h-4 w-4" /> Ban IP
+          </Button>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <span className="text-sm font-bold">Banned IPs ({bans.length})</span>
+        </div>
+        <Table>
+          <TableHeader className="bg-muted/50">
+            <TableRow>
+              <TableHead className="font-mono">IP Address</TableHead>
+              <TableHead>Reason</TableHead>
+              <TableHead>Banned At</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={4} className="text-center py-8">Loading...</TableCell></TableRow>
+            ) : bans.length === 0 ? (
+              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No IP bans.</TableCell></TableRow>
+            ) : bans.map((ban) => (
+              <TableRow key={ban.id}>
+                <TableCell className="font-mono text-sm">{ban.ip}</TableCell>
+                <TableCell className="text-sm text-muted-foreground max-w-xs truncate" title={ban.reason ?? ""}>{ban.reason ?? "—"}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{new Date(ban.createdAt).toLocaleString()}</TableCell>
+                <TableCell className="text-right">
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-green-600 border-green-500/30"
+                    onClick={() => removeMutation.mutate(ban.ip)} disabled={removeMutation.isPending}>
+                    <CheckCircle className="h-3 w-3" /> Unban
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

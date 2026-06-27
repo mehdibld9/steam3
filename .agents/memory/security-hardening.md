@@ -25,3 +25,24 @@ Self-likes blocked. Like/unlike loop now only grants XP on first like (not on un
 
 ## Session fixation
 `req.session.regenerate()` called on both login and register.
+
+## IP ban system
+- New `ip_bans` table: `id`, `ip` (unique), `reason`, `banned_by_user_id`, `created_at`.
+- Banning a user auto-bans their `registration_ip` and `last_login_ip` via `onConflictDoNothing`.
+- Unbanning a user auto-removes the IP bans for their IPs.
+- Login and register both check `ip_bans` before proceeding — returns 403 if IP is banned.
+- Admin `IP Bans` tab: manually add/remove IPs, see full list.
+
+## VPN/proxy blocking on registration
+- `artifacts/api-server/src/lib/ipCheck.ts` — `isVpnOrProxy(ip)` uses ip-api.com free API.
+- Checks `proxy` and `hosting` fields; results cached 1 hour in memory.
+- Only applied on registration (not login — too strict for existing users).
+- Fails open (allows through) if ip-api.com is down/rate-limited — never blocks legit users due to API failure.
+
+## Known hacker on record (Vercel DB)
+- Vercel user id: 264, username: `a user`
+- Email: `soyito5427@cadebek.com` (disposable — cadebek.com)
+- avatar_url: `http://169.254.169.254/latest/meta-data/` (AWS IMDS SSRF)
+- registration_ip: `94.227.67.19` — Telenet BV residential, Mechelen, Belgium 🇧🇪
+- Also attempted stored XSS: account title `<script>alert(1)</script>`
+- Claimed Steam account #52 (Faizul07 + real password) 122 times
