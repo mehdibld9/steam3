@@ -17,70 +17,69 @@ async function fetchAnnouncements() {
   return res.json() as Promise<any[]>;
 }
 
+const BROWSE_LIMIT_KEY = "browse:limit";
+const PAGE_SIZE = 50;
+
 export default function Browse() {
-  // Initialise from URL so browser-back restores filters
+  // Initialise filters from URL so browser-back restores them
   const params = new URLSearchParams(window.location.search);
   const [search, setSearch] = useState(params.get("search") ?? "");
   const [selectedGame, setSelectedGame] = useState<string>(params.get("game") ?? "all");
   const [sort, setSort] = useState<"recent"|"popular"|"free"|"points">((params.get("sort") as any) ?? "recent");
-  const [page, setPage] = useState(Number(params.get("page") ?? "1"));
-  const [allAccounts, setAllAccounts] = useState<any[]>([]);
+
+  // Use a growing limit instead of page accumulation.
+  // sessionStorage persists the limit across navigation so "Load more" state
+  // is fully restored when the user presses back.
+  const [limit, setLimit] = useState<number>(() => {
+    const stored = Number(sessionStorage.getItem(BROWSE_LIMIT_KEY) ?? "0");
+    return stored >= PAGE_SIZE ? stored : PAGE_SIZE;
+  });
 
   const { data: gamesData, isLoading: gamesLoading } = useListGames();
   const { data: accountsData, isLoading: accountsLoading } = useListAccounts({
     game: selectedGame !== "all" ? selectedGame : undefined,
     sort,
-    page,
-    limit: 50,
+    page: 1,
+    limit,
   });
   const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
 
-  // Keep URL in sync with filters (replaceState = no extra history entries)
+  // Keep URL in sync with filters only (not limit — that lives in sessionStorage)
   useEffect(() => {
     const p = new URLSearchParams();
     if (search) p.set("search", search);
     if (selectedGame !== "all") p.set("game", selectedGame);
     if (sort !== "recent") p.set("sort", sort);
-    if (page > 1) p.set("page", String(page));
     const qs = p.toString();
     window.history.replaceState(null, "", qs ? `/browse?${qs}` : "/browse");
-  }, [search, selectedGame, sort, page]);
+  }, [search, selectedGame, sort]);
 
-  // Reset pagination when filters change
+  // Persist limit to sessionStorage whenever it changes
   useEffect(() => {
-    setPage(1);
-    setAllAccounts([]);
+    sessionStorage.setItem(BROWSE_LIMIT_KEY, String(limit));
+  }, [limit]);
+
+  // Reset limit when filters change
+  useEffect(() => {
+    setLimit(PAGE_SIZE);
   }, [selectedGame, sort]);
 
-  // Accumulate accounts as pages load
-  useEffect(() => {
-    if (accountsData?.accounts) {
-      if (page === 1) {
-        setAllAccounts(accountsData.accounts);
-      } else {
-        setAllAccounts((prev) => {
-          const seen = new Set(prev.map((a) => a.id));
-          const newOnes = accountsData.accounts.filter((a: any) => !seen.has(a.id));
-          return [...prev, ...newOnes];
-        });
-      }
-    }
-  }, [accountsData, page]);
-
-  // Restore scroll position after accounts load (coming back via browser back).
-  // Reads from the same "scroll:/browse" key that ScrollToTop saves to, so we
-  // wait until data is rendered (page is tall enough) before restoring.
+  // Restore scroll position after data loads (back navigation).
+  // All items load in one request now, so the page reaches full height quickly.
   const scrollRestored = useRef(false);
   useEffect(() => {
-    if (scrollRestored.current || accountsLoading || allAccounts.length === 0) return;
+    if (scrollRestored.current || accountsLoading || !accountsData?.accounts?.length) return;
     const saved = sessionStorage.getItem("scroll:/browse");
     if (saved && Number(saved) > 0) {
       scrollRestored.current = true;
-      requestAnimationFrame(() => window.scrollTo(0, Number(saved)));
+      // Small delay to let React finish painting the list
+      setTimeout(() => window.scrollTo(0, Number(saved)), 50);
     }
-  }, [accountsLoading, allAccounts.length]);
+  }, [accountsLoading, accountsData]);
 
-  const filteredAccounts = allAccounts.filter((a) => {
+  const allAccounts = accountsData?.accounts ?? [];
+
+  const filteredAccounts = allAccounts.filter((a: any) => {
     const q = search.toLowerCase();
     return (
       a.title.toLowerCase().includes(q) ||
@@ -227,7 +226,7 @@ export default function Browse() {
                 <div className="flex justify-center pt-4">
                   <Button
                     variant="outline"
-                    onClick={() => setPage((p) => p + 1)}
+                    onClick={() => setLimit((l) => l + PAGE_SIZE)}
                     disabled={accountsLoading}
                     className="gap-2"
                   >

@@ -82,8 +82,21 @@ function ScrollToTop() {
       isPopState.current = false;
       if (DATA_RESTORE_PATHS.includes(location)) return;
       const saved = Number(sessionStorage.getItem(`scroll:${location}`) ?? 0);
-      requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, saved)));
-      return;
+      if (!saved) return;
+      // Retry until the page is tall enough to reach the saved position,
+      // or until 1 second has elapsed (data finished loading).
+      let elapsed = 0;
+      const INTERVAL = 32; // ~2 frames
+      const MAX_MS = 1000;
+      const timer = setInterval(() => {
+        elapsed += INTERVAL;
+        const canScroll = document.body.scrollHeight >= saved + window.innerHeight * 0.5;
+        if (canScroll || elapsed >= MAX_MS) {
+          clearInterval(timer);
+          window.scrollTo(0, saved);
+        }
+      }, INTERVAL);
+      return () => clearInterval(timer);
     }
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, [location]);
