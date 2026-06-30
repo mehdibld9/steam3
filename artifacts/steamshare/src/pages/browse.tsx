@@ -64,17 +64,27 @@ export default function Browse() {
     sessionStorage.setItem(BROWSE_LIMIT_KEY, String(PAGE_SIZE));
   }
 
-  // Restore scroll position after data loads (back navigation).
-  // All items load in one request now, so the page reaches full height quickly.
+  // Restore scroll position after data loads — ONLY on back navigation.
+  // ss:backNav is set by the popstate listener in ScrollToTop and consumed here
+  // so it can never fire on a fresh link click.
   const scrollRestored = useRef(false);
   useEffect(() => {
     if (scrollRestored.current || accountsLoading || !accountsData?.accounts?.length) return;
-    const saved = sessionStorage.getItem("scroll:/browse");
-    if (saved && Number(saved) > 0) {
-      scrollRestored.current = true;
-      // Small delay to let React finish painting the list
-      setTimeout(() => window.scrollTo(0, Number(saved)), 50);
-    }
+    if (sessionStorage.getItem("ss:backNav") !== "1") return;
+    const saved = Number(sessionStorage.getItem("scroll:/browse") ?? 0);
+    if (!saved) return;
+    scrollRestored.current = true;
+    sessionStorage.removeItem("ss:backNav"); // consume — one-time use
+    // Poll until the list is painted tall enough, then snap to position.
+    let ms = 0;
+    const t = setInterval(() => {
+      ms += 32;
+      if (document.body.scrollHeight >= saved + window.innerHeight * 0.5 || ms >= 1500) {
+        clearInterval(t);
+        window.scrollTo(0, saved);
+      }
+    }, 32);
+    return () => clearInterval(t);
   }, [accountsLoading, accountsData]);
 
   const allAccounts = accountsData?.accounts ?? [];
@@ -226,7 +236,11 @@ export default function Browse() {
                 <div className="flex justify-center pt-4">
                   <Button
                     variant="outline"
-                    onClick={() => setLimit((l) => l + PAGE_SIZE)}
+                    onClick={() => {
+                      const next = limit + PAGE_SIZE;
+                      setLimit(next);
+                      sessionStorage.setItem(BROWSE_LIMIT_KEY, String(next));
+                    }}
                     disabled={accountsLoading}
                     className="gap-2"
                   >

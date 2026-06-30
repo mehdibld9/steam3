@@ -64,7 +64,11 @@ function ScrollToTop() {
       return orig(state, title, url);
     };
 
-    const onPop = () => { isPopState.current = true; };
+    const onPop = () => {
+      isPopState.current = true;
+      // Reliable signal for pages that do their own scroll restoration (Browse).
+      sessionStorage.setItem("ss:backNav", "1");
+    };
     window.addEventListener("popstate", onPop);
 
     return () => {
