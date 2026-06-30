@@ -17,79 +17,70 @@ async function fetchAnnouncements() {
   return res.json() as Promise<any[]>;
 }
 
-const BROWSE_LIMIT_KEY = "browse:limit";
-const PAGE_SIZE = 50;
-
 export default function Browse() {
-  // Initialise filters from URL so browser-back restores them
+  // Initialise from URL so browser-back restores filters
   const params = new URLSearchParams(window.location.search);
   const [search, setSearch] = useState(params.get("search") ?? "");
   const [selectedGame, setSelectedGame] = useState<string>(params.get("game") ?? "all");
   const [sort, setSort] = useState<"recent"|"popular"|"free"|"points">((params.get("sort") as any) ?? "recent");
-
-  // Use a growing limit instead of page accumulation.
-  // sessionStorage persists the limit across navigation so "Load more" state
-  // is fully restored when the user presses back.
-  const [limit, setLimit] = useState<number>(() => {
-    const stored = Number(sessionStorage.getItem(BROWSE_LIMIT_KEY) ?? "0");
-    return stored >= PAGE_SIZE ? stored : PAGE_SIZE;
-  });
+  const [page, setPage] = useState(Number(params.get("page") ?? "1"));
+  const [allAccounts, setAllAccounts] = useState<any[]>([]);
 
   const { data: gamesData, isLoading: gamesLoading } = useListGames();
   const { data: accountsData, isLoading: accountsLoading } = useListAccounts({
     game: selectedGame !== "all" ? selectedGame : undefined,
     sort,
-    page: 1,
-    limit,
+    page,
+    limit: 50,
   });
   const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
 
-  // Keep URL in sync with filters only (not limit — that lives in sessionStorage)
+  // Keep URL in sync with filters (replaceState = no extra history entries)
   useEffect(() => {
     const p = new URLSearchParams();
     if (search) p.set("search", search);
     if (selectedGame !== "all") p.set("game", selectedGame);
     if (sort !== "recent") p.set("sort", sort);
+    if (page > 1) p.set("page", String(page));
     const qs = p.toString();
     window.history.replaceState(null, "", qs ? `/browse?${qs}` : "/browse");
-  }, [search, selectedGame, sort]);
+  }, [search, selectedGame, sort, page]);
 
-  // Persist limit to sessionStorage whenever it changes
+  // Reset pagination when filters change
   useEffect(() => {
-    sessionStorage.setItem(BROWSE_LIMIT_KEY, String(limit));
-  }, [limit]);
+    setPage(1);
+    setAllAccounts([]);
+  }, [selectedGame, sort]);
 
-  function resetLimit() {
-    setLimit(PAGE_SIZE);
-    sessionStorage.setItem(BROWSE_LIMIT_KEY, String(PAGE_SIZE));
-  }
+  // Accumulate accounts as pages load
+  useEffect(() => {
+    if (accountsData?.accounts) {
+      if (page === 1) {
+        setAllAccounts(accountsData.accounts);
+      } else {
+        setAllAccounts((prev) => {
+          const seen = new Set(prev.map((a) => a.id));
+          const newOnes = accountsData.accounts.filter((a: any) => !seen.has(a.id));
+          return [...prev, ...newOnes];
+        });
+      }
+    }
+  }, [accountsData, page]);
 
-  // Restore scroll position after data loads — ONLY on back navigation.
-  // ss:backNav is set by the popstate listener in ScrollToTop and consumed here
-  // so it can never fire on a fresh link click.
+  // Restore scroll position after accounts load (coming back via browser back).
+  // Reads from the same "scroll:/browse" key that ScrollToTop saves to, so we
+  // wait until data is rendered (page is tall enough) before restoring.
   const scrollRestored = useRef(false);
   useEffect(() => {
-    if (scrollRestored.current || accountsLoading || !accountsData?.accounts?.length) return;
-    if (sessionStorage.getItem("ss:backNav") !== "1") return;
-    const saved = Number(sessionStorage.getItem("scroll:/browse") ?? 0);
-    if (!saved) return;
-    scrollRestored.current = true;
-    sessionStorage.removeItem("ss:backNav"); // consume — one-time use
-    // Poll until the list is painted tall enough, then snap to position.
-    let ms = 0;
-    const t = setInterval(() => {
-      ms += 32;
-      if (document.body.scrollHeight >= saved + window.innerHeight * 0.5 || ms >= 1500) {
-        clearInterval(t);
-        window.scrollTo(0, saved);
-      }
-    }, 32);
-    return () => clearInterval(t);
-  }, [accountsLoading, accountsData]);
+    if (scrollRestored.current || accountsLoading || allAccounts.length === 0) return;
+    const saved = sessionStorage.getItem("scroll:/browse");
+    if (saved && Number(saved) > 0) {
+      scrollRestored.current = true;
+      requestAnimationFrame(() => window.scrollTo(0, Number(saved)));
+    }
+  }, [accountsLoading, allAccounts.length]);
 
-  const allAccounts = accountsData?.accounts ?? [];
-
-  const filteredAccounts = allAccounts.filter((a: any) => {
+  const filteredAccounts = allAccounts.filter((a) => {
     const q = search.toLowerCase();
     return (
       a.title.toLowerCase().includes(q) ||
@@ -150,7 +141,7 @@ export default function Browse() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">Sort By</label>
-                <Select value={sort} onValueChange={(v: any) => { setSort(v); resetLimit(); }}>
+                <Select value={sort} onValueChange={(v: any) => setSort(v)}>
                   <SelectTrigger className="bg-card border-card-border" data-testid="select-sort">
                     <SelectValue placeholder="Sort order" />
                   </SelectTrigger>
@@ -167,14 +158,14 @@ export default function Browse() {
               <div className="hidden md:block space-y-2 pt-4">
                 <label className="text-sm font-medium text-muted-foreground flex justify-between items-center">
                   Games Directory
-                  <Button variant="ghost" size="sm" className="h-auto p-0 text-xs" onClick={() => { setSelectedGame("all"); resetLimit(); }}>Clear</Button>
+                  <Button variant="ghost" size="sm" className="h-auto p-0 text-xs" onClick={() => setSelectedGame("all")}>Clear</Button>
                 </label>
 
                 <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                   <Button
                     variant={selectedGame === "all" ? "secondary" : "ghost"}
                     className="justify-start h-8 text-sm"
-                    onClick={() => { setSelectedGame("all"); resetLimit(); }}
+                    onClick={() => setSelectedGame("all")}
                     data-testid="button-game-all"
                   >
                     All Games
@@ -192,7 +183,7 @@ export default function Browse() {
                         key={game.game}
                         variant={selectedGame === game.game ? "secondary" : "ghost"}
                         className="justify-between h-8 text-sm group"
-                        onClick={() => { setSelectedGame(game.game); resetLimit(); }}
+                        onClick={() => setSelectedGame(game.game)}
                         data-testid={`button-game-${game.game}`}
                       >
                         <span className="truncate pr-2">{game.game}</span>
@@ -236,11 +227,7 @@ export default function Browse() {
                 <div className="flex justify-center pt-4">
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      const next = limit + PAGE_SIZE;
-                      setLimit(next);
-                      sessionStorage.setItem(BROWSE_LIMIT_KEY, String(next));
-                    }}
+                    onClick={() => setPage((p) => p + 1)}
                     disabled={accountsLoading}
                     className="gap-2"
                   >
@@ -255,7 +242,7 @@ export default function Browse() {
               <Search className="h-10 w-10 text-muted-foreground mb-4 opacity-50" />
               <h3 className="text-lg font-medium text-foreground mb-1">No accounts found</h3>
               <p className="text-sm text-muted-foreground">Try adjusting your filters or search query.</p>
-              <Button variant="outline" className="mt-4" onClick={() => { setSearch(""); setSelectedGame("all"); resetLimit(); }}>
+              <Button variant="outline" className="mt-4" onClick={() => { setSearch(""); setSelectedGame("all"); }}>
                 Clear Filters
               </Button>
             </div>
