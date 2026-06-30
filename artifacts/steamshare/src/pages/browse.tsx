@@ -59,9 +59,16 @@ export default function Browse() {
     sessionStorage.setItem(BROWSE_LIMIT_KEY, String(limit));
   }, [limit]);
 
-  // Reset limit when filters change
+  // Reset limit when filters change, but NOT on initial mount
+  // (on mount the limit is already correctly restored from sessionStorage)
+  const isFirstRender = useRef(true);
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     setLimit(PAGE_SIZE);
+    sessionStorage.setItem(BROWSE_LIMIT_KEY, String(PAGE_SIZE));
   }, [selectedGame, sort]);
 
   // Restore scroll position after data loads (back navigation).
