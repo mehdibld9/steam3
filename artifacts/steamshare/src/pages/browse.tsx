@@ -59,17 +59,10 @@ export default function Browse() {
     sessionStorage.setItem(BROWSE_LIMIT_KEY, String(limit));
   }, [limit]);
 
-  // Reset limit when filters change, but NOT on initial mount
-  // (on mount the limit is already correctly restored from sessionStorage)
-  const isFirstRender = useRef(true);
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
+  function resetLimit() {
     setLimit(PAGE_SIZE);
     sessionStorage.setItem(BROWSE_LIMIT_KEY, String(PAGE_SIZE));
-  }, [selectedGame, sort]);
+  }
 
   // Restore scroll position after data loads (back navigation).
   // All items load in one request now, so the page reaches full height quickly.
@@ -147,7 +140,7 @@ export default function Browse() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">Sort By</label>
-                <Select value={sort} onValueChange={(v: any) => setSort(v)}>
+                <Select value={sort} onValueChange={(v: any) => { setSort(v); resetLimit(); }}>
                   <SelectTrigger className="bg-card border-card-border" data-testid="select-sort">
                     <SelectValue placeholder="Sort order" />
                   </SelectTrigger>
@@ -164,14 +157,14 @@ export default function Browse() {
               <div className="hidden md:block space-y-2 pt-4">
                 <label className="text-sm font-medium text-muted-foreground flex justify-between items-center">
                   Games Directory
-                  <Button variant="ghost" size="sm" className="h-auto p-0 text-xs" onClick={() => setSelectedGame("all")}>Clear</Button>
+                  <Button variant="ghost" size="sm" className="h-auto p-0 text-xs" onClick={() => { setSelectedGame("all"); resetLimit(); }}>Clear</Button>
                 </label>
 
                 <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                   <Button
                     variant={selectedGame === "all" ? "secondary" : "ghost"}
                     className="justify-start h-8 text-sm"
-                    onClick={() => setSelectedGame("all")}
+                    onClick={() => { setSelectedGame("all"); resetLimit(); }}
                     data-testid="button-game-all"
                   >
                     All Games
@@ -189,7 +182,7 @@ export default function Browse() {
                         key={game.game}
                         variant={selectedGame === game.game ? "secondary" : "ghost"}
                         className="justify-between h-8 text-sm group"
-                        onClick={() => setSelectedGame(game.game)}
+                        onClick={() => { setSelectedGame(game.game); resetLimit(); }}
                         data-testid={`button-game-${game.game}`}
                       >
                         <span className="truncate pr-2">{game.game}</span>
@@ -248,7 +241,7 @@ export default function Browse() {
               <Search className="h-10 w-10 text-muted-foreground mb-4 opacity-50" />
               <h3 className="text-lg font-medium text-foreground mb-1">No accounts found</h3>
               <p className="text-sm text-muted-foreground">Try adjusting your filters or search query.</p>
-              <Button variant="outline" className="mt-4" onClick={() => { setSearch(""); setSelectedGame("all"); }}>
+              <Button variant="outline" className="mt-4" onClick={() => { setSearch(""); setSelectedGame("all"); resetLimit(); }}>
                 Clear Filters
               </Button>
             </div>
