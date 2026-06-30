@@ -98,6 +98,9 @@ function ScrollToTop() {
       }, INTERVAL);
       return () => clearInterval(timer);
     }
+    // Fresh forward navigation — wipe the saved scroll for this path so pages
+    // that do their own restoration (like Browse) don't restore on a link click.
+    sessionStorage.removeItem(`scroll:${location}`);
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, [location]);
 
