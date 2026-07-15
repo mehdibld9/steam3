@@ -125,6 +125,7 @@ router.get("/:userId/accounts", async (req, res) => {
       isAvailable: accountsTable.isAvailable,
       likesCount: accountsTable.likesCount,
       claimsCount: accountsTable.claimsCount,
+      viewCount: accountsTable.viewCount,
       createdAt: accountsTable.createdAt,
       posterUsername: usersTable.username,
       posterAvatarUrl: usersTable.avatarUrl,
