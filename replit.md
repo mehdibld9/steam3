@@ -1,15 +1,17 @@
-# [Project name]
+# Steam Family
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A Steam account-sharing / exchange platform ("Steam Family") — members share unused Steam libraries, claim games, and level up through community participation. Includes an admin panel with security/anti-abuse tooling (IP bans, VPN detection, ban system).
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- Two workflows are configured and run automatically in this Repl: `API Server` (Express API, port 8080) and `Start application` (Vite frontend, port 19720).
+- `pnpm --filter @workspace/api-server run dev` — run the API server directly
+- `pnpm --filter @workspace/steamshare run dev` — run the frontend directly
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required env: `DATABASE_URL` — Postgres connection string (Replit-managed Postgres is already provisioned and set)
 
 ## Stack
 
