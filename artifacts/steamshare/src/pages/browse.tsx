@@ -107,6 +107,18 @@ export default function Browse() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  // Restore scroll position when returning from an account detail page.
+  useEffect(() => {
+    if (accountsLoading) return;
+    const saved = sessionStorage.getItem("browse-scroll");
+    if (saved) {
+      sessionStorage.removeItem("browse-scroll");
+      const y = Number(saved);
+      // Use requestAnimationFrame so the DOM has painted before we scroll.
+      requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "instant" }));
+    }
+  }, [accountsLoading]);
+
   const filteredAccounts = accounts.filter((a) => {
     const q = search.toLowerCase();
     return (
@@ -263,7 +275,12 @@ export default function Browse() {
               <>
                 <div className="flex flex-col gap-3">
                   {filteredAccounts.map((account) => (
-                    <AccountCard key={account.id} account={account} />
+                    <div
+                      key={account.id}
+                      onClick={() => sessionStorage.setItem("browse-scroll", String(window.scrollY))}
+                    >
+                      <AccountCard account={account} />
+                    </div>
                   ))}
                 </div>
 
