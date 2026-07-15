@@ -108,14 +108,15 @@ export default function Browse() {
   }, []);
 
   // Restore scroll position when returning from an account detail page.
+  // App.tsx saves "scroll:/browse" on every pushState and skips auto-scroll-to-top
+  // for /browse on popstate, so we just need to apply it once data is ready.
   useEffect(() => {
     if (accountsLoading) return;
-    const saved = sessionStorage.getItem("browse-scroll");
+    const saved = sessionStorage.getItem("scroll:/browse");
     if (saved) {
-      sessionStorage.removeItem("browse-scroll");
+      sessionStorage.removeItem("scroll:/browse");
       const y = Number(saved);
-      // Use requestAnimationFrame so the DOM has painted before we scroll.
-      requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "instant" }));
+      requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "instant" })));
     }
   }, [accountsLoading]);
 
