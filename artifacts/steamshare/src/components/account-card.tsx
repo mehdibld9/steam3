@@ -3,7 +3,7 @@ import { Account } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
-import { Coins, Heart, Gamepad2 } from "lucide-react";
+import { Coins, Eye, Gamepad2 } from "lucide-react";
 import { UserBadge } from "@/components/user-badge";
 
 interface AccountCardProps {
@@ -84,8 +84,8 @@ export function AccountCard({ account }: AccountCardProps) {
               )}
               <UserBadge badgeType={(account as any).posterBadgeType} size={14} />
               <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                <Heart className={`h-3 w-3 ${account.userHasLiked ? "text-red-500 fill-red-500" : ""}`} />
-                <span>{account.likesCount}</span>
+                <Eye className="h-3 w-3" />
+                <span>{(account as any).viewCount ?? 0}</span>
               </div>
               <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:block">
                 {formatDistanceToNow(new Date(account.createdAt))} ago

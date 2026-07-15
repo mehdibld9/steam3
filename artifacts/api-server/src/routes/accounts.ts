@@ -66,6 +66,7 @@ router.get("/", async (req, res) => {
       pointsCost: accountsTable.pointsCost,
       isAvailable: accountsTable.isAvailable,
       likesCount: accountsTable.likesCount,
+      viewCount: accountsTable.viewCount,
       claimsCount: accountsTable.claimsCount,
       workingVotes: accountsTable.workingVotes,
       notWorkingVotes: accountsTable.notWorkingVotes,
