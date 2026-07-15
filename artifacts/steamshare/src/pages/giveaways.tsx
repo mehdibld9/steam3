@@ -414,6 +414,11 @@ export default function Giveaways() {
                                 <Trophy className="h-3.5 w-3.5" /> Draw
                               </Button>
                             )}
+                            {ended && !hasWinner && (
+                              <Button size="sm" className="h-8 px-2.5 text-xs gap-1 bg-yellow-500 hover:bg-yellow-400 text-black font-bold" onClick={async () => { await drawGiveaway.mutateAsync({ giveawayId: giveaway.id }); refresh(); }} disabled={drawGiveaway.isPending}>
+                                <Trophy className="h-3.5 w-3.5" /> {drawGiveaway.isPending ? "Drawing…" : "Raffle"}
+                              </Button>
+                            )}
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500 hover:text-red-400 hover:bg-red-500/10" onClick={async () => { await deleteGiveaway.mutateAsync({ giveawayId: giveaway.id }); refresh(); }}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
