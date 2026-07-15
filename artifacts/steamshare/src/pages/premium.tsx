@@ -150,12 +150,14 @@ export default function Premium() {
                     <span className="font-bold text-primary text-lg">{pricing.premiumPointsPrice} pts</span>
                     <span className="text-xs text-muted-foreground">/ month</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground text-sm">or</span>
-                    <OriginalPrice cents={pricing.premiumUsdCents} />
-                    <span className="font-bold text-lg">{formatUsd(pricing.premiumUsdCents)}</span>
-                    <span className="text-xs text-muted-foreground">/ month</span>
-                  </div>
+                  {pricing.premiumUsdCents > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground text-sm">or</span>
+                      <OriginalPrice cents={pricing.premiumUsdCents} />
+                      <span className="font-bold text-lg">{formatUsd(pricing.premiumUsdCents)}</span>
+                      <span className="text-xs text-muted-foreground">/ month</span>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="h-12 bg-secondary animate-pulse rounded" />

@@ -10,7 +10,10 @@ export function getLevelColor(level: number): string {
     "#ef4444",
     "#ec4899",
     "#06b6d4",
-    "#e2e8f0",
+    "#f59e0b", // tier 9: Immortal (91-100) — amber gold
+    "#a78bfa", // tier 10: Transcendent (101-110) — violet
+    "#f43f5e", // tier 11: Godlike (111-120) — rose
+    "#34d399", // tier 12: Eternal (121-130) — emerald
   ];
   return colors[Math.min(tier, colors.length - 1)];
 }
@@ -28,6 +31,9 @@ export function getLevelLabel(level: number): string {
     "Legend",
     "Mythic",
     "Immortal",
+    "Transcendent",
+    "Godlike",
+    "Eternal",
   ];
   return labels[Math.min(tier, labels.length - 1)];
 }

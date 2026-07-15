@@ -354,7 +354,7 @@ export default function Messages() {
             <div className="p-3 border-b border-border">
               <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Conversations</p>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
               {!conversations || conversations.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center p-6">
                   <MessageSquare className="h-10 w-10 text-muted-foreground/30 mb-3" />
@@ -438,8 +438,8 @@ export default function Messages() {
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 flex flex-col-reverse">
-                  {[...(messages ?? [])].reverse().map((msg) => {
+                <div className="flex-1 overflow-y-auto p-4 gap-3 flex flex-col-reverse custom-scrollbar">
+                  {(messages ?? []).map((msg) => {
                     const isMe = msg.senderId === me.id;
                     const isBotMsg = !isMe && isBot;
                     return (

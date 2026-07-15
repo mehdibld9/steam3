@@ -43,7 +43,6 @@ const NAV_ITEMS = [
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/giveaways", label: "Giveaways", icon: Gift },
   { href: "/store", label: "Store", icon: ShoppingBag },
-  { href: "/earn", label: "Earn Points", icon: Coins },
   { href: "/premium", label: "Premium", icon: Crown },
 ];
 
