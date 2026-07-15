@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, Filter, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Megaphone, Pin } from "lucide-react";
@@ -44,6 +44,8 @@ export default function Browse() {
     (params.get("sort") as any) ?? "recent"
   );
   const [page, setPage] = useState(Math.max(1, Number(params.get("page") ?? "1")));
+  // Skip the first render so filter effects don't wipe the page from the URL on back-navigation.
+  const mounted = useRef(false);
 
   const { data: gamesData, isLoading: gamesLoading } = useListGames();
   const { data: accountsData, isLoading: accountsLoading } = useListAccounts({
@@ -74,7 +76,9 @@ export default function Browse() {
   }
 
   // When filters change (not page), replace history so page resets cleanly.
+  // Skip the very first run so back-navigation preserves the page from the URL.
   useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return; }
     setPage(1);
     window.history.replaceState(null, "", buildQS(1));
     // eslint-disable-next-line react-hooks/exhaustive-deps
