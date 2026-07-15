@@ -94,6 +94,9 @@ export default function Browse() {
     const clamped = Math.min(Math.max(1, p), totalPages);
     if (clamped === page) return;
     window.history.pushState(null, "", buildQS(clamped));
+    // Clear the scroll key saved by App.tsx's pushState intercept so the
+    // restoration effect doesn't scroll back down when the new page loads.
+    sessionStorage.removeItem("scroll:/browse");
     setPage(clamped);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
