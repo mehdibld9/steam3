@@ -489,11 +489,18 @@ export default function AccountDetail() {
                         })()}
                       </p>
                       {(() => {
-                        // If we just ran a check and it errored, show "?" — never fall back to old "live" DB value
+                        // If we just ran a check and it errored, show why — never fall back to old "live" DB value
                         const acc = account as any;
                         const freshStatus = checkResult?.checkStatus;
                         if (freshStatus === "error") {
-                          return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">? Unknown</span>;
+                          const reason = checkResult?.message ?? "";
+                          const isRateLimit = reason.toLowerCase().includes("rate") || reason.toLowerCase().includes("limit");
+                          const label = isRateLimit ? "Rate limited — try later" : "Steam unreachable — try again";
+                          return (
+                            <span title={reason || undefined} className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 cursor-help">
+                              ⚠ {label}
+                            </span>
+                          );
                         }
                         const validStatuses = ["live", "dead", "2fa"];
                         let s: string | null =
