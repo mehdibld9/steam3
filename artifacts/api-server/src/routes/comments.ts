@@ -90,9 +90,10 @@ router.post("/", requireAuth, async (req, res) => {
   const parentId = parsed.data.parentId ?? null;
 
   // Validate parentId belongs to this account if provided
+  let parentAuthorId: number | null = null;
   if (parentId !== null) {
     const [parent] = await db
-      .select({ id: commentsTable.id, parentId: commentsTable.parentId })
+      .select({ id: commentsTable.id, parentId: commentsTable.parentId, userId: commentsTable.userId })
       .from(commentsTable)
       .where(and(eq(commentsTable.id, parentId), eq(commentsTable.accountId, accountId)))
       .limit(1);
@@ -100,6 +101,7 @@ router.post("/", requireAuth, async (req, res) => {
       res.status(400).json({ error: "Parent comment not found" });
       return;
     }
+    parentAuthorId = parent.userId;
     // Only allow one level of nesting — reply to the top-level parent
   }
 
@@ -130,6 +132,22 @@ router.post("/", requireAuth, async (req, res) => {
   if (existingCommentCount.length <= 1) {
     const xpComment = await getSetting("xp_post_comment");
     await addXp(userId, xpComment);
+  }
+
+  // Notify parent comment author when someone replies (skip self-replies)
+  if (parentAuthorId !== null && parentAuthorId !== userId && user) {
+    try {
+      const preview = comment.content.length > 60 ? comment.content.slice(0, 60) + "…" : comment.content;
+      await db.insert(notificationsTable).values({
+        userId: parentAuthorId,
+        type: "comment_reply",
+        actorUsername: user.username,
+        message: `replied to your comment: "${preview}"`,
+        linkUrl: `/accounts/${accountId}`,
+      });
+    } catch (e) {
+      logger.error({ err: e }, "Failed to send reply notification");
+    }
   }
 
   const isPremiumActive = user?.premiumTier && user?.premiumExpiresAt && new Date(user.premiumExpiresAt) > new Date();
@@ -204,16 +222,26 @@ router.post("/:commentId/like", requireAuth, async (req, res) => {
 
     // Notify comment author — skip if they liked their own comment
     if (comment && liker && comment.userId !== userId) {
-      const isReply = comment.parentId !== null;
-      const preview = comment.content.length > 60 ? comment.content.slice(0, 60) + "…" : comment.content;
-      const [account] = await db.select({ title: accountsTable.title, id: accountsTable.id }).from(accountsTable).where(eq(accountsTable.id, comment.accountId)).limit(1);
-      db.insert(notificationsTable).values({
-        userId: comment.userId,
-        type: "comment_like",
-        actorUsername: liker.username,
-        message: `liked your ${isReply ? "reply" : "comment"}: "${preview}"`,
-        linkUrl: account ? `/accounts/${account.id}` : null,
-      }).catch(() => {});
+      try {
+        const isReply = comment.parentId !== null && comment.parentId !== undefined;
+        const preview = comment.content.length > 60 ? comment.content.slice(0, 60) + "…" : comment.content;
+        const accountId = comment.accountId;
+        let linkUrl: string | null = null;
+        if (accountId) {
+          const [account] = await db.select({ id: accountsTable.id }).from(accountsTable).where(eq(accountsTable.id, accountId)).limit(1);
+          if (account) linkUrl = `/accounts/${account.id}`;
+        }
+        await db.insert(notificationsTable).values({
+          userId: comment.userId,
+          type: "comment_like",
+          actorUsername: liker.username,
+          message: `liked your ${isReply ? "reply" : "comment"}: "${preview}"`,
+          linkUrl,
+        });
+        logger.info({ toUserId: comment.userId, fromUser: liker.username, isReply }, "Comment like notification sent");
+      } catch (e) {
+        logger.error({ err: e }, "Failed to send comment like notification");
+      }
     }
   }
 

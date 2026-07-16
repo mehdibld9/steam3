@@ -8,7 +8,7 @@ import {
   Shield, Plus, LogOut, Coins, Trophy, Gift,
   MessageSquare, Menu, X, ChevronRight, Bell, Home,
   LayoutGrid, User, Settings, ShoppingBag, Sun, Moon, ArrowLeft,
-  Megaphone, ExternalLink, Mail, Phone, MapPin, Crown, Heart,
+  Megaphone, ExternalLink, Mail, Phone, MapPin, Crown, Heart, Reply,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "@/lib/theme";
@@ -341,8 +341,10 @@ export function Layout({ children, noFooter }: { children: React.ReactNode; noFo
                           {appNotifications.map((n) => {
                             const inner = (
                               <div className={`w-full px-4 py-3 text-left hover:bg-secondary/50 transition-colors flex items-start gap-3 ${!n.isRead ? "bg-primary/5" : ""}`}>
-                                <div className="mt-0.5 w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">
-                                  <Heart className="h-4 w-4 text-red-500" />
+                                <div className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${n.type === "comment_reply" ? "bg-primary/10" : "bg-red-500/10"}`}>
+                                  {n.type === "comment_reply"
+                                    ? <Reply className="h-4 w-4 text-primary" />
+                                    : <Heart className="h-4 w-4 text-red-500" />}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm text-foreground">
