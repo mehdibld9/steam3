@@ -212,7 +212,7 @@ router.post("/:commentId/like", requireAuth, async (req, res) => {
         type: "comment_like",
         actorUsername: liker.username,
         message: `liked your ${isReply ? "reply" : "comment"}: "${preview}"`,
-        linkUrl: account ? `/account/${account.id}` : null,
+        linkUrl: account ? `/accounts/${account.id}` : null,
       }).catch(() => {});
     }
   }
