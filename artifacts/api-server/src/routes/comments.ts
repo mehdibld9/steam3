@@ -1,11 +1,12 @@
 // @ts-nocheck
 import express from "express";
-import { db, commentsTable, usersTable, likesTable } from "@workspace/db";
+import { db, commentsTable, usersTable, likesTable, accountsTable } from "@workspace/db";
 import { eq, and, sql, inArray, asc, isNull } from "drizzle-orm";
 import { CreateCommentBody } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { filterContent } from "../lib/contentFilter";
 import { getSetting } from "../lib/settings";
+import { sendBotMessage } from "../lib/adminBot";
 
 const router = express.Router({ mergeParams: true });
 
@@ -187,6 +188,13 @@ router.post("/:commentId/like", requireAuth, async (req, res) => {
     .limit(1);
 
   if (!existing) {
+    // Fetch comment, liker username, and account title in parallel
+    const [comment, liker] = await Promise.all([
+      db.select({ userId: commentsTable.userId, accountId: commentsTable.accountId, parentId: commentsTable.parentId, content: commentsTable.content })
+        .from(commentsTable).where(eq(commentsTable.id, commentId)).limit(1).then(r => r[0]),
+      db.select({ username: usersTable.username }).from(usersTable).where(eq(usersTable.id, userId)).limit(1).then(r => r[0]),
+    ]);
+
     await db.insert(likesTable).values({ userId, targetType: "comment", targetId: commentId });
     await db
       .update(commentsTable)
@@ -194,6 +202,16 @@ router.post("/:commentId/like", requireAuth, async (req, res) => {
       .where(eq(commentsTable.id, commentId));
     const xpLike = await getSetting("xp_like_comment");
     await addXp(userId, xpLike);
+
+    // Notify comment author — skip if they liked their own comment
+    if (comment && liker && comment.userId !== userId) {
+      const isReply = comment.parentId !== null;
+      const preview = comment.content.length > 60 ? comment.content.slice(0, 60) + "…" : comment.content;
+      const [account] = await db.select({ title: accountsTable.title }).from(accountsTable).where(eq(accountsTable.id, comment.accountId)).limit(1);
+      const accountLabel = account?.title ? `**${account.title}**` : `account #${comment.accountId}`;
+      const msg = `❤️ **${liker.username}** liked your ${isReply ? "reply" : "comment"} on ${accountLabel}:\n> ${preview}`;
+      sendBotMessage(comment.userId, msg).catch(() => {});
+    }
   }
 
   res.json({ message: "Liked" });
