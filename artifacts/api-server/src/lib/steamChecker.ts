@@ -370,9 +370,10 @@ export async function checkSteamCredentials(username: string, password: string):
 
       logger.info({ username, steamid64, confTypes: [...confTypes], proxyIndex: auth.proxyIndex }, "BeginAuth OK");
 
-      // confirmation_type 3 = Mobile authenticator (2FA), 4 = Device confirmation (2FA)
-      // For 2FA accounts we don't obtain an access token, so fall back to game-count heuristic
-      if (confTypes.has(3) || confTypes.has(4)) {
+      // confirmation_type 2 = Email Steam Guard, 3 = Mobile authenticator, 4 = Device confirmation
+      // All three block unattended login — treat as 2FA.
+      // For 2FA accounts we don't obtain an access token, so fall back to game-count heuristic.
+      if (confTypes.has(2) || confTypes.has(3) || confTypes.has(4)) {
         const games = await getOwnedGames(steamid64, undefined, proxies, auth.proxyIndex);
         const isFamilyShare = games.length === 0;
         return {

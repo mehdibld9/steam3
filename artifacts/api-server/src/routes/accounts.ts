@@ -551,8 +551,8 @@ router.post("/:accountId/check", requireAuth, async (req, res) => {
   if (result.status === "valid") {
     const is2fa = String(result.message ?? "").includes("2FA");
     if (is2fa) {
-      // 2FA accounts can't be used for sharing — treat as dead and soft-delete
-      checkStatus = "dead";
+      // 2FA accounts can't be used for sharing — flag as 2fa and soft-delete
+      checkStatus = "2fa";
       const newFailCount = account.healthFailCount + 1;
       await db.update(accountsTable).set({
         healthFailCount: newFailCount,
