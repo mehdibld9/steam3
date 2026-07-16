@@ -104,19 +104,14 @@ export function Layout({ children, noFooter }: { children: React.ReactNode; noFo
   const [seenIds, setSeenIds] = useState<number[]>(getSeenIds);
   const newGiveaways = activeGiveaways.filter((g) => !seenIds.includes(g.id));
 
-  // App notifications (comment likes, etc.)
+  // App notifications (comment likes, replies, etc.) — derive unread count from the list
   const { data: appNotifications = [], refetch: refetchNotifs } = useQuery({
     queryKey: ["app-notifications"],
     queryFn: fetchNotifications,
     enabled: !!user,
     refetchInterval: 30_000,
   });
-  const { data: notifUnread = 0 } = useQuery({
-    queryKey: ["app-notifications-unread"],
-    queryFn: fetchNotifUnreadCount,
-    enabled: !!user,
-    refetchInterval: 30_000,
-  });
+  const notifUnread = appNotifications.filter((n) => !n.isRead).length;
 
   const notifCount = newGiveaways.length + notifUnread;
 

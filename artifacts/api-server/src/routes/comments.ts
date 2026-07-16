@@ -134,20 +134,16 @@ router.post("/", requireAuth, async (req, res) => {
     await addXp(userId, xpComment);
   }
 
-  // Notify parent comment author when someone replies (skip self-replies)
+  // Notify parent comment author — fire-and-forget so reply response stays fast
   if (parentAuthorId !== null && parentAuthorId !== userId && user) {
-    try {
-      const preview = comment.content.length > 60 ? comment.content.slice(0, 60) + "…" : comment.content;
-      await db.insert(notificationsTable).values({
-        userId: parentAuthorId,
-        type: "comment_reply",
-        actorUsername: user.username,
-        message: `replied to your comment: "${preview}"`,
-        linkUrl: `/accounts/${accountId}`,
-      });
-    } catch (e) {
-      logger.error({ err: e }, "Failed to send reply notification");
-    }
+    const preview = comment.content.length > 60 ? comment.content.slice(0, 60) + "…" : comment.content;
+    db.insert(notificationsTable).values({
+      userId: parentAuthorId,
+      type: "comment_reply",
+      actorUsername: user.username,
+      message: `replied to your comment: "${preview}"`,
+      linkUrl: `/accounts/${accountId}`,
+    }).catch((e) => logger.error({ err: e }, "Failed to send reply notification"));
   }
 
   const isPremiumActive = user?.premiumTier && user?.premiumExpiresAt && new Date(user.premiumExpiresAt) > new Date();
@@ -220,28 +216,17 @@ router.post("/:commentId/like", requireAuth, async (req, res) => {
     const xpLike = await getSetting("xp_like_comment");
     await addXp(userId, xpLike);
 
-    // Notify comment author — skip if they liked their own comment
+    // Notify comment author — fire-and-forget so the like response stays fast
     if (comment && liker && comment.userId !== userId) {
-      try {
-        const isReply = comment.parentId !== null && comment.parentId !== undefined;
-        const preview = comment.content.length > 60 ? comment.content.slice(0, 60) + "…" : comment.content;
-        const accountId = comment.accountId;
-        let linkUrl: string | null = null;
-        if (accountId) {
-          const [account] = await db.select({ id: accountsTable.id }).from(accountsTable).where(eq(accountsTable.id, accountId)).limit(1);
-          if (account) linkUrl = `/accounts/${account.id}`;
-        }
-        await db.insert(notificationsTable).values({
-          userId: comment.userId,
-          type: "comment_like",
-          actorUsername: liker.username,
-          message: `liked your ${isReply ? "reply" : "comment"}: "${preview}"`,
-          linkUrl,
-        });
-        logger.info({ toUserId: comment.userId, fromUser: liker.username, isReply }, "Comment like notification sent");
-      } catch (e) {
-        logger.error({ err: e }, "Failed to send comment like notification");
-      }
+      const isReply = comment.parentId !== null && comment.parentId !== undefined;
+      const preview = comment.content.length > 60 ? comment.content.slice(0, 60) + "…" : comment.content;
+      db.insert(notificationsTable).values({
+        userId: comment.userId,
+        type: "comment_like",
+        actorUsername: liker.username,
+        message: `liked your ${isReply ? "reply" : "comment"}: "${preview}"`,
+        linkUrl: `/accounts/${comment.accountId}`,
+      }).catch((e) => logger.error({ err: e }, "Failed to send comment like notification"));
     }
   }
 
