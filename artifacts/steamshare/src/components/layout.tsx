@@ -336,7 +336,7 @@ export function Layout({ children, noFooter }: { children: React.ReactNode; noFo
                           No notifications yet
                         </div>
                       ) : (
-                        <div className="max-h-80 overflow-y-auto divide-y divide-border">
+                        <div className="max-h-80 overflow-y-auto">
                           {/* App notifications (comment likes, etc.) */}
                           {appNotifications.map((n) => {
                             const inner = (
