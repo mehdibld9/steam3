@@ -10,28 +10,31 @@ const router = express.Router();
 router.get("/conversations", requireAuth, async (req, res) => {
   const myId = req.session.userId!;
 
-  // Latest message per conversation partner
+  // Latest message per conversation partner, sorted by most recent first
   const rows = await db.execute(sql`
-    SELECT DISTINCT ON (partner_id)
-      partner_id,
-      m.id,
-      m.content,
-      m.created_at,
-      m.is_read,
-      m.sender_id,
-      u.username AS partner_username,
-      u.avatar_url AS partner_avatar_url,
-      u.is_admin AS partner_is_admin,
-      u.is_moderator AS partner_is_moderator,
-      (SELECT COUNT(*) FROM messages um WHERE um.receiver_id = ${myId} AND um.sender_id = partner_id AND um.is_read = FALSE) AS unread_count
-    FROM (
-      SELECT CASE WHEN sender_id = ${myId} THEN receiver_id ELSE sender_id END AS partner_id, id
-      FROM messages
-      WHERE sender_id = ${myId} OR receiver_id = ${myId}
-    ) conv
-    JOIN messages m ON m.id = conv.id
-    JOIN users u ON u.id = partner_id
-    ORDER BY partner_id, m.created_at DESC
+    SELECT * FROM (
+      SELECT DISTINCT ON (partner_id)
+        partner_id,
+        m.id,
+        m.content,
+        m.created_at,
+        m.is_read,
+        m.sender_id,
+        u.username AS partner_username,
+        u.avatar_url AS partner_avatar_url,
+        u.is_admin AS partner_is_admin,
+        u.is_moderator AS partner_is_moderator,
+        (SELECT COUNT(*) FROM messages um WHERE um.receiver_id = ${myId} AND um.sender_id = partner_id AND um.is_read = FALSE) AS unread_count
+      FROM (
+        SELECT CASE WHEN sender_id = ${myId} THEN receiver_id ELSE sender_id END AS partner_id, id
+        FROM messages
+        WHERE sender_id = ${myId} OR receiver_id = ${myId}
+      ) conv
+      JOIN messages m ON m.id = conv.id
+      JOIN users u ON u.id = partner_id
+      ORDER BY partner_id, m.created_at DESC
+    ) latest_per_partner
+    ORDER BY created_at DESC
   `);
 
   res.json(rows.rows);
@@ -70,7 +73,9 @@ router.get("/:userId", requireAuth, async (req, res) => {
     .set({ isRead: true })
     .where(and(eq(messagesTable.senderId, otherId), eq(messagesTable.receiverId, myId)));
 
-  res.json(messages.reverse());
+  // Return in ascending order (oldest first) — frontend uses flex-col-reverse
+  // so oldest appears at top and newest at bottom, matching normal chat behaviour.
+  res.json(messages);
 });
 
 // Delete a message (only own messages)

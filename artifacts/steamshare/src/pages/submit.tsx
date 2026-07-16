@@ -269,10 +269,11 @@ export default function Submit() {
                       <FormLabel>Games (comma-separated)</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="CS:GO, Rust, Terraria, GTA V"
+                          placeholder={isFamilyShare ? "CS:GO, Rust, Terraria, GTA V" : "Only available for Family Share accounts"}
                           {...field}
                           readOnly={isVerifiedNotFamilyShare}
-                          className={isVerifiedNotFamilyShare ? "bg-muted/50 cursor-not-allowed text-muted-foreground" : ""}
+                          disabled={!isFamilyShare}
+                          className={!isFamilyShare ? "bg-muted/50 cursor-not-allowed text-muted-foreground" : ""}
                         />
                       </FormControl>
                       {isVerifiedNotFamilyShare ? (
@@ -284,7 +285,9 @@ export default function Submit() {
                           Family Share detected — enter the games manually, separated by commas.
                         </FormDescription>
                       ) : (
-                        <FormDescription>Separate each game with a comma.</FormDescription>
+                        <FormDescription className="text-muted-foreground/70">
+                          Games can only be entered for Family Share accounts. Verify your account first.
+                        </FormDescription>
                       )}
                       <FormMessage />
                     </FormItem>
