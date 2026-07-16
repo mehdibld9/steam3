@@ -1,12 +1,11 @@
 // @ts-nocheck
 import express from "express";
-import { db, commentsTable, usersTable, likesTable, accountsTable } from "@workspace/db";
+import { db, commentsTable, usersTable, likesTable, accountsTable, notificationsTable } from "@workspace/db";
 import { eq, and, sql, inArray, asc, isNull } from "drizzle-orm";
 import { CreateCommentBody } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { filterContent } from "../lib/contentFilter";
 import { getSetting } from "../lib/settings";
-import { sendBotMessage } from "../lib/adminBot";
 
 const router = express.Router({ mergeParams: true });
 
@@ -207,10 +206,14 @@ router.post("/:commentId/like", requireAuth, async (req, res) => {
     if (comment && liker && comment.userId !== userId) {
       const isReply = comment.parentId !== null;
       const preview = comment.content.length > 60 ? comment.content.slice(0, 60) + "…" : comment.content;
-      const [account] = await db.select({ title: accountsTable.title }).from(accountsTable).where(eq(accountsTable.id, comment.accountId)).limit(1);
-      const accountLabel = account?.title ? `**${account.title}**` : `account #${comment.accountId}`;
-      const msg = `❤️ **${liker.username}** liked your ${isReply ? "reply" : "comment"} on ${accountLabel}:\n> ${preview}`;
-      sendBotMessage(comment.userId, msg).catch(() => {});
+      const [account] = await db.select({ title: accountsTable.title, id: accountsTable.id }).from(accountsTable).where(eq(accountsTable.id, comment.accountId)).limit(1);
+      db.insert(notificationsTable).values({
+        userId: comment.userId,
+        type: "comment_like",
+        actorUsername: liker.username,
+        message: `liked your ${isReply ? "reply" : "comment"}: "${preview}"`,
+        linkUrl: account ? `/account/${account.id}` : null,
+      }).catch(() => {});
     }
   }
 

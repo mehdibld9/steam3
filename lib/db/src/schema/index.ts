@@ -19,3 +19,4 @@ export * from "./siteSettings";
 export * from "./premiumCodes";
 export * from "./ipBans";
 export * from "./accountClaims";
+export * from "./notifications";

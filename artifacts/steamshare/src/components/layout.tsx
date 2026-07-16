@@ -8,7 +8,7 @@ import {
   Shield, Plus, LogOut, Coins, Trophy, Gift,
   MessageSquare, Menu, X, ChevronRight, Bell, Home,
   LayoutGrid, User, Settings, ShoppingBag, Sun, Moon, ArrowLeft,
-  Megaphone, ExternalLink, Mail, Phone, MapPin, Crown,
+  Megaphone, ExternalLink, Mail, Phone, MapPin, Crown, Heart,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "@/lib/theme";
@@ -16,6 +16,37 @@ import { useTheme } from "@/lib/theme";
 async function fetchUnreadCount(): Promise<number> {
   try {
     const res = await fetch("/api/messages/unread/count", { credentials: "include" });
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return data.count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+interface AppNotification {
+  id: number;
+  type: string;
+  actorUsername: string;
+  message: string;
+  linkUrl: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+async function fetchNotifications(): Promise<AppNotification[]> {
+  try {
+    const res = await fetch("/api/notifications", { credentials: "include" });
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
+async function fetchNotifUnreadCount(): Promise<number> {
+  try {
+    const res = await fetch("/api/notifications/unread/count", { credentials: "include" });
     if (!res.ok) return 0;
     const data = await res.json();
     return data.count ?? 0;
@@ -72,14 +103,38 @@ export function Layout({ children, noFooter }: { children: React.ReactNode; noFo
   const activeGiveaways = giveaways.filter((g) => g.isActive);
   const [seenIds, setSeenIds] = useState<number[]>(getSeenIds);
   const newGiveaways = activeGiveaways.filter((g) => !seenIds.includes(g.id));
-  const notifCount = newGiveaways.length;
+
+  // App notifications (comment likes, etc.)
+  const { data: appNotifications = [], refetch: refetchNotifs } = useQuery({
+    queryKey: ["app-notifications"],
+    queryFn: fetchNotifications,
+    enabled: !!user,
+    refetchInterval: 30_000,
+  });
+  const { data: notifUnread = 0 } = useQuery({
+    queryKey: ["app-notifications-unread"],
+    queryFn: fetchNotifUnreadCount,
+    enabled: !!user,
+    refetchInterval: 30_000,
+  });
+
+  const notifCount = newGiveaways.length + notifUnread;
 
   const openBell = () => {
+    const opening = !bellOpen;
     setBellOpen((o) => !o);
-    if (!bellOpen && newGiveaways.length > 0) {
-      const allIds = activeGiveaways.map((g) => g.id);
-      markAllSeen(allIds);
-      setSeenIds(allIds);
+    if (opening) {
+      if (newGiveaways.length > 0) {
+        const allIds = activeGiveaways.map((g) => g.id);
+        markAllSeen(allIds);
+        setSeenIds(allIds);
+      }
+      if (notifUnread > 0) {
+        fetch("/api/notifications/read-all", { method: "POST", credentials: "include" })
+          .then(() => refetchNotifs())
+          .catch(() => {});
+        queryClient.setQueryData(["app-notifications-unread"], 0);
+      }
     }
   };
 
@@ -275,18 +330,45 @@ export function Layout({ children, noFooter }: { children: React.ReactNode; noFo
                           <X className="h-4 w-4" />
                         </button>
                       </div>
-                      {activeGiveaways.length === 0 ? (
+
+                      {appNotifications.length === 0 && activeGiveaways.length === 0 ? (
                         <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                          No active giveaways right now
+                          No notifications yet
                         </div>
                       ) : (
-                        <div className="max-h-72 overflow-y-auto divide-y divide-border">
+                        <div className="max-h-80 overflow-y-auto divide-y divide-border">
+                          {/* App notifications (comment likes, etc.) */}
+                          {appNotifications.map((n) => {
+                            const inner = (
+                              <div className={`w-full px-4 py-3 text-left hover:bg-secondary/50 transition-colors flex items-start gap-3 ${!n.isRead ? "bg-primary/5" : ""}`}>
+                                <div className="mt-0.5 w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">
+                                  <Heart className="h-4 w-4 text-red-500" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-foreground">
+                                    <span className="font-semibold">{n.actorUsername}</span>{" "}
+                                    <span className="text-muted-foreground">{n.message}</span>
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    {new Date(n.createdAt).toLocaleDateString()}
+                                  </p>
+                                </div>
+                                {!n.isRead && <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+                              </div>
+                            );
+                            return n.linkUrl ? (
+                              <Link key={n.id} href={n.linkUrl}>
+                                <button onClick={() => setBellOpen(false)} className="w-full">{inner}</button>
+                              </Link>
+                            ) : (
+                              <div key={n.id}>{inner}</div>
+                            );
+                          })}
+
+                          {/* Active giveaways */}
                           {activeGiveaways.map((g) => (
-                            <Link key={g.id} href="/giveaways">
-                              <button
-                                onClick={() => setBellOpen(false)}
-                                className="w-full px-4 py-3 text-left hover:bg-secondary/50 transition-colors"
-                              >
+                            <Link key={`g-${g.id}`} href="/giveaways">
+                              <button onClick={() => setBellOpen(false)} className="w-full px-4 py-3 text-left hover:bg-secondary/50 transition-colors">
                                 <div className="flex items-start gap-3">
                                   <div className="mt-0.5 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                                     <Gift className="h-4 w-4 text-primary" />
@@ -294,9 +376,7 @@ export function Layout({ children, noFooter }: { children: React.ReactNode; noFo
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-semibold text-foreground truncate">{g.title}</p>
                                     <p className="text-xs text-muted-foreground mt-0.5 truncate">Prize: {g.prize}</p>
-                                    <p className="text-xs text-primary mt-0.5">
-                                      {g.entriesCount}/{g.maxEntries} entries · Active
-                                    </p>
+                                    <p className="text-xs text-primary mt-0.5">{g.entriesCount}/{g.maxEntries} entries · Active</p>
                                   </div>
                                 </div>
                               </button>
@@ -304,6 +384,7 @@ export function Layout({ children, noFooter }: { children: React.ReactNode; noFo
                           ))}
                         </div>
                       )}
+
                       <div className="px-4 py-2.5 border-t border-border">
                         <Link href="/giveaways">
                           <button onClick={() => setBellOpen(false)} className="text-xs text-primary hover:underline font-medium">
