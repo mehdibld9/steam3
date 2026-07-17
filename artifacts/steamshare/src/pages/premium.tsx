@@ -155,7 +155,7 @@ export default function Premium() {
                       <span className="text-muted-foreground text-sm">or</span>
                       <OriginalPrice cents={pricing.premiumUsdCents} />
                       <span className="font-bold text-lg">{formatUsd(pricing.premiumUsdCents)}</span>
-                      <span className="text-xs text-muted-foreground">/ month</span>
+                      <span className="text-xs text-muted-foreground">/ year</span>
                     </div>
                   )}
                 </>
@@ -228,7 +228,7 @@ export default function Premium() {
                 <div className="flex items-center gap-2">
                   <OriginalPrice cents={pricing.proUsdCents} />
                   <span className="font-bold text-lg">{formatUsd(pricing.proUsdCents)}</span>
-                  <span className="text-xs text-muted-foreground">/ month</span>
+                  <span className="text-xs text-muted-foreground">/ year</span>
                 </div>
               ) : (
                 <div className="h-8 bg-secondary animate-pulse rounded" />
@@ -291,7 +291,7 @@ export default function Premium() {
             Your badge and name color will appear next to your name on all account posts, comments, and your profile page.
           </p>
           <p className="text-sm text-muted-foreground">
-            Subscriptions are <strong className="text-foreground">monthly</strong> and must be renewed each month. If your subscription expires, your name color and badge will be hidden until you renew.
+            Subscriptions are <strong className="text-foreground">yearly</strong> and must be renewed each year. If your subscription expires, your name color and badge will be hidden until you renew.
           </p>
         </div>
       </div>
