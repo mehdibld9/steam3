@@ -24,7 +24,7 @@ const formSchema = z.object({
   unlockMethod: z.enum(["login", "like", "comment"]).default("login"),
 });
 
-type VerifyStatus = "idle" | "checking" | "valid" | "invalid" | "rate_limited" | "error";
+type VerifyStatus = "idle" | "checking" | "valid" | "invalid" | "2fa" | "rate_limited" | "error";
 
 export default function Submit() {
   const [, setLocation] = useLocation();
@@ -122,6 +122,8 @@ export default function Submit() {
         }
       } else {
         setIsFamilyShare(false);
+        // Clear games list on failure so stale data isn't submitted
+        form.setValue("gamesList", "");
       }
     } catch (e: any) {
       setVerifyStatus("error");
@@ -169,7 +171,7 @@ export default function Submit() {
   }
 
   const hasCredentials = !!watchUsername && !!watchPassword;
-  const canSubmit = verifyStatus === "valid" && dupStatus !== "exists";
+  const canSubmit = verifyStatus === "valid" && dupStatus !== "exists" && dupStatus !== "checking";
 
   const verifyIcon = verifyStatus === "checking"
     ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -422,7 +424,24 @@ export default function Submit() {
                       </div>
                     )}
 
-                    {(verifyStatus === "invalid" || verifyStatus === "error" || verifyStatus === "rate_limited") && (
+                    {verifyStatus === "invalid" && (
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-500 flex items-center gap-2">
+                        <XCircle className="h-4 w-4 shrink-0" />
+                        Wrong password — please double-check your Steam password and try again.
+                      </div>
+                    )}
+
+                    {verifyStatus === "2fa" && (
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-500 flex items-start gap-2">
+                        <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold">2FA is enabled on this account</p>
+                          <p className="text-xs opacity-80 mt-0.5">Only accounts without Steam Guard / 2FA can be posted. Disable 2FA on this account and try again.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {(verifyStatus === "error" || verifyStatus === "rate_limited") && (
                       <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-500 flex items-center gap-2">
                         <XCircle className="h-4 w-4 shrink-0" />
                         {verifyMessage || "Could not verify credentials. Please check them and try again."}

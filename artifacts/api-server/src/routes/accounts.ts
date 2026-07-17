@@ -27,6 +27,11 @@ router.post("/verify-credentials", requireAuth, async (req, res) => {
     return;
   }
   const result = await checkSteamCredentials(steamUsername, steamPassword);
+  // Detect 2FA: Steam says credentials are valid but 2FA blocks unattended login
+  if (result.status === "valid" && result.message.includes("2FA")) {
+    res.json({ ...result, status: "2fa" });
+    return;
+  }
   res.json(result);
 });
 
