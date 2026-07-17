@@ -369,7 +369,7 @@ export default function Messages() {
                     className={`w-full flex items-center gap-3 p-3 hover:bg-muted/40 transition-colors text-left ${selectedUserId === conv.partner_id ? "bg-primary/10 border-r-2 border-primary" : ""}`}
                   >
                     <Avatar className="h-10 w-10 shrink-0">
-                      <AvatarImage src={conv.partner_avatar_url || undefined} />
+                      <AvatarImage src={conv.partner_avatar_url || "/default-avatar.png"} />
                       <AvatarFallback>{(conv.partner_username?.substring(0, 2) ?? "").toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
