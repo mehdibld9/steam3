@@ -55,11 +55,20 @@ router.get("/", async (req, res) => {
   const limit = Math.min(parseInt(String(req.query.limit ?? "50"), 10), 100);
   const offset = (page - 1) * limit;
   const game = req.query.game as string | undefined;
+  const search = String(req.query.search ?? "").trim();
   const sort = (req.query.sort as string) ?? "recent";
   const userId = req.session?.userId;
 
   const conditions = [eq(accountsTable.isAvailable, true), isNull(accountsTable.deletedAt)];
   if (game) conditions.push(sql`${game} = ANY(${accountsTable.games})`);
+  if (search) {
+    const like = `%${search.toLowerCase()}%`;
+    conditions.push(sql`(
+      LOWER(${accountsTable.title}) LIKE ${like}
+      OR LOWER(${accountsTable.description}) LIKE ${like}
+      OR EXISTS (SELECT 1 FROM unnest(${accountsTable.games}) g WHERE LOWER(g) LIKE ${like})
+    )`);
+  }
 
   const accounts = await db
     .select({

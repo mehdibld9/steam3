@@ -50,10 +50,11 @@ export default function Browse() {
   const { data: gamesData, isLoading: gamesLoading } = useListGames();
   const { data: accountsData, isLoading: accountsLoading } = useListAccounts({
     game: selectedGame !== "all" ? selectedGame : undefined,
+    search: search.trim() || undefined,
     sort,
     page,
     limit: LIMIT,
-  });
+  } as any);
   const { data: announcements = [] } = useQuery({
     queryKey: ["announcements"],
     queryFn: fetchAnnouncements,
@@ -84,9 +85,11 @@ export default function Browse() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGame, sort]);
 
-  // Keep search in URL too (replaceState).
+  // When search changes, reset to page 1 and update URL.
   useEffect(() => {
-    window.history.replaceState(null, "", buildQS(page));
+    if (!mounted.current) return;
+    setPage(1);
+    window.history.replaceState(null, "", buildQS(1));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
@@ -127,14 +130,7 @@ export default function Browse() {
     }
   }, [accountsLoading]);
 
-  const filteredAccounts = accounts.filter((a) => {
-    const q = search.toLowerCase();
-    return (
-      a.title.toLowerCase().includes(q) ||
-      a.description.toLowerCase().includes(q) ||
-      (a.games && a.games.some((g: string) => g.toLowerCase().includes(q)))
-    );
-  });
+  const filteredAccounts = accounts;
 
   const pageList = buildPageList(page, totalPages);
 
