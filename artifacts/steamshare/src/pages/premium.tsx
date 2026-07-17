@@ -266,7 +266,6 @@ export default function Premium() {
                       </Button>
                     </Link>
                   )}
-                  <p className="text-xs text-center text-muted-foreground">Pro subscriptions are processed manually.</p>
                 </div>
               )
             ) : (
@@ -276,7 +275,6 @@ export default function Premium() {
                     Login to Buy Pro
                   </Button>
                 </Link>
-                <p className="text-xs text-center text-muted-foreground">Pro subscriptions are processed manually.</p>
               </div>
             )}
           </div>

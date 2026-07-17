@@ -199,7 +199,6 @@ export default function Admin() {
     { value: "users", label: "Users" },
     { value: "accounts", label: "Accounts" },
     { value: "reports", label: "Reports" },
-    ...(user?.isAdmin ? [{ value: "ads", label: "Ad Links" }] : []),
     ...(user?.isAdmin ? [{ value: "store", label: "Store" }] : []),
     ...(user?.isAdmin ? [{ value: "announcements", label: "News" }] : []),
     ...(user?.isAdmin ? [{ value: "site-settings", label: "Site Settings" }] : []),
@@ -234,7 +233,6 @@ export default function Admin() {
           <TabsContent value="users"><UsersTab isAdmin={!!user?.isAdmin} /></TabsContent>
           <TabsContent value="accounts"><AccountsTab /></TabsContent>
           <TabsContent value="reports"><ReportsTab /></TabsContent>
-          {user?.isAdmin && <TabsContent value="ads"><AdLinksTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="store"><StoreTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>}
           {user?.isAdmin && <TabsContent value="site-settings"><SiteSettingsTab /></TabsContent>}
@@ -2443,8 +2441,43 @@ function PremiumAdminTab() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const premiumUsers = (allUsers as any[]).filter((u) => u.premiumTier && u.premiumExpiresAt);
+
   return (
     <div className="space-y-6">
+
+      {/* Active Premium Users */}
+      <div className="bg-card border border-yellow-500/20 rounded-xl p-6 space-y-4">
+        <h3 className="font-bold text-foreground text-base flex items-center gap-2">
+          <span className="text-yellow-400">★</span> Active Premium Users
+          <span className="ml-auto text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{premiumUsers.length}</span>
+        </h3>
+        {premiumUsers.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">No active premium subscriptions.</p>
+        ) : (
+          <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+            <div className="grid grid-cols-3 px-4 py-2 bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <span>User</span><span>Tier</span><span>Expires</span>
+            </div>
+            {premiumUsers.map((u: any) => {
+              const expired = u.premiumExpiresAt && new Date(u.premiumExpiresAt) < new Date();
+              return (
+                <div key={u.id} className="grid grid-cols-3 px-4 py-2.5 text-sm items-center hover:bg-muted/20 transition-colors">
+                  <span className="font-medium truncate">{u.username}</span>
+                  <span className={u.premiumTier === "pro" ? "text-blue-400 font-semibold" : "text-yellow-400 font-semibold"}>
+                    {u.premiumTier === "pro" ? "💎 Pro" : "⭐ Premium"}
+                  </span>
+                  <span className={expired ? "text-destructive" : "text-muted-foreground"}>
+                    {u.premiumExpiresAt ? new Date(u.premiumExpiresAt).toLocaleDateString() : "—"}
+                    {expired && <span className="ml-1 text-xs">(expired)</span>}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Grant / Revoke */}
       <div className="bg-card border border-yellow-500/20 rounded-xl p-6 space-y-4">
         <h3 className="font-bold text-foreground text-base flex items-center gap-2">
