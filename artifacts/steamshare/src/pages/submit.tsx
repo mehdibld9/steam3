@@ -427,7 +427,7 @@ export default function Submit() {
                     {verifyStatus === "invalid" && (
                       <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-500 flex items-center gap-2">
                         <XCircle className="h-4 w-4 shrink-0" />
-                        Wrong password — please double-check your Steam password and try again.
+                        Wrong password.
                       </div>
                     )}
 
@@ -436,7 +436,7 @@ export default function Submit() {
                         <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
                         <div>
                           <p className="font-semibold">2FA is enabled on this account</p>
-                          <p className="text-xs opacity-80 mt-0.5">Only accounts without Steam Guard / 2FA can be posted. Disable 2FA on this account and try again.</p>
+                          <p className="text-xs opacity-80 mt-0.5">Only accounts without Steam Guard / 2FA can be posted.</p>
                         </div>
                       </div>
                     )}
