@@ -2298,6 +2298,23 @@ function PremiumAdminTab() {
 
   const { data: allUsers = [] } = useQuery({ queryKey: ["admin-users"], queryFn: fetchAdminUsers });
 
+  // Server-side user search for grant/revoke (finds any user, not just first 50)
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+  const { data: searchResults = [] } = useQuery({
+    queryKey: ["admin-users-search", debouncedSearch],
+    queryFn: async () => {
+      if (!debouncedSearch.trim()) return [];
+      const res = await fetch(`/api/admin/users?search=${encodeURIComponent(debouncedSearch)}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json() as Promise<any[]>;
+    },
+    enabled: debouncedSearch.trim().length > 0,
+  });
+
   const { data: pricing } = useQuery({
     queryKey: ["premium-pricing-admin"],
     queryFn: async () => {
@@ -2380,9 +2397,7 @@ function PremiumAdminTab() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const filtered = search.trim().length > 0
-    ? (allUsers as any[]).filter((u) => u.username.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
-    : [];
+  const filtered = searchResults.slice(0, 8);
 
   const grantMutation = useMutation({
     mutationFn: async () => {

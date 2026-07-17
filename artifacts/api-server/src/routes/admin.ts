@@ -21,8 +21,9 @@ const router = express.Router();
 // --- Users ---
 router.get("/users", requireModOrAdmin, async (req, res) => {
   const page = parseInt(String(req.query.page ?? "1"), 10);
-  const limit = 50;
-  const offset = (page - 1) * limit;
+  const search = String(req.query.search ?? "").trim();
+  const limit = search ? 20 : 50;
+  const offset = search ? 0 : (page - 1) * limit;
 
   const users = await db
     .select({
@@ -48,6 +49,7 @@ router.get("/users", requireModOrAdmin, async (req, res) => {
       premiumExpiresAt: usersTable.premiumExpiresAt,
     })
     .from(usersTable)
+    .where(search ? sql`LOWER(${usersTable.username}) LIKE ${"%" + search.toLowerCase() + "%"}` : undefined)
     .orderBy(desc(usersTable.createdAt))
     .limit(limit)
     .offset(offset);
