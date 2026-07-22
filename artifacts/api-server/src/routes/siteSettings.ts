@@ -26,6 +26,7 @@ router.get("/", async (_req, res) => {
   const bannedWordsRow = settings.find((s) => s.key === "banned_words");
   const bannedWords: string[] = bannedWordsRow ? JSON.parse(bannedWordsRow.value || "[]") : [];
 
+  res.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
   res.json({ contact, footerLinks: links, bannedWords });
 });
 
@@ -140,6 +141,7 @@ router.get("/ticker", async (_req, res) => {
   const rows = await db.select().from(siteSettingsTable);
   const map: Record<string, string> = {};
   for (const r of rows) map[r.key] = r.value;
+  res.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
   res.json({
     enabled: map.ticker_enabled === "1",
     icon: map.ticker_icon ?? "",
@@ -178,6 +180,7 @@ router.get("/ads", async (req, res) => {
     .from(adsTable)
     .where(and(...conditions))
     .orderBy(asc(adsTable.sortOrder), asc(adsTable.createdAt));
+  res.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
   res.json(ads);
 });
 

@@ -28,6 +28,7 @@ router.get("/", async (req, res) => {
     ...r,
     popupButtons: (() => { try { return JSON.parse(r.popupButtons || "[]"); } catch { return []; } })(),
   }));
+  res.set("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
   res.json(result);
 });
 

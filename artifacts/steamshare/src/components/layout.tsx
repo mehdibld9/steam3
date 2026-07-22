@@ -93,12 +93,12 @@ export function Layout({ children, noFooter }: { children: React.ReactNode; noFo
     queryKey: ["unread-messages"],
     queryFn: fetchUnreadCount,
     enabled: !!user,
-    refetchInterval: 30_000,
+    refetchInterval: 120_000,
   });
 
   // Giveaway notifications — track unseen active giveaways
   const { data: giveaways = [] } = useListGiveaways({
-    query: { queryKey: getListGiveawaysQueryKey(), refetchInterval: 60_000 },
+    query: { queryKey: getListGiveawaysQueryKey(), refetchInterval: 300_000 },
   });
   const activeGiveaways = giveaways.filter((g) => g.isActive);
   const [seenIds, setSeenIds] = useState<number[]>(getSeenIds);
@@ -109,7 +109,7 @@ export function Layout({ children, noFooter }: { children: React.ReactNode; noFo
     queryKey: ["app-notifications"],
     queryFn: fetchNotifications,
     enabled: !!user,
-    refetchInterval: 30_000,
+    refetchInterval: 120_000,
   });
   const notifUnread = appNotifications.filter((n) => !n.isRead).length;
 

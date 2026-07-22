@@ -285,14 +285,14 @@ export default function Messages() {
   const { data: conversations } = useQuery({
     queryKey: ["conversations"],
     queryFn: fetchConversations,
-    refetchInterval: 5000,
+    refetchInterval: 20_000,
   });
 
   const { data: messages, refetch: refetchMessages } = useQuery({
     queryKey: ["messages", selectedUserId],
     queryFn: () => fetchMessages(selectedUserId!),
     enabled: !!selectedUserId,
-    refetchInterval: 3000,
+    refetchInterval: 15_000,
   });
 
   const sendMutation = useMutation({

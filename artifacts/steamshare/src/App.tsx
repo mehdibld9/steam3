@@ -101,7 +101,7 @@ function BannedGuard({ children }: { children: React.ReactNode }) {
       return res.json();
     },
     retry: false,
-    staleTime: 30_000,
+    staleTime: 5 * 60_000,
   });
 
   // If banned and not already on the banned page, redirect there
