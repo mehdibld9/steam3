@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const accountClaimsTable = pgTable("account_claims", {
   id: serial("id").primaryKey(),
@@ -8,6 +8,9 @@ export const accountClaimsTable = pgTable("account_claims", {
   steamPassword: text("steam_password"),
   pointsSpent: integer("points_spent").notNull().default(0),
   claimedAt: timestamp("claimed_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  // "Has this user already claimed this account?" — fired on every detail page load for logged-in users
+  uniqueIndex("account_claims_user_account_idx").on(t.userId, t.accountId),
+]);
 
 export type AccountClaim = typeof accountClaimsTable.$inferSelect;

@@ -82,12 +82,17 @@ router.post("/users/:userId/ban", requireModOrAdmin, async (req, res) => {
     .where(eq(usersTable.id, userId));
 
   // Auto IP-ban: block both registration IP and last login IP so they can't make a new account
-  const ipsToBan = [target.registrationIp, target.lastLoginIp].filter((ip): ip is string =>
-    !!ip && ip !== "unknown"
-  );
-  for (const ip of [...new Set(ipsToBan)]) {
+  const ipsToBan = [...new Set(
+    [target.registrationIp, target.lastLoginIp].filter((ip): ip is string => !!ip && ip !== "unknown")
+  )];
+  if (ipsToBan.length > 0) {
+    // Batch insert all IPs in one statement instead of one query per IP
     await db.insert(ipBansTable)
-      .values({ ip, reason: `Auto-banned: user ${target.username} (id=${target.id}) was banned — ${reason ?? "no reason"}`, bannedByUserId: req.session.userId })
+      .values(ipsToBan.map((ip) => ({
+        ip,
+        reason: `Auto-banned: user ${target.username} (id=${target.id}) was banned — ${reason ?? "no reason"}`,
+        bannedByUserId: req.session.userId,
+      })))
       .onConflictDoNothing();
   }
 
@@ -107,9 +112,12 @@ router.delete("/users/:userId/ban", requireModOrAdmin, async (req, res) => {
 
   // Remove auto IP bans for this user's IPs
   if (target) {
-    const ips = [target.registrationIp, target.lastLoginIp].filter((ip): ip is string => !!ip && ip !== "unknown");
-    for (const ip of [...new Set(ips)]) {
-      await db.delete(ipBansTable).where(eq(ipBansTable.ip, ip));
+    const ips = [...new Set(
+      [target.registrationIp, target.lastLoginIp].filter((ip): ip is string => !!ip && ip !== "unknown")
+    )];
+    if (ips.length > 0) {
+      // Single DELETE … WHERE ip = ANY(…) instead of one query per IP
+      await db.delete(ipBansTable).where(inArray(ipBansTable.ip, ips));
     }
   }
 
@@ -365,6 +373,8 @@ router.get("/dashboard", requireAdmin, async (_req, res) => {
     db.select({ total: sql<number>`coalesce(sum(${usersTable.points}), 0)` }).from(usersTable),
   ]);
 
+  // Admin-only: private so CDN won't cache it publicly, but allows browser to cache briefly
+  res.set("Cache-Control", "private, max-age=30");
   res.json({
     users: {
       total: Number(totalUsers),

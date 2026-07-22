@@ -295,27 +295,26 @@ router.get("/:accountId", async (req, res) => {
   let myClaim: { steamUsername: string; steamPassword: string } | null = null;
 
   if (userId) {
-    const [like] = await db.select().from(likesTable)
-      .where(and(eq(likesTable.userId, userId), eq(likesTable.targetType, "account"), eq(likesTable.targetId, accountId)))
-      .limit(1);
-    userHasLiked = !!like;
-
-    const [voteRow] = await db.select().from(accountVotesTable)
-      .where(and(eq(accountVotesTable.userId, userId), eq(accountVotesTable.accountId, accountId)))
-      .limit(1);
-    myVote = voteRow?.vote ?? null;
-
-    const [commentRow] = await db.select({ id: commentsTable.id }).from(commentsTable)
-      .where(and(eq(commentsTable.userId, userId), eq(commentsTable.accountId, accountId)))
-      .limit(1);
-    userHasCommented = !!commentRow;
-
-    // Return cached credentials if this user already claimed this account
-    const [claimRow] = await db.select().from(accountClaimsTable)
-      .where(and(eq(accountClaimsTable.userId, userId), eq(accountClaimsTable.accountId, accountId)))
-      .limit(1);
-    if (claimRow) {
-      myClaim = { steamUsername: claimRow.steamUsername ?? "", steamPassword: claimRow.steamPassword ?? "" };
+    // All four user-specific lookups are independent — run them in parallel
+    const [likeRows, voteRows, commentRows, claimRows] = await Promise.all([
+      db.select({ id: likesTable.id }).from(likesTable)
+        .where(and(eq(likesTable.userId, userId), eq(likesTable.targetType, "account"), eq(likesTable.targetId, accountId)))
+        .limit(1),
+      db.select({ vote: accountVotesTable.vote }).from(accountVotesTable)
+        .where(and(eq(accountVotesTable.userId, userId), eq(accountVotesTable.accountId, accountId)))
+        .limit(1),
+      db.select({ id: commentsTable.id }).from(commentsTable)
+        .where(and(eq(commentsTable.userId, userId), eq(commentsTable.accountId, accountId)))
+        .limit(1),
+      db.select().from(accountClaimsTable)
+        .where(and(eq(accountClaimsTable.userId, userId), eq(accountClaimsTable.accountId, accountId)))
+        .limit(1),
+    ]);
+    userHasLiked = likeRows.length > 0;
+    myVote = voteRows[0]?.vote ?? null;
+    userHasCommented = commentRows.length > 0;
+    if (claimRows[0]) {
+      myClaim = { steamUsername: claimRows[0].steamUsername ?? "", steamPassword: claimRows[0].steamPassword ?? "" };
     }
   }
 
@@ -443,8 +442,11 @@ router.post("/:accountId/claim", requireAuth, async (req, res) => {
     return;
   }
 
-  await db.update(usersTable).set({ points: sql`${usersTable.points} - ${account.pointsCost}` }).where(eq(usersTable.id, userId));
-  await db.update(usersTable).set({ points: sql`${usersTable.points} + ${account.pointsCost}` }).where(eq(usersTable.id, account.userId));
+  // Deduct from claimer and credit poster in parallel — independent rows
+  await Promise.all([
+    db.update(usersTable).set({ points: sql`${usersTable.points} - ${account.pointsCost}` }).where(eq(usersTable.id, userId)),
+    db.update(usersTable).set({ points: sql`${usersTable.points} + ${account.pointsCost}` }).where(eq(usersTable.id, account.userId)),
+  ]);
 
   if (account.pointsCost > 0) {
     await db.update(accountsTable).set({ isAvailable: false, claimsCount: sql`${accountsTable.claimsCount} + 1` }).where(eq(accountsTable.id, accountId));

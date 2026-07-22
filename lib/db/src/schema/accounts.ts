@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, boolean, integer, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -32,7 +32,18 @@ export const accountsTable = pgTable("accounts", {
   customButtonEnabled: boolean("custom_button_enabled").notNull().default(false),
   customButtonLabel: text("custom_button_label"),
   customButtonUrl: text("custom_button_url"),
-});
+}, (t) => [
+  // Main listing: WHERE isAvailable = true AND deletedAt IS NULL, ORDER BY createdAt DESC
+  index("accounts_available_created_idx").on(t.isAvailable, t.createdAt),
+  // Popularity sort
+  index("accounts_available_likes_idx").on(t.isAvailable, t.likesCount),
+  // Profile page: all accounts by a given user
+  index("accounts_user_id_idx").on(t.userId),
+  // Pending review queue
+  index("accounts_status_idx").on(t.status),
+  // Soft-delete listing
+  index("accounts_deleted_at_idx").on(t.deletedAt),
+]);
 
 export const insertAccountSchema = createInsertSchema(accountsTable).omit({
   id: true,

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -12,7 +12,12 @@ export const commentsTable = pgTable("comments", {
   content: text("content").notNull(),
   likesCount: integer("likes_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  // Loading all comments for an account page
+  index("comments_account_id_idx").on(t.accountId),
+  // "Has this user commented on this account?" check used for claim unlock
+  index("comments_user_account_idx").on(t.userId, t.accountId),
+]);
 
 export const insertCommentSchema = createInsertSchema(commentsTable).omit({
   id: true,

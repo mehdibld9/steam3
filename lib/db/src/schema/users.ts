@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, boolean, integer, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -26,7 +26,12 @@ export const usersTable = pgTable("users", {
   premiumExpiresAt: timestamp("premium_expires_at", { withTimezone: true }),
   nameColor: text("name_color"),
   badgeType: text("badge_type"),
-});
+}, (t) => [
+  // Leaderboard sort: ORDER BY xp DESC WHERE isBanned = false
+  index("users_xp_idx").on(t.xp),
+  // Ban check on login / vote / like
+  index("users_is_banned_idx").on(t.isBanned),
+]);
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({
   id: true,

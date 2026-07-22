@@ -45,6 +45,7 @@ router.get("/leaderboard", async (req, res) => {
     .limit(limit);
 
   const now = new Date();
+  res.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
   res.json(users.map((u) => {
     const active = u.premiumTier && u.premiumExpiresAt && new Date(u.premiumExpiresAt) > now;
     return {
@@ -87,16 +88,15 @@ router.get("/:userId", async (req, res) => {
     return;
   }
 
-  const [{ totalAccounts }] = await db
-    .select({ totalAccounts: sql<number>`count(*)` })
-    .from(accountsTable)
-    .where(eq(accountsTable.userId, userId));
-
-  const [{ totalLikesReceived }] = await db
-    .select({ totalLikesReceived: sql<number>`count(*)` })
-    .from(likesTable)
-    .leftJoin(accountsTable, eq(likesTable.targetId, accountsTable.id))
-    .where(eq(accountsTable.userId, userId));
+  const [[{ totalAccounts }], [{ totalLikesReceived }]] = await Promise.all([
+    db.select({ totalAccounts: sql<number>`count(*)` })
+      .from(accountsTable)
+      .where(eq(accountsTable.userId, userId)),
+    db.select({ totalLikesReceived: sql<number>`count(*)` })
+      .from(likesTable)
+      .leftJoin(accountsTable, eq(likesTable.targetId, accountsTable.id))
+      .where(eq(accountsTable.userId, userId)),
+  ]);
 
   const now = new Date();
   const premiumActive = user.premiumTier && user.premiumExpiresAt && new Date(user.premiumExpiresAt) > now;
