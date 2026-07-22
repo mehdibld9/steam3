@@ -262,6 +262,16 @@ export function Layout({ children, noFooter }: { children: React.ReactNode; noFo
 
           {/* Right */}
           <div className="flex items-center gap-1.5">
+            {/* VIP / Premium */}
+            <Link href="/premium">
+              <button
+                title="Go Premium"
+                className="p-2 rounded transition-colors hover:bg-yellow-500/10"
+              >
+                <Crown className="h-4 w-4" style={{ color: "#F5C518", filter: "drop-shadow(0 0 4px #F5C51880)" }} />
+              </button>
+            </Link>
+
             {/* Dark mode toggle */}
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
