@@ -3,6 +3,8 @@ import { QueryClient, QueryCache, QueryClientProvider, useQuery } from "@tanstac
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
+import { Layout } from "@/components/layout";
+import { Spinner } from "@/components/ui/spinner";
 
 // Eagerly load the shell pages (always needed on first paint or tiny)
 import Home from "./pages/home";
@@ -116,9 +118,19 @@ function BannedGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function PageLoader() {
+  return (
+    <Layout>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Spinner className="size-8 text-primary" />
+      </div>
+    </Layout>
+  );
+}
+
 function Router() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageLoader />}>
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/browse" component={Browse} />
