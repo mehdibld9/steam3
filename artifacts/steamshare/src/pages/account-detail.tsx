@@ -437,7 +437,11 @@ export default function AccountDetail() {
                     {(() => {
                       const method = (account as any).unlockMethod ?? "login";
                       const isOwner = user?.id === account.userId;
-                      const gateBlocked = !isOwner && user && (
+                      const isProActive =
+                        (user as any)?.premiumTier === "pro" &&
+                        (user as any)?.premiumExpiresAt &&
+                        new Date((user as any).premiumExpiresAt) > new Date();
+                      const gateBlocked = !isOwner && user && !isProActive && (
                         (method === "like" && !account.userHasLiked) ||
                         (method === "comment" && !(account as any).userHasCommented)
                       );
@@ -467,6 +471,11 @@ export default function AccountDetail() {
                 {/* Unlock gate hints */}
                 {(() => {
                   const method = (account as any).unlockMethod ?? "login";
+                  const isProActive =
+                    (user as any)?.premiumTier === "pro" &&
+                    (user as any)?.premiumExpiresAt &&
+                    new Date((user as any).premiumExpiresAt) > new Date();
+                  if (isProActive) return null;
                   if (method === "like" && !account.userHasLiked && user && user.id !== account.userId) {
                     return (
                       <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs sm:text-sm text-center space-y-1">

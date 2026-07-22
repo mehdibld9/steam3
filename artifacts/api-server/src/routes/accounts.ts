@@ -413,23 +413,31 @@ router.post("/:accountId/claim", requireAuth, async (req, res) => {
     return;
   }
 
-  // Enforce unlock method
-  const unlockMethod = account.unlockMethod ?? "login";
-  if (unlockMethod === "like") {
-    const [like] = await db.select().from(likesTable)
-      .where(and(eq(likesTable.userId, userId), eq(likesTable.targetType, "account"), eq(likesTable.targetId, accountId)))
-      .limit(1);
-    if (!like) {
-      res.status(403).json({ error: "You must like this post before claiming." });
-      return;
-    }
-  } else if (unlockMethod === "comment") {
-    const [comment] = await db.select({ id: commentsTable.id }).from(commentsTable)
-      .where(and(eq(commentsTable.userId, userId), eq(commentsTable.accountId, accountId)))
-      .limit(1);
-    if (!comment) {
-      res.status(403).json({ error: "You must leave a comment before claiming." });
-      return;
+  // Pro users bypass unlock-method restrictions
+  const isProActive =
+    user.premiumTier === "pro" &&
+    user.premiumExpiresAt !== null &&
+    new Date(user.premiumExpiresAt) > new Date();
+
+  // Enforce unlock method (skipped for pro users)
+  if (!isProActive) {
+    const unlockMethod = account.unlockMethod ?? "login";
+    if (unlockMethod === "like") {
+      const [like] = await db.select().from(likesTable)
+        .where(and(eq(likesTable.userId, userId), eq(likesTable.targetType, "account"), eq(likesTable.targetId, accountId)))
+        .limit(1);
+      if (!like) {
+        res.status(403).json({ error: "You must like this post before claiming." });
+        return;
+      }
+    } else if (unlockMethod === "comment") {
+      const [comment] = await db.select({ id: commentsTable.id }).from(commentsTable)
+        .where(and(eq(commentsTable.userId, userId), eq(commentsTable.accountId, accountId)))
+        .limit(1);
+      if (!comment) {
+        res.status(403).json({ error: "You must leave a comment before claiming." });
+        return;
+      }
     }
   }
 
