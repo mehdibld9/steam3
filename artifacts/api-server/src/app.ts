@@ -54,6 +54,10 @@ app.use(
     store: new PgSession({
       pool,
       createTableIfMissing: true,
+      // Don't UPDATE the session row on every request just to bump `expire` —
+      // that's an extra DB write per API call. Sessions already get a fresh
+      // maxAge on login; this just stops the unnecessary churn.
+      disableTouch: true,
     }),
     secret: process.env.SESSION_SECRET ?? (() => {
       if (process.env.NODE_ENV === "production") {

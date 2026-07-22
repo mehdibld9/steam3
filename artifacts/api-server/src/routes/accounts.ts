@@ -47,6 +47,7 @@ router.get("/games", async (_req, res) => {
     }
   }
   const result = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([game, count]) => ({ game, count }));
+  res.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
   res.json(result);
 });
 
@@ -70,56 +71,61 @@ router.get("/", async (req, res) => {
     )`);
   }
 
-  const accounts = await db
-    .select({
-      id: accountsTable.id,
-      userId: accountsTable.userId,
-      title: accountsTable.title,
-      description: accountsTable.description,
-      games: accountsTable.games,
-      pointsCost: accountsTable.pointsCost,
-      isAvailable: accountsTable.isAvailable,
-      likesCount: accountsTable.likesCount,
-      viewCount: accountsTable.viewCount,
-      claimsCount: accountsTable.claimsCount,
-      workingVotes: accountsTable.workingVotes,
-      notWorkingVotes: accountsTable.notWorkingVotes,
-      createdAt: accountsTable.createdAt,
-      posterUsername: usersTable.username,
-      posterAvatarUrl: usersTable.avatarUrl,
-      posterIsModerator: usersTable.isModerator,
-      posterIsAdmin: usersTable.isAdmin,
-      posterPremiumTier: usersTable.premiumTier,
-      posterPremiumExpiresAt: usersTable.premiumExpiresAt,
-      posterNameColor: usersTable.nameColor,
-      posterBadgeType: usersTable.badgeType,
-      isPinned: accountsTable.isPinned,
-    })
-    .from(accountsTable)
-    .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
-    .where(and(...conditions))
-    .orderBy(desc(accountsTable.isPinned), sort === "popular" ? desc(accountsTable.likesCount) : desc(accountsTable.createdAt))
-    .limit(limit)
-    .offset(offset);
-
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(accountsTable)
-    .where(and(...conditions));
+  // Run the page query and total count in parallel
+  const [accounts, [{ count }]] = await Promise.all([
+    db
+      .select({
+        id: accountsTable.id,
+        userId: accountsTable.userId,
+        title: accountsTable.title,
+        description: accountsTable.description,
+        games: accountsTable.games,
+        pointsCost: accountsTable.pointsCost,
+        isAvailable: accountsTable.isAvailable,
+        likesCount: accountsTable.likesCount,
+        viewCount: accountsTable.viewCount,
+        claimsCount: accountsTable.claimsCount,
+        workingVotes: accountsTable.workingVotes,
+        notWorkingVotes: accountsTable.notWorkingVotes,
+        createdAt: accountsTable.createdAt,
+        posterUsername: usersTable.username,
+        posterAvatarUrl: usersTable.avatarUrl,
+        posterIsModerator: usersTable.isModerator,
+        posterIsAdmin: usersTable.isAdmin,
+        posterPremiumTier: usersTable.premiumTier,
+        posterPremiumExpiresAt: usersTable.premiumExpiresAt,
+        posterNameColor: usersTable.nameColor,
+        posterBadgeType: usersTable.badgeType,
+        isPinned: accountsTable.isPinned,
+      })
+      .from(accountsTable)
+      .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
+      .where(and(...conditions))
+      .orderBy(desc(accountsTable.isPinned), sort === "popular" ? desc(accountsTable.likesCount) : desc(accountsTable.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(accountsTable)
+      .where(and(...conditions)),
+  ]);
 
   let likedIds = new Set<number>();
   let myVotes = new Map<number, string>();
-  if (userId) {
-    const liked = await db
-      .select({ targetId: likesTable.targetId })
-      .from(likesTable)
-      .where(and(eq(likesTable.userId, userId), eq(likesTable.targetType, "account"), inArray(likesTable.targetId, accounts.map((a) => a.id))));
+  if (userId && accounts.length > 0) {
+    const accountIds = accounts.map((a) => a.id);
+    // Run likes and votes lookups in parallel
+    const [liked, votes] = await Promise.all([
+      db
+        .select({ targetId: likesTable.targetId })
+        .from(likesTable)
+        .where(and(eq(likesTable.userId, userId), eq(likesTable.targetType, "account"), inArray(likesTable.targetId, accountIds))),
+      db
+        .select({ accountId: accountVotesTable.accountId, vote: accountVotesTable.vote })
+        .from(accountVotesTable)
+        .where(and(eq(accountVotesTable.userId, userId), inArray(accountVotesTable.accountId, accountIds))),
+    ]);
     likedIds = new Set(liked.map((l) => l.targetId));
-
-    const votes = await db
-      .select({ accountId: accountVotesTable.accountId, vote: accountVotesTable.vote })
-      .from(accountVotesTable)
-      .where(and(eq(accountVotesTable.userId, userId), inArray(accountVotesTable.accountId, accounts.map((a) => a.id))));
     myVotes = new Map(votes.map((v) => [v.accountId, v.vote]));
   }
 

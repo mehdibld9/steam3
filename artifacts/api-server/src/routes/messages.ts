@@ -10,9 +10,15 @@ const router = express.Router();
 router.get("/conversations", requireAuth, async (req, res) => {
   const myId = req.session.userId!;
 
-  // Latest message per conversation partner, sorted by most recent first
+  // Pre-aggregate unread counts once, then join — avoids a correlated subquery per row
   const rows = await db.execute(sql`
-    SELECT * FROM (
+    WITH unread_counts AS (
+      SELECT sender_id, COUNT(*) AS unread_count
+      FROM messages
+      WHERE receiver_id = ${myId} AND is_read = FALSE
+      GROUP BY sender_id
+    ),
+    latest_per_partner AS (
       SELECT DISTINCT ON (partner_id)
         partner_id,
         m.id,
@@ -20,11 +26,10 @@ router.get("/conversations", requireAuth, async (req, res) => {
         m.created_at,
         m.is_read,
         m.sender_id,
-        u.username AS partner_username,
-        u.avatar_url AS partner_avatar_url,
-        u.is_admin AS partner_is_admin,
-        u.is_moderator AS partner_is_moderator,
-        (SELECT COUNT(*) FROM messages um WHERE um.receiver_id = ${myId} AND um.sender_id = partner_id AND um.is_read = FALSE) AS unread_count
+        u.username    AS partner_username,
+        u.avatar_url  AS partner_avatar_url,
+        u.is_admin    AS partner_is_admin,
+        u.is_moderator AS partner_is_moderator
       FROM (
         SELECT CASE WHEN sender_id = ${myId} THEN receiver_id ELSE sender_id END AS partner_id, id
         FROM messages
@@ -33,8 +38,11 @@ router.get("/conversations", requireAuth, async (req, res) => {
       JOIN messages m ON m.id = conv.id
       JOIN users u ON u.id = partner_id
       ORDER BY partner_id, m.created_at DESC
-    ) latest_per_partner
-    ORDER BY created_at DESC
+    )
+    SELECT lp.*, COALESCE(uc.unread_count, 0) AS unread_count
+    FROM latest_per_partner lp
+    LEFT JOIN unread_counts uc ON uc.sender_id = lp.partner_id
+    ORDER BY lp.created_at DESC
   `);
 
   res.json(rows.rows);
