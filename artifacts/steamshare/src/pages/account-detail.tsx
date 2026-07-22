@@ -412,6 +412,16 @@ export default function AccountDetail() {
                   <div className="space-y-3">
                     <CopyField label="Account" value={claimResult.username} />
                     <CopyField label="Password" value={claimResult.password} />
+                    {(account as any).customButtonEnabled && (account as any).customButtonLabel && (account as any).customButtonUrl && (
+                      <a
+                        href={sanitizeHref((account as any).customButtonUrl)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center w-full gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors"
+                      >
+                        {(account as any).customButtonLabel}
+                      </a>
+                    )}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-3 py-5 text-center">
@@ -559,18 +569,6 @@ export default function AccountDetail() {
                 {!user && <p className="text-xs text-muted-foreground mt-2">Log in to like or report.</p>}
               </div>
             </div>
-
-            {/* Custom button (admin-configured) */}
-            {(account as any).customButtonEnabled && (account as any).customButtonLabel && (account as any).customButtonUrl && (
-              <a
-                href={sanitizeHref((account as any).customButtonUrl)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center w-full gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors"
-              >
-                {(account as any).customButtonLabel}
-              </a>
-            )}
 
             {/* Comments */}
             <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
