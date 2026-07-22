@@ -93,11 +93,12 @@ router.get("/", async (req, res) => {
       posterPremiumExpiresAt: usersTable.premiumExpiresAt,
       posterNameColor: usersTable.nameColor,
       posterBadgeType: usersTable.badgeType,
+      isPinned: accountsTable.isPinned,
     })
     .from(accountsTable)
     .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
     .where(and(...conditions))
-    .orderBy(sort === "popular" ? desc(accountsTable.likesCount) : desc(accountsTable.createdAt))
+    .orderBy(desc(accountsTable.isPinned), sort === "popular" ? desc(accountsTable.likesCount) : desc(accountsTable.createdAt))
     .limit(limit)
     .offset(offset);
 
@@ -186,9 +187,14 @@ router.post("/", requireAuth, async (req, res) => {
   const status = isFamilyShare ? "pending" : "approved";
   const isAvailable = !isFamilyShare;
 
+  const isAdmin = req.session.isAdmin;
+  const customButtonEnabled = isAdmin && !!(req.body as any).customButtonEnabled;
+  const customButtonLabel = customButtonEnabled ? String((req.body as any).customButtonLabel ?? "").trim() || null : null;
+  const customButtonUrl = customButtonEnabled ? String((req.body as any).customButtonUrl ?? "").trim() || null : null;
+
   const [account] = await db
     .insert(accountsTable)
-    .values({ userId, title: filteredTitle, description: filteredDescription, games, pointsCost, steamUsername, steamPassword, unlockMethod: safeUnlockMethod, status, isAvailable })
+    .values({ userId, title: filteredTitle, description: filteredDescription, games, pointsCost, steamUsername, steamPassword, unlockMethod: safeUnlockMethod, status, isAvailable, customButtonEnabled, customButtonLabel, customButtonUrl })
     .returning();
 
   // Only award XP and points immediately for instantly published accounts
@@ -252,6 +258,10 @@ router.get("/:accountId", async (req, res) => {
       lastCheckedAt: accountsTable.lastCheckedAt,
       lastCheckStatus: accountsTable.lastCheckStatus,
       healthFailCount: accountsTable.healthFailCount,
+      isPinned: accountsTable.isPinned,
+      customButtonEnabled: accountsTable.customButtonEnabled,
+      customButtonLabel: accountsTable.customButtonLabel,
+      customButtonUrl: accountsTable.customButtonUrl,
     })
     .from(accountsTable)
     .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
@@ -323,11 +333,15 @@ router.patch("/:accountId", requireAuth, async (req, res) => {
     return;
   }
 
-  const { title, description, games, pointsCost } = req.body as {
+  const { title, description, games, pointsCost, isPinned, customButtonEnabled, customButtonLabel, customButtonUrl } = req.body as {
     title?: string;
     description?: string;
     games?: string[];
     pointsCost?: number;
+    isPinned?: boolean;
+    customButtonEnabled?: boolean;
+    customButtonLabel?: string;
+    customButtonUrl?: string;
   };
 
   const updates: Partial<typeof account> = {};
@@ -335,6 +349,13 @@ router.patch("/:accountId", requireAuth, async (req, res) => {
   if (description !== undefined) updates.description = description;
   if (games !== undefined) updates.games = games;
   if (pointsCost !== undefined) updates.pointsCost = pointsCost;
+  // Admin-only fields
+  if (isAdmin) {
+    if (isPinned !== undefined) updates.isPinned = isPinned;
+    if (customButtonEnabled !== undefined) updates.customButtonEnabled = customButtonEnabled;
+    if (customButtonLabel !== undefined) updates.customButtonLabel = customButtonLabel;
+    if (customButtonUrl !== undefined) updates.customButtonUrl = customButtonUrl;
+  }
 
   const [updated] = await db.update(accountsTable).set(updates).where(eq(accountsTable.id, accountId)).returning();
   res.json(updated);

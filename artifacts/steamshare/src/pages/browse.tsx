@@ -1,14 +1,14 @@
 import { Layout } from "@/components/layout";
 import { AccountCard } from "@/components/account-card";
 import { AdBanner } from "@/components/ad-banner";
-import { useListAccounts, useListGames } from "@workspace/api-client-react";
+import { useListAccounts, useListGames, useGetMe, getListAccountsQueryKey } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect, useRef } from "react";
 import { Search, Filter, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Pin } from "lucide-react";
 
 const LIMIT = 50;
@@ -36,6 +36,17 @@ function buildPageList(current: number, total: number): (number | "…")[] {
   return pages;
 }
 
+async function pinAccount(accountId: number, pinned: boolean) {
+  const res = await fetch(`/api/accounts/${accountId}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isPinned: pinned }),
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+  return res.json();
+}
+
 export default function Browse() {
   const params = getParams();
   const [search, setSearch] = useState(params.get("search") ?? "");
@@ -59,6 +70,25 @@ export default function Browse() {
     queryKey: ["announcements"],
     queryFn: fetchAnnouncements,
   });
+  const { data: me } = useGetMe();
+  const queryClient = useQueryClient();
+
+  const browseQueryKey = getListAccountsQueryKey({
+    game: selectedGame !== "all" ? selectedGame : undefined,
+    search: search.trim() || undefined,
+    sort,
+    page,
+    limit: LIMIT,
+  } as any);
+
+  const handlePin = async (accountId: number) => {
+    await pinAccount(accountId, true);
+    queryClient.invalidateQueries({ queryKey: browseQueryKey });
+  };
+  const handleUnpin = async (accountId: number) => {
+    await pinAccount(accountId, false);
+    queryClient.invalidateQueries({ queryKey: browseQueryKey });
+  };
 
   const accounts = accountsData?.accounts ?? [];
   const total = accountsData?.total ?? 0;
@@ -283,7 +313,12 @@ export default function Browse() {
                       key={account.id}
                       onClick={() => sessionStorage.setItem("browse-scroll", String(window.scrollY))}
                     >
-                      <AccountCard account={account} />
+                      <AccountCard
+                        account={account}
+                        isAdmin={(me as any)?.isAdmin}
+                        onPin={handlePin}
+                        onUnpin={handleUnpin}
+                      />
                     </div>
                   ))}
                 </div>

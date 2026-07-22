@@ -28,6 +28,10 @@ export const accountsTable = pgTable("accounts", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   deletedByUserId: integer("deleted_by_user_id"),
   deletedReason: text("deleted_reason"),
+  isPinned: boolean("is_pinned").notNull().default(false),
+  customButtonEnabled: boolean("custom_button_enabled").notNull().default(false),
+  customButtonLabel: text("custom_button_label"),
+  customButtonUrl: text("custom_button_url"),
 });
 
 export const insertAccountSchema = createInsertSchema(accountsTable).omit({

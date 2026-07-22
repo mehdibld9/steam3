@@ -1,11 +1,11 @@
-import { useListAccounts, useGetMe } from "@workspace/api-client-react";
+import { useListAccounts, useGetMe, getListAccountsQueryKey } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { AccountCard } from "@/components/account-card";
 import { AdBanner } from "@/components/ad-banner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Pin, ChevronRight, Plus, Users } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -27,12 +27,33 @@ async function fetchTicker() {
   return res.json() as Promise<{ enabled: boolean; icon: string; text: string; linkLabel: string; linkUrl: string }>;
 }
 
+async function pinAccount(accountId: number, pinned: boolean) {
+  const res = await fetch(`/api/accounts/${accountId}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isPinned: pinned }),
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
+  return res.json();
+}
+
 export default function Home() {
   const { data: accountsData, isLoading: accountsLoading } = useListAccounts({ sort: "recent", limit: 12 });
   const { data: announcements = [] } = useQuery({ queryKey: ["announcements"], queryFn: fetchAnnouncements });
   const { data: ticker } = useQuery({ queryKey: ["ticker"], queryFn: fetchTicker });
   const { data: me } = useGetMe();
   const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: fetchStats });
+  const queryClient = useQueryClient();
+
+  const handlePin = async (accountId: number) => {
+    await pinAccount(accountId, true);
+    queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey({ sort: "recent", limit: 12 }) });
+  };
+  const handleUnpin = async (accountId: number) => {
+    await pinAccount(accountId, false);
+    queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey({ sort: "recent", limit: 12 }) });
+  };
 
   return (
     <Layout>
@@ -172,7 +193,13 @@ export default function Home() {
           ) : (
             <div className="flex flex-col gap-3">
               {accountsData?.accounts?.map((account) => (
-                <AccountCard key={account.id} account={account} />
+                <AccountCard
+                  key={account.id}
+                  account={account}
+                  isAdmin={(me as any)?.isAdmin}
+                  onPin={handlePin}
+                  onUnpin={handleUnpin}
+                />
               ))}
               {(accountsData?.accounts?.length ?? 0) === 0 && (
                 <div className="py-12 text-center text-muted-foreground border border-dashed border-border rounded-xl">

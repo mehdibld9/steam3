@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { InfoIcon, CheckCircle2, XCircle, Loader2, Clock, HourglassIcon, ArrowLeft } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { MarkdownEditor } from "@/components/markdown-editor";
@@ -22,6 +23,9 @@ const formSchema = z.object({
   steamUsername: z.string().min(1, "Steam username is required"),
   steamPassword: z.string().min(1, "Steam password is required"),
   unlockMethod: z.enum(["login", "like", "comment"]).default("login"),
+  customButtonEnabled: z.boolean().default(false),
+  customButtonLabel: z.string().max(60).optional(),
+  customButtonUrl: z.string().max(500).optional(),
 });
 
 type VerifyStatus = "idle" | "checking" | "valid" | "invalid" | "2fa" | "rate_limited" | "error";
@@ -50,6 +54,9 @@ export default function Submit() {
       steamUsername: "",
       steamPassword: "",
       unlockMethod: "login",
+      customButtonEnabled: false,
+      customButtonLabel: "",
+      customButtonUrl: "",
     },
   });
 
@@ -157,6 +164,11 @@ export default function Submit() {
           steamPassword: values.steamPassword,
           unlockMethod: values.unlockMethod,
           isFamilyShare,
+          ...(user?.isAdmin && values.customButtonEnabled ? {
+            customButtonEnabled: true,
+            customButtonLabel: values.customButtonLabel || "",
+            customButtonUrl: values.customButtonUrl || "",
+          } : {}),
         } as any,
       });
 
@@ -449,6 +461,42 @@ export default function Submit() {
                     )}
                   </div>
                 </div>
+
+                {/* Admin: custom button */}
+                {user?.isAdmin && (
+                  <div className="bg-muted/30 border border-border rounded-xl p-5 space-y-4">
+                    <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Admin: Custom Button</h3>
+                    <FormField control={form.control} name="customButtonEnabled" render={({ field }) => (
+                      <FormItem className="flex items-center gap-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal cursor-pointer">Show a custom button on the published account page</FormLabel>
+                      </FormItem>
+                    )} />
+                    {form.watch("customButtonEnabled") && (
+                      <div className="space-y-3 pt-1">
+                        <FormField control={form.control} name="customButtonLabel" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Button Label</FormLabel>
+                            <FormControl><Input placeholder="e.g. Join Discord" {...field} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="customButtonUrl" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Button URL</FormLabel>
+                            <FormControl><Input placeholder="https://..." {...field} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <Button
                   type="submit"
