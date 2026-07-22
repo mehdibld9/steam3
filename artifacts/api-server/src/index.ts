@@ -26,7 +26,12 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
-  startHealthCheckScheduler();
-  startGiveawayScheduler();
+  // Skip background timers on Vercel — they prevent functions from idling
+  // and burn Fluid Active CPU. Use the /api/cron/tick endpoint + external
+  // cron (e.g. cron-job.org) to trigger these instead.
+  if (!process.env["VERCEL"]) {
+    startHealthCheckScheduler();
+    startGiveawayScheduler();
+  }
   getOrCreateAdminBot().catch((e) => logger.error({ err: e }, "Failed to init Admin Bot"));
 });

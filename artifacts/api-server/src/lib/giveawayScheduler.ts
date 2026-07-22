@@ -64,6 +64,8 @@ async function autoDrawExpiredGiveaways(): Promise<void> {
   }
 }
 
+export { autoDrawExpiredGiveaways };
+
 export function startGiveawayScheduler(): void {
   logger.info("Giveaway auto-draw scheduler started (interval: 1 min)");
 
