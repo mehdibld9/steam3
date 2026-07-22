@@ -36,7 +36,7 @@ async function fetchDashboard() {
 }
 
 function DashboardTab() {
-  const { data, isLoading } = useQuery({ queryKey: ["admin-dashboard"], queryFn: fetchDashboard, refetchInterval: 30000 });
+  const { data, isLoading } = useQuery({ queryKey: ["admin-dashboard"], queryFn: fetchDashboard, refetchInterval: 120_000 });
   const [period, setPeriod] = useState<"24h" | "7d" | "30d">("7d");
 
   if (isLoading) return <div className="text-muted-foreground text-sm py-8 text-center">Loading dashboard...</div>;
@@ -2765,7 +2765,7 @@ function PendingReviewTab() {
   const { data: pending = [], isLoading } = useQuery({
     queryKey: ["admin-pending-accounts"],
     queryFn: fetchPendingAccounts,
-    refetchInterval: 30_000,
+    refetchInterval: 120_000,
   });
 
   const approveMutation = useMutation({

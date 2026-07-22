@@ -6,29 +6,27 @@ import { sql, eq } from "drizzle-orm";
 const router = express.Router();
 
 router.get("/stats", async (_req, res) => {
-  const [{ totalUsers }] = await db
-    .select({ totalUsers: sql<number>`count(*)` })
-    .from(usersTable);
-
-  const [{ totalAccounts }] = await db
-    .select({ totalAccounts: sql<number>`count(*)` })
-    .from(accountsTable);
-
-  const [{ totalClaims }] = await db
-    .select({ totalClaims: sql<number>`coalesce(sum(${accountsTable.claimsCount}), 0)` })
-    .from(accountsTable);
-
-  const [{ totalPoints }] = await db
-    .select({ totalPoints: sql<number>`coalesce(sum(${usersTable.points}), 0)` })
-    .from(usersTable);
-
-  const rows = await db
-    .select({ games: accountsTable.games })
-    .from(accountsTable)
-    .where(eq(accountsTable.isAvailable, true));
+  // Run all three queries in parallel instead of serially
+  const [
+    [{ totalUsers, totalPoints }],
+    [{ totalAccounts, totalClaims }],
+    availableRows,
+  ] = await Promise.all([
+    db.select({
+      totalUsers: sql<number>`count(*)`,
+      totalPoints: sql<number>`coalesce(sum(${usersTable.points}), 0)`,
+    }).from(usersTable),
+    db.select({
+      totalAccounts: sql<number>`count(*)`,
+      totalClaims: sql<number>`coalesce(sum(${accountsTable.claimsCount}), 0)`,
+    }).from(accountsTable),
+    db.select({ games: accountsTable.games })
+      .from(accountsTable)
+      .where(eq(accountsTable.isAvailable, true)),
+  ]);
 
   const counts: Record<string, number> = {};
-  for (const row of rows) {
+  for (const row of availableRows) {
     for (const game of row.games ?? []) {
       counts[game] = (counts[game] ?? 0) + 1;
     }

@@ -1,29 +1,32 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryCache, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
+
+// Eagerly load the shell pages (always needed on first paint or tiny)
+import Home from "./pages/home";
 import NotFound from "@/pages/not-found";
 
-import Home from "./pages/home";
-import Browse from "./pages/browse";
-import Leaderboard from "./pages/leaderboard";
-import AccountDetail from "./pages/account-detail";
-import Profile from "./pages/profile";
-import Submit from "./pages/submit";
-import Admin from "./pages/admin";
-import Earn from "./pages/earn";
-import Login from "./pages/login";
-import Register from "./pages/register";
-import Giveaways from "./pages/giveaways";
-import ForgotPassword from "./pages/forgot-password";
-import ResetPassword from "./pages/reset-password";
-import Banned from "./pages/banned";
-import Messages from "./pages/messages";
-import EditProfile from "./pages/edit-profile";
-import Store from "./pages/store";
-import ProductDetail from "./pages/product-detail";
-import Premium from "./pages/premium";
+// Lazy-load every other route — keeps the initial bundle small
+const Browse = lazy(() => import("./pages/browse"));
+const Leaderboard = lazy(() => import("./pages/leaderboard"));
+const AccountDetail = lazy(() => import("./pages/account-detail"));
+const Profile = lazy(() => import("./pages/profile"));
+const Submit = lazy(() => import("./pages/submit"));
+const Admin = lazy(() => import("./pages/admin"));
+const Earn = lazy(() => import("./pages/earn"));
+const Login = lazy(() => import("./pages/login"));
+const Register = lazy(() => import("./pages/register"));
+const Giveaways = lazy(() => import("./pages/giveaways"));
+const ForgotPassword = lazy(() => import("./pages/forgot-password"));
+const ResetPassword = lazy(() => import("./pages/reset-password"));
+const Banned = lazy(() => import("./pages/banned"));
+const Messages = lazy(() => import("./pages/messages"));
+const EditProfile = lazy(() => import("./pages/edit-profile"));
+const Store = lazy(() => import("./pages/store"));
+const ProductDetail = lazy(() => import("./pages/product-detail"));
+const Premium = lazy(() => import("./pages/premium"));
 
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -35,6 +38,8 @@ const queryClient = new QueryClient({
   }),
   defaultOptions: {
     queries: {
+      staleTime: 60_000,           // treat cached data as fresh for 1 min — prevents refetch on every mount/focus
+      refetchOnWindowFocus: false, // don't refetch on tab-switch — saves Vercel function invocations
       retry: (failureCount, error) => {
         const status = (error as any)?.status;
         if (typeof status === "number" && status >= 400 && status < 500) return false;
@@ -113,28 +118,30 @@ function BannedGuard({ children }: { children: React.ReactNode }) {
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/browse" component={Browse} />
-      <Route path="/leaderboard" component={Leaderboard} />
-      <Route path="/accounts/:id" component={AccountDetail} />
-      <Route path="/profile/:id" component={Profile} />
-      <Route path="/submit" component={Submit} />
-      <Route path="/admin" component={Admin} />
-      <Route path="/earn" component={Earn} />
-      <Route path="/login" component={Login} />
-      <Route path="/register" component={Register} />
-      <Route path="/giveaways" component={Giveaways} />
-      <Route path="/forgot-password" component={ForgotPassword} />
-      <Route path="/reset-password" component={ResetPassword} />
-      <Route path="/banned" component={Banned} />
-      <Route path="/store" component={Store} />
-      <Route path="/store/:id" component={ProductDetail} />
-      <Route path="/messages" component={Messages} />
-      <Route path="/edit-profile" component={EditProfile} />
-      <Route path="/premium" component={Premium} />
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={null}>
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/browse" component={Browse} />
+        <Route path="/leaderboard" component={Leaderboard} />
+        <Route path="/accounts/:id" component={AccountDetail} />
+        <Route path="/profile/:id" component={Profile} />
+        <Route path="/submit" component={Submit} />
+        <Route path="/admin" component={Admin} />
+        <Route path="/earn" component={Earn} />
+        <Route path="/login" component={Login} />
+        <Route path="/register" component={Register} />
+        <Route path="/giveaways" component={Giveaways} />
+        <Route path="/forgot-password" component={ForgotPassword} />
+        <Route path="/reset-password" component={ResetPassword} />
+        <Route path="/banned" component={Banned} />
+        <Route path="/store" component={Store} />
+        <Route path="/store/:id" component={ProductDetail} />
+        <Route path="/messages" component={Messages} />
+        <Route path="/edit-profile" component={EditProfile} />
+        <Route path="/premium" component={Premium} />
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 
