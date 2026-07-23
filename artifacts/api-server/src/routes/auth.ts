@@ -42,12 +42,6 @@ router.post("/register", async (req, res) => {
     return;
   }
 
-  // Block VPN / proxy / hosting IPs
-  const vpn = await isVpnOrProxy(ip);
-  if (vpn) {
-    res.status(403).json({ error: "VPN and proxy connections are not allowed. Please disable your VPN and try again." });
-    return;
-  }
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
   if (existing.length > 0) {
