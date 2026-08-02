@@ -357,12 +357,20 @@ export default function AccountDetail() {
       toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const isAdmin = !!(user as any)?.isAdmin;
+
   const editMutation = useMutation({
     mutationFn: () =>
       patchAccount(id, {
         title: editTitle,
         description: editDesc,
         pointsCost: editCost,
+        ...(isAdmin && {
+          games: editGames
+            .split(",")
+            .map((g) => g.trim())
+            .filter(Boolean),
+        }),
       }),
     onSuccess: () => {
       setEditing(false);
@@ -524,14 +532,23 @@ export default function AccountDetail() {
                   rows={3}
                 />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Input
-                    value={editGames}
-                    readOnly
-                    disabled
-                    placeholder="Games (comma-separated)"
-                    className="bg-muted/50 cursor-not-allowed text-muted-foreground"
-                    title="Game list is set automatically and cannot be edited"
-                  />
+                  {isAdmin ? (
+                    <Input
+                      value={editGames}
+                      onChange={(e) => setEditGames(e.target.value)}
+                      placeholder="Games (comma-separated)"
+                      title="Edit the games list (admin only)"
+                    />
+                  ) : (
+                    <Input
+                      value={editGames}
+                      readOnly
+                      disabled
+                      placeholder="Games (comma-separated)"
+                      className="bg-muted/50 cursor-not-allowed text-muted-foreground"
+                      title="Game list can only be edited by admins"
+                    />
+                  )}
                   <Input
                     type="number"
                     value={editCost}

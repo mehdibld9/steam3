@@ -391,9 +391,10 @@ router.patch("/:accountId", requireAuth, async (req, res) => {
     return;
   }
 
-  const { title, description, pointsCost, isPinned, customButtonEnabled, customButtonLabel, customButtonUrl } = req.body as {
+  const { title, description, games, pointsCost, isPinned, customButtonEnabled, customButtonLabel, customButtonUrl } = req.body as {
     title?: string;
     description?: string;
+    games?: string[];
     pointsCost?: number;
     isPinned?: boolean;
     customButtonEnabled?: boolean;
@@ -404,7 +405,10 @@ router.patch("/:accountId", requireAuth, async (req, res) => {
   const updates: Partial<typeof account> = {};
   if (title !== undefined) updates.title = title;
   if (description !== undefined) updates.description = description;
-  // games is intentionally excluded — the list is set at submission time and cannot be changed
+  // Only admins can edit the games list
+  if (games !== undefined && isAdmin) {
+    updates.games = games.map((g: string) => g.trim()).filter(Boolean);
+  }
   // Only admins can change the price after the account has been claimed at least once
   if (pointsCost !== undefined) {
     if (!isAdmin && account.claimsCount > 0) {
