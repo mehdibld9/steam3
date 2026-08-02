@@ -55,8 +55,10 @@ export default function Browse() {
     (params.get("sort") as any) ?? "recent"
   );
   const [page, setPage] = useState(Math.max(1, Number(params.get("page") ?? "1")));
-  // Skip the first render so filter effects don't wipe the page from the URL on back-navigation.
-  const mounted = useRef(false);
+  // Each effect needs its own ref so the first effect setting its ref to true
+  // doesn't cause the second effect to fire setPage(1) on the same initial render.
+  const mountedFilters = useRef(false);
+  const mountedSearch = useRef(false);
 
   const { data: gamesData, isLoading: gamesLoading } = useListGames();
   const { data: accountsData, isLoading: accountsLoading } = useListAccounts({
@@ -109,7 +111,7 @@ export default function Browse() {
   // When filters change (not page), replace history so page resets cleanly.
   // Skip the very first run so back-navigation preserves the page from the URL.
   useEffect(() => {
-    if (!mounted.current) { mounted.current = true; return; }
+    if (!mountedFilters.current) { mountedFilters.current = true; return; }
     setPage(1);
     window.history.replaceState(null, "", buildQS(1));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,7 +119,7 @@ export default function Browse() {
 
   // When search changes, reset to page 1 and update URL.
   useEffect(() => {
-    if (!mounted.current) return;
+    if (!mountedSearch.current) { mountedSearch.current = true; return; }
     setPage(1);
     window.history.replaceState(null, "", buildQS(1));
     // eslint-disable-next-line react-hooks/exhaustive-deps
