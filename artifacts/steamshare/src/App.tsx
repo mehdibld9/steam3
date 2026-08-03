@@ -1,10 +1,11 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { QueryClient, QueryCache, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { QueryClient, QueryCache, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
 import { Layout } from "@/components/layout";
 import { Spinner } from "@/components/ui/spinner";
+import { getListGiveawaysQueryKey } from "@workspace/api-client-react";
 
 // Eagerly load the shell pages (always needed on first paint or tiny)
 import Home from "./pages/home";
@@ -53,6 +54,58 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+/**
+ * Fetches /api/init once per session and seeds the individual React Query
+ * caches so layout + home page hooks find their data without firing extra
+ * network requests — turns ~5 always-on calls into 1.
+ */
+async function fetchInit() {
+  const res = await fetch("/api/init");
+  if (!res.ok) return null;
+  return res.json() as Promise<{
+    announcements: unknown[];
+    ticker: unknown;
+    siteSettings: unknown;
+    giveaways: unknown[];
+    stats: unknown;
+  }>;
+}
+
+function InitSeeder() {
+  const queryClient = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["init"],
+    queryFn: fetchInit,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+  });
+
+  useEffect(() => {
+    if (!data) return;
+    // Seed individual caches only when they are empty so we don't overwrite
+    // fresher data that was already fetched by a specific hook.
+    if (!queryClient.getQueryData(["announcements"])) {
+      queryClient.setQueryData(["announcements"], data.announcements);
+    }
+    if (!queryClient.getQueryData(["ticker"])) {
+      queryClient.setQueryData(["ticker"], data.ticker);
+    }
+    if (!queryClient.getQueryData(["site-settings"])) {
+      queryClient.setQueryData(["site-settings"], data.siteSettings);
+    }
+    if (!queryClient.getQueryData(["stats"])) {
+      queryClient.setQueryData(["stats"], data.stats);
+    }
+    // Giveaways use the generated query key ["/api/giveaways"]
+    const giveawaysKey = getListGiveawaysQueryKey();
+    if (!queryClient.getQueryData(giveawaysKey)) {
+      queryClient.setQueryData(giveawaysKey, data.giveaways);
+    }
+  }, [data, queryClient]);
+
+  return null;
+}
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -162,6 +215,7 @@ function App() {
         <TooltipProvider>
           <WouterRouter base="">
             <BannedGuard>
+              <InitSeeder />
               <ScrollToTop />
               <Router />
             </BannedGuard>

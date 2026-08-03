@@ -18,9 +18,11 @@ import siteSettingsRouter from "./siteSettings";
 import premiumRouter from "./premium";
 import notificationsRouter from "./notifications";
 import cronRouter from "./cron";
+import initRouter from "./init";
 
 const router = express.Router();
 
+router.use(initRouter);
 router.use(healthRouter);
 router.use("/auth", authRouter);
 router.use("/auth", passwordResetRouter);
